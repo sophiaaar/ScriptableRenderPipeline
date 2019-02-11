@@ -10,6 +10,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         HDRISky = 1,
         ProceduralSky = 2,
         Gradient = 3,
+        PBR = 4,
     }
 
     public enum SkyAmbientMode
