@@ -1,0 +1,71 @@
+// #pragma enable_d3d11_debug_symbols
+#pragma only_renderers d3d11 ps4 xboxone vulkan metal switch
+#pragma kernel TransmittancePrecomputation
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SpaceFillingCurves.hlsl"
+#include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyRenderer.cs.hlsl"
+
+#define TABLE_SIZE float2(PBRSKYCONFIG_TRANSMITTANCE_TABLE_SIZE_X, PBRSKYCONFIG_TRANSMITTANCE_TABLE_SIZE_Y)
+
+CBUFFER_START(UnityPbrSky)
+    float planetaryRadius;
+    float atmosphericLayerHeight;
+    float atmosphericRadius;
+CBUFFER_END
+
+[numthreads(64, 1, 1)]
+void TransmittancePrecomputation(uint2 groupId       : SV_GroupID,
+                                 uint  groupThreadId : SV_GroupThreadID)
+{
+    const float2 scale = rcp(TABLE_SIZE);
+    const float2 bias  = 0.5 * scale;
+
+    // Re-order threads within the micro-tile.
+    uint2 groupCoord = DecodeMorton2D(groupThreadId & 63);
+
+    // Ignore macro-tile ordering.
+    uint2 tableCoord = groupId * 8;
+
+    // We don't care about the extremal points (boundary values).
+    float2 coordNDC = tableCoord * scale + bias;
+
+    float height = coordNDC.x * atmosphericLayerHeight + planetaryRadius;
+    float zenith = coordNDC.y * PI;
+    float cosZen = cos(zenith);
+    float sinZen = sin(zenith);
+
+    // Ray origin is within a slice between two spheres.
+    // We need to determine the location where the ray exits the slice.
+    // We always intersect the outer sphere, but do not necessarily intersect the inner sphere.
+    // Therefore, if we intersect the inner sphere, we are done.
+    // Otherwise, we have to intersect the outer sphere.
+    float tExit;
+
+    float2 rayOrigin    = float2(0, height);
+    float2 rayDirection = float2(sinZen, cosZen);
+
+    // Solve: t^2 + 2 * b * t + c = 0.
+    float b = dot(rayOrigin, rayDirection);
+    float c = dot(rayOrigin, rayOrigin) - planetaryRadius * planetaryRadius;
+    float d = b * b - c;
+
+    // TODO: some optimization opportunity below, but leaving as-is for clarity & debugging.
+    if (d >= 0)
+    {
+        // We intersect the inner sphere (the planet).
+        // We always take the closest intersection.
+        tExit = -b - sqrt(d);
+    }
+    else
+    {
+        // We have to intersect the outer sphere (the outer space).
+        c = dot(rayOrigin, rayOrigin) - atmosphericRadius * atmosphericRadius;
+        d = b * b - c;
+        // We always take the farthest intersection.
+        tExit = -b + sqrt(d);
+    }
+
+    // Now we need to integrate the optical depth along the ray.
+
+}
