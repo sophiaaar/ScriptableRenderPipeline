@@ -1,12 +1,12 @@
 // #pragma enable_d3d11_debug_symbols
 #pragma only_renderers d3d11 ps4 xboxone vulkan metal switch
-#pragma kernel TransmittancePrecomputation
+#pragma kernel main
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/SpaceFillingCurves.hlsl"
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyRenderer.cs.hlsl"
 
-#define TABLE_SIZE float2(PBRSKYCONFIG_TRANSMITTANCE_TABLE_SIZE_X, PBRSKYCONFIG_TRANSMITTANCE_TABLE_SIZE_Y)
+#define TABLE_SIZE float2(PBRSKYCONFIG_OPTICAL_DEPTH_TABLE_SIZE_X, PBRSKYCONFIG_OPTICAL_DEPTH_TABLE_SIZE_Y)
 
 CBUFFER_START(UnityPbrSky)
     float planetaryRadius;
@@ -15,8 +15,8 @@ CBUFFER_START(UnityPbrSky)
 CBUFFER_END
 
 [numthreads(64, 1, 1)]
-void TransmittancePrecomputation(uint2 groupId       : SV_GroupID,
-                                 uint  groupThreadId : SV_GroupThreadID)
+void main(uint2 groupId       : SV_GroupID,
+          uint  groupThreadId : SV_GroupThreadID)
 {
     const float2 scale = rcp(TABLE_SIZE);
     const float2 bias  = 0.5 * scale;
@@ -66,6 +66,6 @@ void TransmittancePrecomputation(uint2 groupId       : SV_GroupID,
         tExit = -b + sqrt(d);
     }
 
-    // Now we need to integrate the optical depth along the ray.
+    // Now we need to compute the optical depth along the ray.
 
 }

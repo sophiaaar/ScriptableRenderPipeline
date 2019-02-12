@@ -5,15 +5,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     public class PbrSkyRenderer : SkyRenderer
     {
         PbrSkySettings          m_Settings;
-        RTHandleSystem.RTHandle m_TransmittanceTable;
+        RTHandleSystem.RTHandle m_OpticalDepthTable;
 
-        static ComputeShader    s_TransmittancePrecomputationCS;
+        static ComputeShader    s_OpticalDepthTablePrecomputationCS;
 
         [GenerateHLSL]
         public enum PbrSkyConfig
         {
-            TransmittanceTableSizeX = 64,
-            TransmittanceTableSizeY = 64,
+            OpticalDepthTableSizeX = 64,
+            OpticalDepthTableSizeY = 64,
         }
 
         public PbrSkyRenderer(PbrSkySettings settings)
@@ -33,13 +33,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             var hdrpResources = hdrpAsset.renderPipelineResources;
 
             // Shaders
-            s_TransmittancePrecomputationCS = hdrpResources.shaders.transmittancePrecomputationCS;
+            s_OpticalDepthTablePrecomputationCS = hdrpResources.shaders.opticalDepthTablePrecomputationCS;
 
             // Textures
-            m_TransmittanceTable = RTHandles.Alloc((int)PbrSkyConfig.TransmittanceTableSizeX, (int)PbrSkyConfig.TransmittanceTableSizeY,
-                                                   filterMode: FilterMode.Bilinear, colorFormat: GraphicsFormat.R16G16_UNorm,
-                                                   enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
-                                                   name: "TransmittanceTable");
+            m_OpticalDepthTable = RTHandles.Alloc((int)PbrSkyConfig.OpticalDepthTableSizeX, (int)PbrSkyConfig.OpticalDepthTableSizeY,
+                                                  filterMode: FilterMode.Bilinear, colorFormat: GraphicsFormat.R16G16_UNorm,
+                                                  enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
+                                                  name: "OpticalDepthTable");
         }
 
         public override void Cleanup()
