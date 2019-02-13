@@ -24,7 +24,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public override bool IsValid()
         {
             /* TODO */
-            return false;
+            return true;
         }
 
         public override void Build()
