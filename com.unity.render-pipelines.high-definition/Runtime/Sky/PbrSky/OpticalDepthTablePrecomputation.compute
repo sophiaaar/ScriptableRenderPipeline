@@ -9,7 +9,7 @@
 #define TABLE_SIZE float2(PBRSKYCONFIG_OPTICAL_DEPTH_TABLE_SIZE_X, PBRSKYCONFIG_OPTICAL_DEPTH_TABLE_SIZE_Y)
 
 CBUFFER_START(UnityPbrSky)
-    // All of the entries use metric units (no km, etc).
+    // All the entries use km and 1/km units.
     float _PlanetaryRadius;
     float _AtmosphericLayerHeight;
     float _AirDensityFalloff;

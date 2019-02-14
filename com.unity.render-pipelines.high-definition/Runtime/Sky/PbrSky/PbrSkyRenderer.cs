@@ -69,12 +69,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         void UpdateSharedConstantBuffer(CommandBuffer cmd)
         {
-            cmd.SetGlobalFloat("_PlanetaryRadius",        m_Settings.planetaryRadius             * 1000.0f); // km to m
-            cmd.SetGlobalFloat("_AtmosphericLayerHeight", m_Settings.GetAtmosphericLayerHeight() * 1000.0f); // km to m
-            cmd.SetGlobalFloat("_AirDensityFalloff",      m_Settings.airDensityFalloff           * 0.001f);  // km^-1 to m^-1
-            cmd.SetGlobalFloat("_AirScaleHeight",         1.0f / m_Settings.airDensityFalloff    * 1000.0f); // km to m
-            cmd.SetGlobalFloat("_AerosolDensityFalloff",  m_Settings.aerosolDensityFalloff       * 0.001f);  // km^-1 to m^-1
-            cmd.SetGlobalFloat("_AerosolScaleHeight",     1.0f / m_Settings.airDensityFalloff    * 1000.0f); // km to m
+            cmd.SetGlobalFloat("_PlanetaryRadius",        m_Settings.planetaryRadius);
+            cmd.SetGlobalFloat("_AtmosphericLayerHeight", m_Settings.GetAtmosphericLayerHeight());
+            cmd.SetGlobalFloat("_AirDensityFalloff",      m_Settings.airDensityFalloff);
+            cmd.SetGlobalFloat("_AirScaleHeight",         1.0f / m_Settings.airDensityFalloff);
+            cmd.SetGlobalFloat("_AerosolDensityFalloff",  m_Settings.aerosolDensityFalloff);
+            cmd.SetGlobalFloat("_AerosolScaleHeight",     1.0f / m_Settings.airDensityFalloff);
         }
 
         void PrecomputeTables(CommandBuffer cmd)
