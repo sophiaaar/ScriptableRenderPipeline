@@ -46,6 +46,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return h;
         }
 
+        public float GetAtmosphericLayerHeight()
+        {
+            return atmosphericLayerHeight;
+        }
+
         public override int GetHashCode()
         {
             // TODO: what's the right place to call this function?

@@ -10,15 +10,15 @@
 
 CBUFFER_START(UnityPbrSky)
     // All of the entries use metric units (no km, etc).
-    float planetaryRadius;
-    float atmosphericLayerHeight;
-    float airDensityFalloff;
-    float airScaleHeight;
-    float aerosolDensityFalloff;
-    float aerosolScaleHeight;
+    float _PlanetaryRadius;
+    float _AtmosphericLayerHeight;
+    float _AirDensityFalloff;
+    float _AirScaleHeight;
+    float _AerosolDensityFalloff;
+    float _AerosolScaleHeight;
 CBUFFER_END
 
-RWTexture2D<float2> opticalDepthTable; // of TABLE_SIZE
+RWTexture2D<float2> _OpticalDepthTable; // of TABLE_SIZE
 
 #define sec(x) rcp(cos(x))
 
@@ -87,7 +87,7 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
     float2 coordNDC = tableCoord * scale + bias;
 
     // Height is the altitude.
-    float height = coordNDC.x * atmosphericLayerHeight; // TODO: does a uniform distribution make sense?
+    float height = coordNDC.x * _AtmosphericLayerHeight; // TODO: does a uniform distribution make sense?
     float zenith = coordNDC.y * PI;                     // TODO: does an equiangular distribution make sense?
     float cosChi = cos(zenith);
     float sinChi = sin(zenith);
@@ -100,7 +100,7 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
     float tHit = FLT_INF;
 
     float h = height;
-    float R = planetaryRadius;
+    float R = _PlanetaryRadius;
     float r = R + h;
 
     float2 rayOrigin    = float2(0, r);
@@ -111,18 +111,24 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
     float c = dot(rayOrigin, rayOrigin) - R * R;
     float d = b * b - c;
 
-    bool intersectsPlanet = (d >= 0);
+    bool intersectsPlanet = false;
 
-    if (intersectsPlanet)
+    if (d >= 0)
     {
         // We always take the closest intersection.
-        tHit = -b - sqrt(d);
+        float t = -b - sqrt(d);
+
+        if (t > 0)
+        {
+            intersectsPlanet = true;
+            tHit = t;
+        }
     }
 
-    float airH     = airScaleHeight;
-    float aerosolH = aerosolScaleHeight;
-    float airN     = airDensityFalloff;     // = (1 / airH)
-    float aerosolN = aerosolDensityFalloff; // = (1 / aerosolH)
+    float airH     = _AirScaleHeight;
+    float aerosolH = _AerosolScaleHeight;
+    float airN     = _AirDensityFalloff;     // = (1 / airH)
+    float aerosolN = _AerosolDensityFalloff; // = (1 / aerosolH)
 
     // Now we need to compute the optical depth along the ray.
     // It is given as the integral of the atmospheric thickness (extinction) along the ray.
@@ -164,9 +170,9 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
         float cosC = (R * R + tHit * tHit - r * r) / (2 * R * tHit);
         float chi  = acos(cosC);
 
-        tableEntry.x -= airH     * ChapmanFunction(R * airDensityFalloff,     chi);
-        tableEntry.y -= aerosolH * ChapmanFunction(R * aerosolDensityFalloff, chi);
+        tableEntry.x -= airH     * ChapmanFunction(R * _AirDensityFalloff,     chi);
+        tableEntry.y -= aerosolH * ChapmanFunction(R * _AerosolDensityFalloff, chi);
     }
 
-    opticalDepthTable[tableCoord] = tableEntry;
+    _OpticalDepthTable[tableCoord] = tableEntry;
 }
