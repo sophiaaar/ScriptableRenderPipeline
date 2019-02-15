@@ -86,10 +86,13 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
     float2 coordNDC = tableCoord * scale + bias;
 
     // Height is the altitude.
-    float zenith = coordNDC.x * PI;                      // TODO: does an equiangular distribution make sense?
     float height = coordNDC.y * _AtmosphericLayerHeight; // TODO: does a uniform distribution make sense?
-    float cosChi = cos(zenith);
-    float sinChi = sin(zenith);
+
+    // Neither parametrization in terms of the angle or the cosine results in a linear LUT.
+    // However, at least the cosine offers more resolution near the horizon,
+    // where the function changes more rapidly.
+    float cosChi = 1 - 2 * coordNDC.x;
+    float sinChi = sqrt(1 - cosChi * cosChi);
 
     float h = height;
     float R = _PlanetaryRadius;
@@ -155,8 +158,10 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
         //
         // To save on the storage, we will scale by sea level thickness at runtime.
 
-        tableEntry.x = H.x * exp(-h * N.x) * ChapmanFunction(r * N.x, zenith);
-        tableEntry.y = H.y * exp(-h * N.y) * ChapmanFunction(r * N.y, zenith);
+        float chi = acos(cosChi);
+
+        tableEntry.x = H.x * exp(-h * N.x) * ChapmanFunction(r * N.x, chi);
+        tableEntry.y = H.y * exp(-h * N.y) * ChapmanFunction(r * N.y, chi);
     }
     else
     {
@@ -169,6 +174,7 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
         // We must determine the new angle of the Chapman function.
         // Using the Law of Cosines,
         // cos(C) = (a^2 + b^2 - c^2) / (2 * a * b).
+
         float cosC = (R * R + tHit * tHit - r * r) / (2 * R * tHit);
         float chi  = PI - acos(cosC);
 
