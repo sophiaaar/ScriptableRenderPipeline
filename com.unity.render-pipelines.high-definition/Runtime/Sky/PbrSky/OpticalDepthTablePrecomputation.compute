@@ -7,7 +7,6 @@
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyRenderer.cs.hlsl"
 
 #define TABLE_SIZE float2(PBRSKYCONFIG_OPTICAL_DEPTH_TABLE_SIZE_X, PBRSKYCONFIG_OPTICAL_DEPTH_TABLE_SIZE_Y)
-#define N_SAMPLES  4096
 
 CBUFFER_START(UnityPbrSky)
     // All the entries use km and 1/km units.
@@ -38,7 +37,7 @@ float ChapmanUpper(float x, float chi)
     float a = 3.88 * pow(abs(x), -1.143);
     float b = 1.0123 - 1.454 * rsqrt(x);
     float c = sec(b * chi) - 0.834;
-    float d = DegToRad(a * c);
+    float d = a * c;
 
     return sec(chi - d);
 }
@@ -61,13 +60,12 @@ float ChapmanFunction(float x, float chi)
     if (useIdentity)
     {
         float z = x * sin(chi);
+        float a = exp(x - z);
         float r = rsqrt(z);
         float s = z * r; // sqrt(z)
-        float a = 0.934 * r;
-        float b = 2.507 * s + a;
-        float c = exp(x - z);
+        float b = 2.507 * s + 0.934 * r;
 
-        return c * b - cu;
+        return a * b - cu;
     }
     else
     {
@@ -93,20 +91,19 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
     float cosChi = cos(zenith);
     float sinChi = sin(zenith);
 
-    // Ray origin is within a slice (atmosphere) between two spheres (the planet and the outer space).
-    // We need to determine the location where the ray exits the slice.
-    // The ray always intersects the outer sphere, but does not necessarily intersect the inner sphere.
-    // Therefore, if we intersect the inner sphere, we are done.
-    // We assume the outer sphere to be infinite (for simplicity).
-    float tHit = FLT_INF;
-
     float h = height;
     float R = _PlanetaryRadius;
     float r = R + h;
 
     float2 H = float2(_AirScaleHeight,    _AerosolScaleHeight);
     float2 N = float2(_AirDensityFalloff, _AerosolDensityFalloff);
-    float2 X = r * N;
+
+    // Ray origin is within a slice (atmosphere) between two spheres (the planet and the outer space).
+    // We need to determine the location where the ray exits the slice.
+    // The ray always intersects the outer sphere, but does not necessarily intersect the inner sphere.
+    // Therefore, if we intersect the inner sphere, we are done.
+    // We assume the outer sphere to be infinite (for simplicity).
+    float tHit = FLT_INF;
 
     float2 rayOrigin    = float2(0, r);
     float2 rayDirection = float2(sinChi, cosChi);
@@ -132,28 +129,7 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
 
     float2 tableEntry;
 
-    if (intersectsPlanet)
-    {
-        // The Chapman function is defined as an integral to infinity.
-        // In this case, the integration range is bounded.
-        // Solving this analytically is too complicated, so we perform numerical integration instead.
-        // We use the midpoint rule.
-        // Integrate[Exp[x - Sqrt[s^2 + 2*s*(x*Cos[chi]) + x^2]], {s, 0, tHit / H}]
-
-        float2 maxS = tHit * N;
-        float2 dS   = maxS * rcp(N_SAMPLES);
-
-        tableEntry = 0;
-
-        for (int i = 0; i < N_SAMPLES; i++)
-        {
-            float2 S = i * dS + (0.5 * dS);
-
-            // TODO: importance sampling?
-            tableEntry += exp(X - sqrt(S * S + S * (2 * X * cosChi) + (X * X))) * dS;
-        }
-    }
-    else
+    if (!intersectsPlanet)
     {
         // Now we need to compute the optical depth along the ray.
         // It is given as the integral of the atmospheric thickness (extinction) along the ray.
@@ -179,15 +155,26 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
         //
         // To save on the storage, we will scale by sea level thickness at runtime.
 
-        tableEntry.x = ChapmanFunction(X.x, zenith);
-        tableEntry.y = ChapmanFunction(X.y, zenith);
-
+        tableEntry.x = H.x * exp(-h * N.x) * ChapmanFunction(r * N.x, zenith);
+        tableEntry.y = H.y * exp(-h * N.y) * ChapmanFunction(r * N.y, zenith);
     }
+    else
+    {
+        // The Chapman function is defined as an integral to infinity.
+        // In this case, the integration range is bounded.
+        // We can still use the Chapman function by utilizing a small trick.
+        // We compute the intersection point with the planet,
+        // and evaluate the Chapman function at that point in the opposite direction.
+        //
+        // We must determine the new angle of the Chapman function.
+        // Using the Law of Cosines,
+        // cos(C) = (a^2 + b^2 - c^2) / (2 * a * b).
+        float cosC = (R * R + tHit * tHit - r * r) / (2 * R * tHit);
+        float chi  = PI - acos(cosC);
 
-    // Shared terms.
-    tableEntry *= H * exp(-h * N);
-
-    tableEntry.y = intersectsPlanet ? 1 : 0;
+        tableEntry.x = H.x * ChapmanFunction(R * N.x, chi);
+        tableEntry.y = H.y * ChapmanFunction(R * N.y, chi);
+    }
 
     _OpticalDepthTable[tableCoord] = tableEntry;
 }

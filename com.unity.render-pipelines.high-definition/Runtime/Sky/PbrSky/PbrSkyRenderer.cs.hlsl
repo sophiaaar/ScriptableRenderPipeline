@@ -7,8 +7,8 @@
 //
 // UnityEngine.Experimental.Rendering.HDPipeline.PbrSkyRenderer+PbrSkyConfig:  static fields
 //
-#define PBRSKYCONFIG_OPTICAL_DEPTH_TABLE_SIZE_X (64)
-#define PBRSKYCONFIG_OPTICAL_DEPTH_TABLE_SIZE_Y (64)
+#define PBRSKYCONFIG_OPTICAL_DEPTH_TABLE_SIZE_X (128)
+#define PBRSKYCONFIG_OPTICAL_DEPTH_TABLE_SIZE_Y (128)
 
 
 #endif

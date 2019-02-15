@@ -16,8 +16,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         [GenerateHLSL]
         public enum PbrSkyConfig
         {
-            OpticalDepthTableSizeX = 64,
-            OpticalDepthTableSizeY = 64,
+            OpticalDepthTableSizeX = 128,
+            OpticalDepthTableSizeY = 128,
         }
 
         public PbrSkyRenderer(PbrSkySettings settings)
