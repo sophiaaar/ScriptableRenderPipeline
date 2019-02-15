@@ -7,6 +7,7 @@
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyRenderer.cs.hlsl"
 
 #define TABLE_SIZE float2(PBRSKYCONFIG_OPTICAL_DEPTH_TABLE_SIZE_X, PBRSKYCONFIG_OPTICAL_DEPTH_TABLE_SIZE_Y)
+#define N_SAMPLES  4096
 
 CBUFFER_START(UnityPbrSky)
     // All the entries use km and 1/km units.
@@ -87,8 +88,8 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
     float2 coordNDC = tableCoord * scale + bias;
 
     // Height is the altitude.
-    float height = coordNDC.x * _AtmosphericLayerHeight; // TODO: does a uniform distribution make sense?
-    float zenith = coordNDC.y * PI;                     // TODO: does an equiangular distribution make sense?
+    float zenith = coordNDC.x * PI;                      // TODO: does an equiangular distribution make sense?
+    float height = coordNDC.y * _AtmosphericLayerHeight; // TODO: does a uniform distribution make sense?
     float cosChi = cos(zenith);
     float sinChi = sin(zenith);
 
@@ -102,6 +103,10 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
     float h = height;
     float R = _PlanetaryRadius;
     float r = R + h;
+
+    float2 H = float2(_AirScaleHeight,    _AerosolScaleHeight);
+    float2 N = float2(_AirDensityFalloff, _AerosolDensityFalloff);
+    float2 X = r * N;
 
     float2 rayOrigin    = float2(0, r);
     float2 rayDirection = float2(sinChi, cosChi);
@@ -125,54 +130,64 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
         }
     }
 
-    float airH     = _AirScaleHeight;
-    float aerosolH = _AerosolScaleHeight;
-    float airN     = _AirDensityFalloff;     // = (1 / airH)
-    float aerosolN = _AerosolDensityFalloff; // = (1 / aerosolH)
-
-    // Now we need to compute the optical depth along the ray.
-    // It is given as the integral of the atmospheric thickness (extinction) along the ray.
-    //
-    // AirThickness[h]         = AirThickness[0]     * Exp[-h / airH]
-    // AerosolThickness[h]     = AerosolThickness[0] * Exp[-h / aerosolH]
-    // AtmosphericThickness[h] = AirThickness[h] + AerosolThickness[h]
-    //
-    // For now, assume that no intersection with the planet occurred.
-    //
-    // OpticalDepth = Integrate[Extinction[t], {t, 0, Inf}]
-    // OpticalDepth = Integrate[Thickness[0] * Exp[-h[t] / H], {t, 0, Inf}]
-    // OpticalDepth = Thickness[0] * Integrate[Exp[-h[t] / H], {t, 0, Inf}]
-    // OpticalDepth = Thickness[0] * Integrate[Exp[(R - Sqrt[(r * Sin[chi])^2 + t^2]) / H], {t, r * Cos[chi], Inf}]
-    // OpticalDepth = Thickness[0] * H * Exp[(R - r) / H] * Integrate[Exp[(r - Sqrt[(r * Sin[chi])^2 + t^2]) / H] / H, {t, r * Cos[chi], Inf}]
-    // OpticalDepth = Thickness[0] * H * Exp[(R - r) / H] * ChapmanFunction[r / H, chi]
-    //
-    // For more information, see "Approximation to the Chapman Grazing-Incidence Function for Atmospheric Scattering"
-    // by Christian Schueler.
-    //
-    // To save on the storage, we will scale by sea level thickness at runtime.
-    // Therefore, we compute and store:
-    //
-    // X = airH     * Exp[-h * airN]     * ChapmanFunction[r * airN, chi]
-    // Y = aerosolH * Exp[-h * aerosolN] * ChapmanFunction[r * airN, chi]
-
     float2 tableEntry;
-    tableEntry.x = airH     * exp(-h * airN)     * ChapmanFunction(r * airN,     zenith);
-    tableEntry.y = aerosolH * exp(-h * aerosolN) * ChapmanFunction(r * aerosolN, zenith);
 
     if (intersectsPlanet)
     {
-        // We must reduce the optical depth to account for the shorter unoccluded distance
-        // along the ray. Therefore, we have to evaluate the Chapman function again.
-        // In this case, the starting position is (h = 0, r = R).
-        // We must determine the new angle of the Chapman function.
-        // Using the Law of Cosines,
-        // cos(C) = (a^2 + b^2 - c^2) / (2 * a * b).
-        float cosC = (R * R + tHit * tHit - r * r) / (2 * R * tHit);
-        float chi  = acos(cosC);
+        // The Chapman function is defined as an integral to infinity.
+        // In this case, the integration range is bounded.
+        // Solving this analytically is too complicated, so we perform numerical integration instead.
+        // We use the midpoint rule.
+        // Integrate[Exp[x - Sqrt[s^2 + 2*s*(x*Cos[chi]) + x^2]], {s, 0, tHit / H}]
 
-        tableEntry.x -= airH     * ChapmanFunction(R * _AirDensityFalloff,     chi);
-        tableEntry.y -= aerosolH * ChapmanFunction(R * _AerosolDensityFalloff, chi);
+        float2 maxS = tHit * N;
+        float2 dS   = maxS * rcp(N_SAMPLES);
+
+        tableEntry = 0;
+
+        for (int i = 0; i < N_SAMPLES; i++)
+        {
+            float2 S = i * dS + (0.5 * dS);
+
+            // TODO: importance sampling?
+            tableEntry += exp(X - sqrt(S * S + S * (2 * X * cosChi) + (X * X))) * dS;
+        }
     }
+    else
+    {
+        // Now we need to compute the optical depth along the ray.
+        // It is given as the integral of the atmospheric thickness (extinction) along the ray.
+        //
+        // AirThickness[h]         = AirThickness[0]     * Exp[-h / airH]
+        // AerosolThickness[h]     = AerosolThickness[0] * Exp[-h / aerosolH]
+        // AtmosphericThickness[h] = AirThickness[h] + AerosolThickness[h]
+        //
+        // For now, assume that no intersection with the planet occurred.
+        //
+        // OpticalDepth = Integrate[Extinction[t], {t, 0, Infinity}]
+        // OpticalDepth = Integrate[Thickness[0] * Exp[-h[t] / H], {t, 0, Infinity}]
+        // OpticalDepth = Thickness[0] * Integrate[Exp[-h[t] / H], {t, 0, Infinity}]
+        // OpticalDepth = Thickness[0] * Integrate[Exp[(R - Sqrt[(r * Sin[chi])^2 + t^2]) / H], {t, r * Cos[chi], Infinity}]
+        // OpticalDepth = Thickness[0] * H * Exp[(R - r) / H] * Integrate[Exp[(r - Sqrt[(r * Sin[chi])^2 + t^2]) / H] / H, {t, r * Cos[chi], Infinity}]
+        // By defining (x = r / H) and (s = t / H), we get:
+        // OpticalDepth = Thickness[0] * H * Exp[(R - r) / H] * Integrate[Exp[x - Sqrt[(x * Sin[chi])^2 + s^2]], {s, x * Cos[chi], Infinity}]
+        // OpticalDepth = Thickness[0] * H * Exp[(R - r) / H] * Integrate[Exp[x - Sqrt[s^2 + 2 * s * (x * Cos[chi]) + x^2]], {s, 0, Infinity}]
+        // OpticalDepth = Thickness[0] * H * Exp[(R - r) / H] * ChapmanFunction[x, chi]
+        //
+        // For more information, see the article by Christian Schueler titled
+        // "Approximation to the Chapman Grazing-Incidence Function for Atmospheric Scattering".
+        //
+        // To save on the storage, we will scale by sea level thickness at runtime.
+
+        tableEntry.x = ChapmanFunction(X.x, zenith);
+        tableEntry.y = ChapmanFunction(X.y, zenith);
+
+    }
+
+    // Shared terms.
+    tableEntry *= H * exp(-h * N);
+
+    tableEntry.y = intersectsPlanet ? 1 : 0;
 
     _OpticalDepthTable[tableCoord] = tableEntry;
 }
