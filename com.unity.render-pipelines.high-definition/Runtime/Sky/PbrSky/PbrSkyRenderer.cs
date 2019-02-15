@@ -42,7 +42,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             // Textures
             m_OpticalDepthTable = RTHandles.Alloc((int)PbrSkyConfig.OpticalDepthTableSizeX, (int)PbrSkyConfig.OpticalDepthTableSizeY,
-                                                  filterMode: FilterMode.Bilinear, colorFormat: GraphicsFormat.R32G32_SFloat,
+                                                  filterMode: FilterMode.Bilinear, colorFormat: GraphicsFormat.R16G16_SFloat,
                                                   enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
                                                   name: "OpticalDepthTable");
             Debug.Assert(m_OpticalDepthTable != null);
