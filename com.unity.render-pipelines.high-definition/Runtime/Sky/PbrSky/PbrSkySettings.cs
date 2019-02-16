@@ -28,22 +28,22 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         private float ComputeAtmosphericLayerHeight()
         {
-            // Earth's atmosphere is considered to exist within the radial range of 6370 to 6420 km.
-            // The measured air thickness at the sea level is 33.1 * 10^-3 km^-1 (highest across R-G-B).
-            // The measured air thickness falloff is 1/8 km^-1.
             // What's the thickness at the boundary of the outer space (units: 1/(1000 km))?
-            // 33.1 * e^((6360 - 6420) / 8) = 0.00320789.
-            const float outerThickness = 0.00320789f;
+            const float outerThickness = 0.001f;
 
             // Using this thickness threshold, we can automatically determine the atmospheric range
             // for user-provided values.
-            float R    = planetaryRadius;
-            float airN = airDensityFalloff;
-            float airH = 1.0f / airN;
-            float rho  = Mathf.Max(airThickness.value.r, airThickness.value.g, airThickness.value.b);
-            float h    = -airH * Mathf.Log(outerThickness / rho, 2.71828183f);
+            float R          = planetaryRadius;
+            float airN       = airDensityFalloff;
+            float airH       = 1.0f / airN;
+            float airRho     = Mathf.Max(airThickness.value.r, airThickness.value.g, airThickness.value.b);
+            float airLim     = -airH * Mathf.Log(outerThickness / airRho, 2.71828183f);
+            float aerosolN   = aerosolDensityFalloff;
+            float aerosolH   = 1.0f / aerosolN;
+            float aerosolRho = aerosolThickness;
+            float aerosolLim = -aerosolH * Mathf.Log(outerThickness / aerosolRho, 2.71828183f);
 
-            return h;
+            return Mathf.Max(airLim, aerosolLim);
         }
 
         public float GetAtmosphericLayerHeight()
