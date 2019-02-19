@@ -89,6 +89,7 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
     // A uniform distribution results in a rather non-linear (but rather exponential) LUT.
     // The cause is the exp(-h * N) term (and not the Chapman function).
     // Unfortunately, if we drop this term, we will have to use FP32 instead of FP16.
+    // The quadratic remap doesn't appear to look much better (and creates some artifacts in the LUT).
     float height = coordNDC.y * _AtmosphericLayerHeight;
 
     // Parametrization in terms of neither the angle nor the cosine results in a linear LUT.
