@@ -87,10 +87,13 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
 
     // Height is the altitude.
     // A uniform distribution results in a rather non-linear (but rather exponential) LUT.
-    // The cause is the exp(-h * N) term (and not the Chapman function).
+    // The cause is the exp(-h * N) term (and not the Chapman function, which has a pretty linear response).
     // Unfortunately, if we drop this term, we will have to use FP32 instead of FP16.
-    // The quadratic remap doesn't appear to look much better (and creates some artifacts in the LUT).
-    float height = coordNDC.y * _AtmosphericLayerHeight;
+    // We use a pow(y, 1.5) remap to increase precision near the surface.
+    // The quadratic remap actually allocates too many samples near the surface.
+    // The LUT is still highly non-linear.
+    float powY   = coordNDC.y * coordNDC.y * rsqrt(coordNDC.y);
+    float height = powY * _AtmosphericLayerHeight;
 
     // Parametrization in terms of neither the angle nor the cosine results in a linear LUT.
     // However, at least the cosine offers more resolution near the horizon,
@@ -116,9 +119,12 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
     float2 rayDirection = float2(sinChi, cosChi);
 
     // Solve: t^2 + 2 * b * t + c = 0.
-    float b = dot(rayOrigin, rayDirection);
-    float c = dot(rayOrigin, rayOrigin) - R * R;
-    float d = b * b - c;
+    // float b = dot(rayOrigin, rayDirection);
+    // float c = dot(rayOrigin, rayOrigin) - R * R;
+    // float d = b * b - c;
+
+    float b = r * cosChi;
+    float d = (R * R) - (r * r) * (1 - cosChi * cosChi);
 
     bool intersectsPlanet = false;
 
@@ -178,8 +184,9 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
         // We must determine the new angle of the Chapman function.
         // Using the Law of Cosines,
         // cos(C) = (a^2 + b^2 - c^2) / (2 * a * b).
+        // cos(C) = (R^2 + tHit^2 - r^2) / (2 * R * tHit).
 
-        float cosC = (R * R + tHit * tHit - r * r) / (2 * R * tHit);
+        float cosC = clamp(((tHit * tHit) - h * (2 * R + h)) * rcp(2 * R * tHit), -1, 1);
         float chi  = PI - acos(cosC);
 
         tableEntry.x = H.x * ChapmanFunction(R * N.x, chi);

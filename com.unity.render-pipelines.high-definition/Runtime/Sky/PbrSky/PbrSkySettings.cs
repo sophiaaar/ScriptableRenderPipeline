@@ -29,7 +29,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         private float ComputeAtmosphericLayerHeight()
         {
             // What's the thickness at the boundary of the outer space (units: 1/(1000 km))?
-            const float outerThickness = 0.001f;
+            const float outerThickness = 0.01f;
 
             // Using this thickness threshold, we can automatically determine the atmospheric range
             // for user-provided values.
