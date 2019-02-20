@@ -1,0 +1,32 @@
+#pragma enable_d3d11_debug_symbols
+#pragma only_renderers d3d11 ps4 xboxone vulkan metal switch
+#pragma kernel main
+
+#include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyCommon.hlsl"
+
+#define TABLE_SIZE float(PBRSKYCONFIG_GROUND_IRRADIANCE_TABLE_SIZE)
+
+RW_TEXTURE2D(float4, _GroundIrradianceTable); // of TABLE_SIZE
+
+[numthreads(64, 1, 1)]
+void main(uint dispatchThreadId : SV_DispatchThreadID)
+{
+    const float scale = rcp(TABLE_SIZE);
+    const float bias  = 0.5 * scale;
+
+    // Let the hardware and the driver handle the ordering of the computation.
+    uint2 tableCoord = uint2(dispatchThreadId, 0);
+
+    // We don't care about the extremal points (boundary values).
+    float coordNDC = tableCoord.x * scale + bias;
+
+    // As we look at the planet in the direction of the sun, the ground is rotationally invariant.
+    float NdotL  = 1 - 2 * coordNDC.x;
+    float height = 0;
+
+    float3 transmittance = SampleTransmittanceTable(height, NdotL);
+
+    float4 tableEntry = float4(transmittance * _SunRadiance * saturate(NdotL), 1);
+
+    _GroundIrradianceTable[tableCoord] = tableEntry;
+}

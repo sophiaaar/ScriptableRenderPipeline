@@ -86,6 +86,8 @@ MonoBehaviour:
       type: 3}
     opticalDepthTablePrecomputationCS: {fileID: 7200000, guid: 0c0080935aaf586499a8802216a18912,
       type: 3}
+    groundIrradianceTablePrecomputationCS: {fileID: 7200000, guid: eb6ae6f326207ee4d987a3e5adddf63a,
+      type: 3}
     preIntegratedFGD_GGXDisneyDiffusePS: {fileID: 4800000, guid: 123f13d52852ef547b2962de4bd9eaad,
       type: 3}
     preIntegratedFGD_CharlieFabricLambertPS: {fileID: 4800000, guid: 3b3bf235775cf8b4baae7f3306787ab0,

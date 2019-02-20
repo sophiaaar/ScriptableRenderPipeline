@@ -8,8 +8,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         /* We use the measurements from Earth as the defaults. */
         // Radius of the planet (distance from the core to the sea level). Units: km.
         public MinFloatParameter planetaryRadius = new MinFloatParameter(6360.0f, 0);
-        // Height of all the atmospheric layers starting from the sea level. Units: km.
-        private MinFloatParameter atmosphericLayerHeight = new MinFloatParameter(6420.0f - 6360.0f, 0);
         // Extinction coefficient of air molecules at the sea level. Units: 1/(1000 km).
         // TODO: use mean free path?
         public ColorParameter airThickness = new ColorParameter(new Color(5.8f, 13.5f, 33.1f), hdr: true, showAlpha: false, showEyeDropper: false);
@@ -26,7 +24,23 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // Exponential falloff of aerosol density w.r.t. height. (Mie). Units: 1/km.
         public MinFloatParameter aerosolDensityFalloff = new MinFloatParameter(1.0f / 1.2f, 0);
 
-        private float ComputeAtmosphericLayerHeight()
+        /* Properties below should be interpolated, but they should not be accessible via the GUI. */
+
+        // Height of all the atmospheric layers starting from the sea level. Units: km.
+        public FloatParameter   atmosphericLayerHeight { get; set; }
+        // Light's properties.
+        public Vector3Parameter sunRadiance            { get; set; }
+        public Vector3Parameter sunDirection           { get; set; }
+
+        public void Awake()
+        {
+            // Allocate memory on startup.
+            atmosphericLayerHeight = new FloatParameter(0.0f);
+            sunRadiance            = new Vector3Parameter(Vector3.zero);
+            sunDirection           = new Vector3Parameter(Vector3.zero);
+        }
+
+        float ComputeAtmosphericLayerHeight()
         {
             // What's the thickness at the boundary of the outer space (units: 1/(1000 km))?
             const float outerThickness = 0.01f;
@@ -46,27 +60,32 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return Mathf.Max(airLim, aerosolLim);
         }
 
-        public float GetAtmosphericLayerHeight()
+        public void UpdateParameters(BuiltinSkyParameters builtinParams)
         {
-            return atmosphericLayerHeight;
+            Light sun = builtinParams.sunLight;
+
+            atmosphericLayerHeight.value = ComputeAtmosphericLayerHeight();
+            sunRadiance.value            = new Vector3(sun.intensity * sun.color.linear.r,
+                                                       sun.intensity * sun.color.linear.g,
+                                                       sun.intensity * sun.color.linear.b);
+            sunDirection.value           = -sun.transform.forward;
         }
 
         public override int GetHashCode()
         {
-            // TODO: what's the right place to call this function?
-            atmosphericLayerHeight.value = ComputeAtmosphericLayerHeight();
-
             int hash = base.GetHashCode();
 
             unchecked
             {
                 hash = hash * 23 + planetaryRadius.GetHashCode();
-                hash = hash * 23 + atmosphericLayerHeight.GetHashCode();
                 hash = hash * 23 + airThickness.GetHashCode();
                 hash = hash * 23 + airDensityFalloff.GetHashCode();
                 hash = hash * 23 + aerosolThickness.GetHashCode();
                 hash = hash * 23 + aerosolAlbedo.GetHashCode();
                 hash = hash * 23 + aerosolDensityFalloff.GetHashCode();
+                hash = hash * 23 + atmosphericLayerHeight.GetHashCode();
+                hash = hash * 23 + sunRadiance.GetHashCode();
+                hash = hash * 23 + sunDirection.GetHashCode();
             }
 
             return hash;

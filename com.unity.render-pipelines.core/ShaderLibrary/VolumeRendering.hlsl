@@ -12,7 +12,17 @@ real TransmittanceFromOpticalDepth(real opticalDepth)
     return exp(-opticalDepth);
 }
 
+real3 TransmittanceFromOpticalDepth(real3 opticalDepth)
+{
+    return exp(-opticalDepth);
+}
+
 real OpacityFromOpticalDepth(real opticalDepth)
+{
+    return 1 - TransmittanceFromOpticalDepth(opticalDepth);
+}
+
+real3 OpacityFromOpticalDepth(real3 opticalDepth)
 {
     return 1 - TransmittanceFromOpticalDepth(opticalDepth);
 }

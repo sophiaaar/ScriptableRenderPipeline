@@ -118,6 +118,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             [Reload("Runtime/Sky/AmbientProbeConvolution.compute")]
             public ComputeShader ambientProbeConvolutionCS;
             public ComputeShader opticalDepthTablePrecomputationCS;
+            public ComputeShader groundIrradianceTablePrecomputationCS;
 
             // Material
             [Reload("Runtime/Material/PreIntegratedFGD/PreIntegratedFGD_GGXDisneyDiffuse.shader")]
