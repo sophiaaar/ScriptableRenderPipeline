@@ -117,8 +117,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public Shader gradientSkyPS;
             [Reload("Runtime/Sky/AmbientProbeConvolution.compute")]
             public ComputeShader ambientProbeConvolutionCS;
-            public ComputeShader opticalDepthTablePrecomputationCS;
-            public ComputeShader groundIrradianceTablePrecomputationCS;
+            public ComputeShader opticalDepthPrecomputationCS;
+            public ComputeShader groundIrradiancePrecomputationCS;
+            public ComputeShader inScatteredRadiancePrecomputationCS;
 
             // Material
             [Reload("Runtime/Material/PreIntegratedFGD/PreIntegratedFGD_GGXDisneyDiffuse.shader")]
