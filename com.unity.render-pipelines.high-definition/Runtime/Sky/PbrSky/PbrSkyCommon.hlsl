@@ -5,6 +5,7 @@
 CBUFFER_START(UnityPbrSky)
     // All the entries use km and 1/km units.
     float  _PlanetaryRadius;
+    float  _RcpPlanetaryRadius;
     float  _AtmosphericLayerHeight;
     float  _AirDensityFalloff;
     float  _AirScaleHeight;
@@ -23,11 +24,10 @@ float3 SampleTransmittanceTable(float height, float cosTheta)
 {
 	// cos(theta) = 1 - 2 * u
 	// u = 0.5 - 0.5 * cos(theta)
-	// h = pow(v, 1.5) * _AtmosphericLayerHeight
-	// v = pow(h / _AtmosphericLayerHeight, 0.66666667)
+	// h = (v * v) * _AtmosphericLayerHeight
+	// v = sqrt(h / _AtmosphericLayerHeight)
 
-	float2 coordNDC = float2(0.5 - 0.5 * cosTheta,
-							 pow(height * _RcpAtmosphericLayerHeight, 0.66666667));
+	float2 coordNDC = float2(0.5 - 0.5 * cosTheta, sqrt(height * _RcpAtmosphericLayerHeight));
 
 	float2 optDepth = SAMPLE_TEXTURE2D_LOD(_OpticalDepthTexture, s_linear_clamp_sampler, coordNDC, 0).xy;
 

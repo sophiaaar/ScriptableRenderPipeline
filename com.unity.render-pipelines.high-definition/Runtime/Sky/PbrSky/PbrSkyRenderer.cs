@@ -85,6 +85,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         void UpdateSharedConstantBuffer(CommandBuffer cmd)
         {
             cmd.SetGlobalFloat( "_PlanetaryRadius",           m_Settings.planetaryRadius);
+            cmd.SetGlobalFloat("_RcpPlanetaryRadius",         1.0f / m_Settings.planetaryRadius);
             cmd.SetGlobalFloat( "_AtmosphericLayerHeight",    m_Settings.atmosphericLayerHeight);
             cmd.SetGlobalFloat( "_AirDensityFalloff",         m_Settings.airDensityFalloff);
             cmd.SetGlobalFloat( "_AirScaleHeight",            1.0f / m_Settings.airDensityFalloff);

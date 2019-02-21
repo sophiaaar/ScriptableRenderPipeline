@@ -47,9 +47,9 @@ float ChapmanFunction(float x, float chi)
     if (useIdentity)
     {
         float z = x * sin(chi);
-        float a = exp(x - z);
         float r = rsqrt(z);
         float s = z * r; // sqrt(z)
+        float a = exp(x - z);
         float b = 2.507 * s + 0.934 * r;
 
         return a * b - cu;
@@ -76,17 +76,16 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
     // A uniform distribution results in a rather non-linear (but rather exponential) LUT.
     // The cause is the exp(-h * N) term (and not the Chapman function, which has a pretty linear response).
     // Unfortunately, if we drop this term, we will have to use FP32 instead of FP16.
-    // We use a pow(y, 1.5) remap to increase precision near the surface.
-    // The quadratic remap actually allocates too many samples near the surface.
+    // We use a quadratic remap to allocate more samples near the surface.
     // The LUT is still highly non-linear.
-    float powY   = coordNDC.y * coordNDC.y * rsqrt(coordNDC.y);
+    float powY   = coordNDC.y * coordNDC.y;
     float height = powY * _AtmosphericLayerHeight;
 
     // Parametrization in terms of neither the angle nor the cosine results in a linear LUT.
     // However, at least the cosine offers more resolution near the horizon,
     // where the function changes more rapidly.
     float cosChi = 1 - 2 * coordNDC.x;
-    float sinChi = sqrt(1 - cosChi * cosChi);
+    float chi    = acos(cosChi);
 
     float h = height;
     float R = _PlanetaryRadius;
@@ -100,11 +99,10 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
     // The ray always intersects the outer sphere, but does not necessarily intersect the inner sphere.
     // Therefore, if we intersect the inner sphere, we are done.
     // We assume the outer sphere to be infinite (for simplicity).
-    float tHit = FLT_INF;
 
-    float2 rayOrigin    = float2(0, r);
-    float2 rayDirection = float2(sinChi, cosChi);
-
+    // float2 rayOrigin    = float2(0, r);
+    // float2 rayDirection = float2(sinChi, cosChi);
+    //
     // Solve: t^2 + 2 * b * t + c = 0.
     // float b = dot(rayOrigin, rayDirection);
     // float c = dot(rayOrigin, rayOrigin) - R * R;
@@ -113,19 +111,15 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
     float b = r * cosChi;
     float d = (R * R) - (r * r) * (1 - cosChi * cosChi);
 
-    bool intersectsPlanet = false;
+    float t = -FLT_INF;
 
     if (d >= 0)
     {
         // We always take the closest intersection.
-        float t = -b - sqrt(d);
-
-        if (t > 0)
-        {
-            intersectsPlanet = true;
-            tHit = t;
-        }
+        t = -b - sqrt(d);
     }
+
+    bool intersectsPlanet = (t >= 0);
 
     float2 tableEntry;
 
@@ -155,8 +149,6 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
         //
         // To save on the storage, we will scale by sea level thickness at runtime.
 
-        float chi = acos(cosChi);
-
         tableEntry.x = H.x * exp(-h * N.x) * ChapmanFunction(r * N.x, chi);
         tableEntry.y = H.y * exp(-h * N.y) * ChapmanFunction(r * N.y, chi);
     }
@@ -166,18 +158,23 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
         // In this case, the integration range is bounded.
         // We can still use the Chapman function by utilizing a small trick.
         // We compute the intersection point with the planet,
-        // and evaluate the Chapman function at that point in the opposite direction.
-        //
+        // evaluate the Chapman function in the opposite direction twice
+        // (at the original location and at the intersection),
+        // and compute the difference.
+
+        tableEntry.x = H.x * exp(-h * N.x) * ChapmanFunction(r * N.x, PI - chi);
+        tableEntry.y = H.y * exp(-h * N.y) * ChapmanFunction(r * N.y, PI - chi);
+
         // We must determine the new angle of the Chapman function.
-        // Using the Law of Cosines,
-        // cos(C) = (a^2 + b^2 - c^2) / (2 * a * b).
-        // cos(C) = (R^2 + tHit^2 - r^2) / (2 * R * tHit).
+        // Using the Law of Sines (and remembering that the angle is obtuse),
+        // sin(Pi - gamma) = c / b * sin(beta)
+        // sin(Pi - gamma) = r / R * sin(Pi - chi)
 
-        float cosC = clamp(((tHit * tHit) - h * (2 * R + h)) * rcp(2 * R * tHit), -1, 1);
-        float chi  = PI - acos(cosC);
+        float rcpR  = _RcpPlanetaryRadius;
+        float gamma = asin(r * rcpR * sin(PI - chi));
 
-        tableEntry.x = H.x * ChapmanFunction(R * N.x, chi);
-        tableEntry.y = H.y * ChapmanFunction(R * N.y, chi);
+        tableEntry.x = H.x * ChapmanFunction(R * N.x, gamma) - tableEntry.x;
+        tableEntry.y = H.y * ChapmanFunction(R * N.y, gamma) - tableEntry.y;
     }
 
     _OpticalDepthTable[tableCoord] = tableEntry;
