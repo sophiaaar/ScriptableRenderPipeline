@@ -26,6 +26,7 @@ float3 SampleTransmittanceTable(float height, float cosTheta)
 	// u = 0.5 - 0.5 * cos(theta)
 	// h = (v * v) * _AtmosphericLayerHeight
 	// v = sqrt(h / _AtmosphericLayerHeight)
+	// TODO: we should adjust sub-texel coordinates to account for this non-linear distribution.
 
 	float2 coordNDC = float2(0.5 - 0.5 * cosTheta, sqrt(height * _RcpAtmosphericLayerHeight));
 
