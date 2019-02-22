@@ -6,7 +6,7 @@
 
 #define TABLE_SIZE float(PBRSKYCONFIG_GROUND_IRRADIANCE_TABLE_SIZE)
 
-RW_TEXTURE2D(float4, _GroundIrradianceTable); // of TABLE_SIZE
+RW_TEXTURE2D(float4, _GroundIrradianceTable); // of TABLE_SIZE x 1
 
 [numthreads(64, 1, 1)]
 void main(uint dispatchThreadId : SV_DispatchThreadID)
