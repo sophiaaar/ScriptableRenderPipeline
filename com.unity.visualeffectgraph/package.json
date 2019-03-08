@@ -1,5 +1,5 @@
 {
-    "name":"com.unity.visualeffectgraph",
+    "name": "com.unity.visualeffectgraph",
     "displayName": "Visual Effect Graph",
     "version":"7.0.0-preview",
 	"unity": "2019.3",
@@ -10,6 +10,9 @@
         "visualeffect",
         "graph",
         "effect",
-		"particles"
-    ]
+        "particles"
+    ],
+    "dependencies": {
+        "com.unity.shadergraph": "6.5.0"
+    }
 }
