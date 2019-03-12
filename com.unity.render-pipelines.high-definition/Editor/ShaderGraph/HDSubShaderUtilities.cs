@@ -470,7 +470,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
     };
 
     delegate void OnGeneratePassDelegate(IMasterNode masterNode, ref Pass pass);
-    struct Pass
+    internal struct Pass
     {
         public string Name;
         public string LightMode;

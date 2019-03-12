@@ -41,11 +41,7 @@ Pass
 		// z: frame blending factor
 		nointerpolation float3 builtInInterpolants : TEXCOORD4;
 		#endif
-		#if USE_FLIPBOOK_MOTIONVECTORS
-		// x: motion vector scale u
-		// y: motion vector scale v
-		nointerpolation float2 builtInInterpolants2 : TEXCOORD5;
-		#endif
+        ${VFXSGPixelInput}
 	};
 	
 	struct ps_output
@@ -61,7 +57,6 @@ ${VFXHDRPLitVaryingsMacros}
 #define VFX_VARYING_INVSOFTPARTICLEFADEDISTANCE builtInInterpolants.x
 #define VFX_VARYING_ALPHATHRESHOLD builtInInterpolants.y
 #define VFX_VARYING_FRAMEBLEND builtInInterpolants.z
-#define VFX_VARYING_MOTIONVECTORSCALE builtInInterpolants2.xy
 #define VFX_VARYING_NORMAL normal
 #if USE_NORMAL_MAP
 #define VFX_VARYING_TANGENT tangent
@@ -74,17 +69,20 @@ ${VFXEnd}
 	${VFXInclude("Shaders/ParticleMeshes/Pass.template")}	
 	#define SHADERPASS SHADERPASS_GBUFFER	
 	${VFXInclude("Shaders/RenderPipeline/HDRP/VFXLit.template")}	
-		
+	${VFXInclude("Shaders/RenderPipeline/HDRP/VFXShaderGraphGBuffer.template")}	
 	#pragma fragment frag
 	void frag(ps_input i, OUTPUT_GBUFFER(outGBuffer)
-#if USE_DOUBLE_SIDED
+	#if USE_DOUBLE_SIDED
 	, bool frontFace : SV_IsFrontFace
-#endif
+	#endif
 	)
 	{
-		VFXTransformPSInputs(i);
-		${VFXComputeNormalWS}
-		VFXComputePixelOutputToGBuffer(i,normalWS,uvData,outGBuffer);
+		${VFXComputeNormalWS}		
+		//VFXComputePixelOutputToGBuffer(i,normalWS,uvData,outGBuffer);
+        
+        Frag(i, outGBuffer);
+        
 	}
-	ENDHLSL
+#endif
+    ENDHLSL
 }
