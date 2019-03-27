@@ -98,17 +98,26 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         void UpdateSharedConstantBuffer(CommandBuffer cmd)
         {
-            cmd.SetGlobalFloat( "_PlanetaryRadius",           m_Settings.planetaryRadius);
-            cmd.SetGlobalFloat( "_RcpPlanetaryRadius",        1.0f / m_Settings.planetaryRadius);
-            cmd.SetGlobalFloat( "_AtmosphericLayerHeight",    m_Settings.atmosphericLayerHeight);
-            cmd.SetGlobalFloat( "_AirDensityFalloff",         m_Settings.airDensityFalloff);
-            cmd.SetGlobalFloat( "_AirScaleHeight",            1.0f / m_Settings.airDensityFalloff);
-            cmd.SetGlobalFloat( "_AerosolDensityFalloff",     m_Settings.aerosolDensityFalloff);
-            cmd.SetGlobalFloat( "_AerosolScaleHeight",        1.0f / m_Settings.airDensityFalloff);
-            cmd.SetGlobalVector("_SunRadiance",               m_Settings.sunRadiance.value);
-            cmd.SetGlobalFloat( "_RcpAtmosphericLayerHeight", 1.0f / m_Settings.atmosphericLayerHeight);
-            cmd.SetGlobalVector("_AirSeaLevelExtinction",     m_Settings.airThickness.value     * 0.001f); // Convert to 1/km
-            cmd.SetGlobalFloat( "_AerosolSeaLevelExtinction", m_Settings.aerosolThickness.value * 0.001f); // Convert to 1/km
+            float R = m_Settings.planetaryRadius;
+            float H = m_Settings.atmosphericDepth;
+
+            cmd.SetGlobalFloat( "_PlanetaryRadius",                    R);
+            cmd.SetGlobalFloat( "_PlanetaryRadiusSquared",             R * R);
+            cmd.SetGlobalFloat( "_AtmosphericDepth",                   H);
+            cmd.SetGlobalFloat( "_RcpAtmosphericDepth",                1.0f / H);
+
+            cmd.SetGlobalFloat( "_AtmosphericRadiusSquared",           (R + H) * (R + H));
+            cmd.SetGlobalFloat( "_GrazingAngleAtmosphereExitDistance", (2 * R + H) * H);
+
+            cmd.SetGlobalFloat( "_AirDensityFalloff",                  m_Settings.airDensityFalloff);
+            cmd.SetGlobalFloat( "_AirScaleHeight",                     1.0f / m_Settings.airDensityFalloff);
+            cmd.SetGlobalFloat( "_AerosolDensityFalloff",              m_Settings.aerosolDensityFalloff);
+            cmd.SetGlobalFloat( "_AerosolScaleHeight",                 1.0f / m_Settings.airDensityFalloff);
+
+            cmd.SetGlobalVector("_SunRadiance",                        m_Settings.sunRadiance.value);
+
+            cmd.SetGlobalVector("_AirSeaLevelExtinction",              m_Settings.airThickness.value     * 0.001f); // Convert to 1/km
+            cmd.SetGlobalFloat( "_AerosolSeaLevelExtinction",          m_Settings.aerosolThickness.value * 0.001f); // Convert to 1/km
         }
 
         void PrecomputeTables(CommandBuffer cmd)
