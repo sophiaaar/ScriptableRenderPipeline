@@ -27,7 +27,7 @@ TEXTURE2D(_OpticalDepthTexture);
 TEXTURE2D(_GroundIrradianceTexture);
 SAMPLER(s_linear_clamp_sampler);
 
-float IntersectAtmosphereFromInside(float height, float cosChi)
+float IntersectAtmosphereFromInside(float cosChi, float height)
 {
     float R = _PlanetaryRadius;
     float h = height;
@@ -46,7 +46,7 @@ float IntersectAtmosphereFromInside(float height, float cosChi)
     // Solve: t^2 + (2 * b) * t + c = 0.
     //
     // We are only interested in the largest root (the other one is negative).
-    // t = -2 * b + sqrt((2 * b)^2 - 4 * c) / 2
+    // t = (-2 * b + sqrt((2 * b)^2 - 4 * c)) / 2
     // t = -b + sqrt(b^2 - c)
     // t = -b + sqrt(d)
     //
@@ -70,25 +70,27 @@ float UnmapQuadraticHeight(float v)
     return (v * v) * _AtmosphericDepth;
 }
 
-// See Figure 3 in Bruneton's paper.
-float2 MapAerialPerspective(float height, float cosChi)
+// We use the parametrization from "Outdoor Light Scattering Sample Update" by E. Yusov.
+float2 MapAerialPerspectiveAboveHorizon(float cosChi, float height)
 {
     float R = _PlanetaryRadius;
     float h = height;
     float r = R + h;
 
-    // distGrazing = sqrt(r^2 - R^2) + sqrt((R + H)^2 - R^2)
-    float distGrazing = sqrt(r * r - _PlanetaryRadiusSquared) + _GrazingAngleAtmosphereExitDistance;
-    float distExit    = IntersectAtmosphereFromInside(height, cosChi);
+    // cos(Pi - x) = -cos(x).
+    // Compute -sqrt(r^2 - R^2) / r = -sqrt(1 - (R / r)^2).
+    float cosHor = -sqrt(1 - Sq(R * rcp(r)));
 
-    float u = distExit * rcp(distGrazing);
+    // Map: cosHor -> 0, 1 -> 1.
+    // The pow(u, 0.2) will allocate most samples near the horizon.
+    float u = pow(saturate((cosHor - cosChi) * rcp(cosHor - 1)), 0.2);
     float v = MapQuadraticHeight(h);
 
     return float2(u, v);
 }
 
-// returns {height, cosChi}.
-float2 UnmapAerialPerspective(float2 uv)
+// returns {cosChi, height}.
+float2 UnmapAerialPerspectiveAboveHorizon(float2 uv)
 {
     float height = UnmapQuadraticHeight(uv.y);
 
@@ -96,33 +98,19 @@ float2 UnmapAerialPerspective(float2 uv)
     float h = height;
     float r = R + h;
 
-    // distGrazing = sqrt(r^2 - R^2) + sqrt((R + H)^2 - R^2)
-    float distGrazing = sqrt(r * r - _PlanetaryRadiusSquared) + _GrazingAngleAtmosphereExitDistance;
-    float distExit    = uv.x * distGrazing;
+    // cos(Pi - x) = -cos(x).
+    // Compute -sqrt(r^2 - R^2) / r = -sqrt(1 - (R / r)^2).
+    float cosHor = -sqrt(1 - Sq(R * rcp(r)));
 
-    // Solve the equation in IntersectAtmosphereFromInside() for 'cosChi':
-    //
-    // t = -b + sqrt(b^2 - c)
-    // t = -(r * cosChi) + sqrt((r * cosChi)^2 - c)
-    //
-    // (t + (r * cosChi))   = sqrt((r * cosChi)^2 - c)
-    // (t + (r * cosChi))^2 = (r * cosChi)^2 - c
-    //
-    // t^2 + 2 * t * (r * cosChi) + (r * cosChi)^2 - (r * cosChi)^2 + c = 0
-    // t^2 + 2 * t * (r * cosChi) + c = 0
-    // 2 * t * (r * cosChi) = -(c + t^2)
-    // r * cosChi = -0.5 * (c / t + t)
-    // cosChi = -0.5 * (c / t + t) / r
+    float uPow5  = uv.x  * (uv.x * uv.x) * (uv.x * uv.x);
+    float cosChi = uPow5 * (1 - cosHor) + cosHor;
 
-    float c      = r * r - _AtmosphericRadiusSquared;
-    float cosChi = -0.5 * (c * rcp(distExit) + distExit) * rcp(r);
-
-    return float2(height, cosChi);
+    return float2(cosChi, height);
 }
 
-float3 SampleTransmittanceTexture(float height, float cosChi)
+float3 SampleTransmittanceTexture(float cosChi, float height)
 {
-    float2 uv       = MapAerialPerspective(height, cosChi);
+    float2 uv       = MapAerialPerspectiveAboveHorizon(cosChi, height);
 	float2 optDepth = SAMPLE_TEXTURE2D_LOD(_OpticalDepthTexture, s_linear_clamp_sampler, uv, 0).xy;
 
 	// Compose the optical depth with extinction at the sea level.
