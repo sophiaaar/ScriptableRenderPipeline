@@ -71,7 +71,7 @@ float UnmapQuadraticHeight(float v)
 }
 
 // We use the parametrization from "Outdoor Light Scattering Sample Update" by E. Yusov.
-float2 MapAerialPerspectiveAboveHorizon(float cosChi, float height)
+float3 MapAerialPerspective(float cosChi, float height)
 {
     float R = _PlanetaryRadius;
     float h = height;
@@ -81,18 +81,24 @@ float2 MapAerialPerspectiveAboveHorizon(float cosChi, float height)
     // Compute -sqrt(r^2 - R^2) / r = -sqrt(1 - (R / r)^2).
     float cosHor = -sqrt(1 - Sq(R * rcp(r)));
 
-    // Map: cosHor -> 0, 1 -> 1.
-    // The pow(u, 0.2) will allocate most samples near the horizon.
-    float u = pow(saturate((cosHor - cosChi) * rcp(cosHor - 1)), 0.2);
-    float v = MapQuadraticHeight(h);
+    // Which hemisphere?
+    float s = FastSign(cosChi - cosHor);
 
-    return float2(u, v);
+    // Map: cosHor -> 0, 1 -> +/- 1.
+    // The pow(u, 0.2) will allocate most samples near the horizon.
+    float u = pow(saturate((cosHor - cosChi) * rcp(cosHor - s)), 0.2);
+    float v = MapQuadraticHeight(h);
+    // Make the mapping discontinuous along the horizon to avoid interpolation artifacts.
+    // We'll use an array texture for this.
+    float w = max(s, 0); // 0 or 1
+
+    return float3(u, v, w);
 }
 
 // returns {cosChi, height}.
-float2 UnmapAerialPerspectiveAboveHorizon(float2 uv)
+float2 UnmapAerialPerspective(float3 uvw)
 {
-    float height = UnmapQuadraticHeight(uv.y);
+    float height = UnmapQuadraticHeight(uvw.y);
 
     float R = _PlanetaryRadius;
     float h = height;
@@ -102,15 +108,18 @@ float2 UnmapAerialPerspectiveAboveHorizon(float2 uv)
     // Compute -sqrt(r^2 - R^2) / r = -sqrt(1 - (R / r)^2).
     float cosHor = -sqrt(1 - Sq(R * rcp(r)));
 
-    float uPow5  = uv.x  * (uv.x * uv.x) * (uv.x * uv.x);
-    float cosChi = uPow5 * (1 - cosHor) + cosHor;
+    // Which hemisphere?
+    float s = uvw.z == 1 ? 1 : -1;
+
+    float uPow5  = uvw.x  * (uvw.x * uvw.x) * (uvw.x * uvw.x);
+    float cosChi = uPow5 * (s - cosHor) + cosHor;
 
     return float2(cosChi, height);
 }
 
 float3 SampleTransmittanceTexture(float cosChi, float height)
 {
-    float2 uv       = MapAerialPerspectiveAboveHorizon(cosChi, height);
+    float2 uv       = MapAerialPerspective(cosChi, height).xy;
 	float2 optDepth = SAMPLE_TEXTURE2D_LOD(_OpticalDepthTexture, s_linear_clamp_sampler, uv, 0).xy;
 
 	// Compose the optical depth with extinction at the sea level.

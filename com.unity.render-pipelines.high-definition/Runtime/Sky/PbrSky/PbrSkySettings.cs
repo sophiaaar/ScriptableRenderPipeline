@@ -36,8 +36,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             // Allocate memory on startup.
             atmosphericDepth = new FloatParameter(0.0f);
-            sunRadiance            = new Vector3Parameter(Vector3.zero);
-            sunDirection           = new Vector3Parameter(Vector3.zero);
+            sunRadiance      = new Vector3Parameter(Vector3.zero);
+            sunDirection     = new Vector3Parameter(Vector3.zero);
         }
 
         float ComputeAtmosphericDepth()
@@ -65,10 +65,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             Light sun = builtinParams.sunLight;
 
             atmosphericDepth.value = ComputeAtmosphericDepth();
-            sunRadiance.value            = new Vector3(sun.intensity * sun.color.linear.r,
-                                                       sun.intensity * sun.color.linear.g,
-                                                       sun.intensity * sun.color.linear.b);
-            sunDirection.value           = -sun.transform.forward;
+            sunRadiance.value      = new Vector3(sun.intensity * sun.color.linear.r,
+                                                 sun.intensity * sun.color.linear.g,
+                                                 sun.intensity * sun.color.linear.b);
+            sunDirection.value     = -sun.transform.forward;
         }
 
         public override int GetHashCode()

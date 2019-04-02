@@ -66,8 +66,8 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
     // We don't care about the extremal points (boundary values).
     float2 uv = tableCoord * scale + bias;
 
-    float cosChi = UnmapAerialPerspectiveAboveHorizon(uv).x;
-    float height = UnmapAerialPerspectiveAboveHorizon(uv).y;
+    float cosChi = UnmapAerialPerspective(float3(uv, 1)).x;
+    float height = UnmapAerialPerspective(float3(uv, 1)).y;
 
     float R = _PlanetaryRadius;
     float h = height;
