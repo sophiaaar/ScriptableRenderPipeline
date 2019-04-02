@@ -66,6 +66,7 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
     // We don't care about the extremal points (boundary values).
     float2 uv = tableCoord * scale + bias;
 
+    // The optical depth table only contains data for directions pointing above the horizon.
     float cosChi = UnmapAerialPerspective(float3(uv, 1)).x;
     float height = UnmapAerialPerspective(float3(uv, 1)).y;
 

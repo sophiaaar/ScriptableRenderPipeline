@@ -5,11 +5,12 @@
 CBUFFER_START(UnityPbrSky)
     // All the entries use km and 1/km units.
     float  _PlanetaryRadius;
-    float  _PlanetaryRadiusSquared;
+    float  _RcpPlanetaryRadius;
     float  _AtmosphericDepth;
     float  _RcpAtmosphericDepth;
 
     float  _AtmosphericRadiusSquared;
+    float  _PlanetaryRadiusSquared;
     float  _GrazingAngleAtmosphereExitDistance;
 
     float  _AirDensityFalloff;
@@ -27,6 +28,7 @@ TEXTURE2D(_OpticalDepthTexture);
 TEXTURE2D(_GroundIrradianceTexture);
 SAMPLER(s_linear_clamp_sampler);
 
+// Assumes there is an intersection.
 float IntersectAtmosphereFromInside(float cosChi, float height)
 {
     float R = _PlanetaryRadius;
@@ -45,16 +47,31 @@ float IntersectAtmosphereFromInside(float cosChi, float height)
     //
     // Solve: t^2 + (2 * b) * t + c = 0.
     //
-    // We are only interested in the largest root (the other one is negative).
     // t = (-2 * b + sqrt((2 * b)^2 - 4 * c)) / 2
     // t = -b + sqrt(b^2 - c)
     // t = -b + sqrt(d)
-    //
+
     float b = r * cosChi;
     float c = r * r - _AtmosphericRadiusSquared;
     float d = b * b - c;
 
-    return -b + sqrt(d);
+    // We are only interested in the largest root (the other one is negative).
+    return -b + sqrt(abs(d)); // Prevent NaNs
+}
+
+// Assumes there is an intersection.
+float IntersectPlanetFromOutside(float cosChi, float height)
+{
+    float R = _PlanetaryRadius;
+    float h = height;
+    float r = R + h;
+
+    float b = r * cosChi;
+    float c = r * r - _PlanetaryRadiusSquared;
+    float d = b * b - c;
+
+    // We are only interested in the smallest root (closest intersection).
+    return -b - sqrt(abs(d)); // Prevent NaNs
 }
 
 float MapQuadraticHeight(float height)
@@ -88,6 +105,7 @@ float3 MapAerialPerspective(float cosChi, float height)
     // The pow(u, 0.2) will allocate most samples near the horizon.
     float u = pow(saturate((cosHor - cosChi) * rcp(cosHor - s)), 0.2);
     float v = MapQuadraticHeight(h);
+
     // Make the mapping discontinuous along the horizon to avoid interpolation artifacts.
     // We'll use an array texture for this.
     float w = max(s, 0); // 0 or 1
@@ -109,7 +127,7 @@ float2 UnmapAerialPerspective(float3 uvw)
     float cosHor = -sqrt(1 - Sq(R * rcp(r)));
 
     // Which hemisphere?
-    float s = uvw.z == 1 ? 1 : -1;
+    float s = uvw.z * 2 - 1;
 
     float uPow5  = uvw.x  * (uvw.x * uvw.x) * (uvw.x * uvw.x);
     float cosChi = uPow5 * (s - cosHor) + cosHor;
@@ -119,7 +137,30 @@ float2 UnmapAerialPerspective(float3 uvw)
 
 float3 SampleTransmittanceTexture(float cosChi, float height)
 {
-    float2 uv       = MapAerialPerspective(cosChi, height).xy;
+    float2 uv = MapAerialPerspective(cosChi, height).xy;
+
+    if (MapAerialPerspective(cosChi, height).z == 0)
+    {
+        // Direction points below the horizon.
+        // Must flip the direction and perform the look-up from the ground.
+        // The direction must be parametrized w.r.t. the normal of the intersection point.
+
+        float rcpR = _RcpPlanetaryRadius;
+        float h    = height;
+
+        // r / R = (R + h) / R = 1 + h / R
+        float x = 1 + h * rcpR;
+
+        // Using the Law of Sines (and remembering that the angle is obtuse),
+        // sin(Pi - gamma) = c / b * sin(beta)
+        // sin(Pi - gamma) = r / R * sin(Pi - chi)
+        // sin(Pi - gamma) = r / R * sqrt(1 - cos(chi)^2)
+        // cos(Pi - gamma) = sqrt(1 - sin(Pi - gamma)^2)
+        float cosTheta = sqrt(saturate(1 - Sq(x * sqrt(saturate(1 - Sq(cosChi))))));
+
+        uv = MapAerialPerspective(cosTheta, 0).xy;
+    }
+
 	float2 optDepth = SAMPLE_TEXTURE2D_LOD(_OpticalDepthTexture, s_linear_clamp_sampler, uv, 0).xy;
 
 	// Compose the optical depth with extinction at the sea level.

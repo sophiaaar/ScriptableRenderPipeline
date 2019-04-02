@@ -102,10 +102,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             float H = m_Settings.atmosphericDepth;
 
             cmd.SetGlobalFloat( "_PlanetaryRadius",                    R);
-            cmd.SetGlobalFloat( "_PlanetaryRadiusSquared",             R * R);
+            cmd.SetGlobalFloat( "_RcpPlanetaryRadius",                 1.0f / R);
             cmd.SetGlobalFloat( "_AtmosphericDepth",                   H);
             cmd.SetGlobalFloat( "_RcpAtmosphericDepth",                1.0f / H);
 
+            cmd.SetGlobalFloat( "_PlanetaryRadiusSquared",             (R * R));
             cmd.SetGlobalFloat( "_AtmosphericRadiusSquared",           (R + H) * (R + H));
             cmd.SetGlobalFloat( "_GrazingAngleAtmosphereExitDistance", Mathf.Sqrt(H * (H + 2 * R)));
 
