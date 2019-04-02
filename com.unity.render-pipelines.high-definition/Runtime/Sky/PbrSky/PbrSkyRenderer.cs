@@ -25,7 +25,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             GroundIrradianceTableSize     = 128,
             InScatteredRadianceTableSizeX = 128,
             InScatteredRadianceTableSizeY = 128,
-            InScatteredRadianceTableSizeZ = 128,
         }
 
         public PbrSkyRenderer(PbrSkySettings settings)
@@ -68,7 +67,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             m_InScatteredRadianceTable = RTHandles.Alloc((int)PbrSkyConfig.InScatteredRadianceTableSizeX,
                                                          (int)PbrSkyConfig.InScatteredRadianceTableSizeY,
-                                                         (int)PbrSkyConfig.InScatteredRadianceTableSizeZ,
                                                          filterMode: FilterMode.Bilinear, colorFormat: GraphicsFormat.R16G16B16A16_SFloat,
                                                          enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
                                                          name: "InScatteredRadianceTable");

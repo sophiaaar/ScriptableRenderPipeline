@@ -29,6 +29,7 @@ void main(uint dispatchThreadId : SV_DispatchThreadID)
     {
         float3 transmittance = SampleTransmittanceTexture(NdotL, 0);
 
+        // Direct lighting only.
         tableEntry.rgb = _SunRadiance * transmittance * NdotL;
     }
 

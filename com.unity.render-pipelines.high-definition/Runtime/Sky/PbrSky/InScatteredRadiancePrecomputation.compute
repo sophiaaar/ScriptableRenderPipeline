@@ -6,7 +6,7 @@
 
 #define TABLE_SIZE float(PBRSKYCONFIG_GROUND_IRRADIANCE_TABLE_SIZE)
 
-RW_TEXTURE2D(float4, _GroundIrradianceTable); // of TABLE_SIZE x 1
+RW_TEXTURE2D(float4, _GroundIrradianceTable); // of TABLE_SIZE
 
 [numthreads(64, 1, 1)]
 void main(uint dispatchThreadId : SV_DispatchThreadID)
@@ -18,19 +18,19 @@ void main(uint dispatchThreadId : SV_DispatchThreadID)
     uint2 tableCoord = uint2(dispatchThreadId, 0);
 
     // We don't care about the extremal points (boundary values).
-    float coordNDC = tableCoord.x * scale + bias;
+    float uv = tableCoord.x * scale + bias;
 
     // As we look at the planet in the direction of the sun, the ground is rotationally invariant.
-    float NdotL  = 1 - 2 * coordNDC.x;
-    float height = 0;
+    float NdotL = 1 - 2 * uv.x;
 
     float4 tableEntry = float4(0, 0, 0, 1);
 
     if (NdotL > 0)
     {
-        float3 transmittance = SampleTransmittanceTexture(NdotL, height);
+        float3 transmittance = SampleTransmittanceTexture(NdotL, 0);
 
-        tableEntry.rgb = _SunRadiance * transmittance * saturate(NdotL);
+        // Direct lighting only (no lighting reflected by the ground).
+        tableEntry.rgb = _SunRadiance * transmittance * NdotL;
     }
 
     _GroundIrradianceTable[tableCoord] = tableEntry;

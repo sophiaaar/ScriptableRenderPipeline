@@ -9,8 +9,8 @@ CBUFFER_START(UnityPbrSky)
     float  _AtmosphericDepth;
     float  _RcpAtmosphericDepth;
 
-    float  _AtmosphericRadiusSquared;
     float  _PlanetaryRadiusSquared;
+    float  _AtmosphericRadiusSquared;
     float  _GrazingAngleAtmosphereExitDistance;
 
     float  _AirDensityFalloff;
@@ -26,6 +26,7 @@ CBUFFER_END
 
 TEXTURE2D(_OpticalDepthTexture);
 TEXTURE2D(_GroundIrradianceTexture);
+TEXTURE2D(_InScatteredRadianceTexture);
 SAMPLER(s_linear_clamp_sampler);
 
 // Assumes there is an intersection.
@@ -98,7 +99,7 @@ float3 MapAerialPerspective(float cosChi, float height)
     // Compute -sqrt(r^2 - R^2) / r = -sqrt(1 - (R / r)^2).
     float cosHor = -sqrt(1 - Sq(R * rcp(r)));
 
-    // Which hemisphere?
+    // Above horizon?
     float s = FastSign(cosChi - cosHor);
 
     // Map: cosHor -> 0, 1 -> +/- 1.
@@ -126,7 +127,7 @@ float2 UnmapAerialPerspective(float3 uvw)
     // Compute -sqrt(r^2 - R^2) / r = -sqrt(1 - (R / r)^2).
     float cosHor = -sqrt(1 - Sq(R * rcp(r)));
 
-    // Which hemisphere?
+    // Above horizon?
     float s = uvw.z * 2 - 1;
 
     float uPow5  = uvw.x  * (uvw.x * uvw.x) * (uvw.x * uvw.x);
@@ -148,17 +149,17 @@ float3 SampleTransmittanceTexture(float cosChi, float height)
         float rcpR = _RcpPlanetaryRadius;
         float h    = height;
 
-        // r / R = (R + h) / R = 1 + h / R
+        // r / R = (R + h) / R = 1 + h / R.
         float x = 1 + h * rcpR;
 
         // Using the Law of Sines (and remembering that the angle is obtuse),
-        // sin(Pi - gamma) = c / b * sin(beta)
-        // sin(Pi - gamma) = r / R * sin(Pi - chi)
-        // sin(Pi - gamma) = r / R * sqrt(1 - cos(chi)^2)
-        // cos(Pi - gamma) = sqrt(1 - sin(Pi - gamma)^2)
-        float cosTheta = sqrt(saturate(1 - Sq(x * sqrt(saturate(1 - Sq(cosChi))))));
+        // sin(Pi - gamma) = c / b * sin(beta),
+        // sin(Pi - gamma) = r / R * sin(Pi - chi),
+        // sin(Pi - gamma) = r / R * sqrt(1 - cos(chi)^2),
+        // cos(Pi - gamma) = sqrt(1 - sin(Pi - gamma)^2).
+        float cosPhi = sqrt(saturate(1 - Sq(x * sqrt(saturate(1 - Sq(cosChi))))));
 
-        uv = MapAerialPerspective(cosTheta, 0).xy;
+        uv = MapAerialPerspective(cosPhi, 0).xy;
     }
 
 	float2 optDepth = SAMPLE_TEXTURE2D_LOD(_OpticalDepthTexture, s_linear_clamp_sampler, uv, 0).xy;
@@ -166,6 +167,19 @@ float3 SampleTransmittanceTexture(float cosChi, float height)
 	// Compose the optical depth with extinction at the sea level.
 	return TransmittanceFromOpticalDepth(optDepth.x * _AirSeaLevelExtinction +
 										 optDepth.y * _AerosolSeaLevelExtinction);
+}
+
+// Map: [-0.1975, 1] -> [0, 1].
+float MapZenithAngle(float cosPhi)
+{
+    float x = max(cosPhi, -0.1975);
+    return 0.5 * (atan(x) * rcp(1.1) + (1 - 0.26));
+}
+
+// Map: [0, 1] -> [-0.1975, 1].
+float UnmapZenithAngle(float u)
+{
+    return -0.186929 * tan(0.814 - 2.2 * u);
 }
 
 float3 SampleGroundIrradianceTexture(float NdotL)
