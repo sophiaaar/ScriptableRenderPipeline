@@ -4,28 +4,36 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     public class PbrSkyRenderer : SkyRenderer
     {
-        PbrSkySettings          m_Settings;
-        // Store the hash of the parameters each time precomputation is done.
-        // If the hash does not match, we must recompute our data.
-        int                     lastPrecomputationParamHash;
-        // Precomputed data below.
-        RTHandleSystem.RTHandle m_OpticalDepthTable;
-        RTHandleSystem.RTHandle m_GroundIrradianceTable;
-        RTHandleSystem.RTHandle m_InScatteredRadianceTable;
-
-        static ComputeShader    s_OpticalDepthPrecomputationCS;
-        static ComputeShader    s_GroundIrradiancePrecomputationCS;
-        static ComputeShader    s_InScatteredRadiancePrecomputationCS;
-
         [GenerateHLSL]
         public enum PbrSkyConfig
         {
-            OpticalDepthTableSizeX        = 128,
-            OpticalDepthTableSizeY        = 128,
-            GroundIrradianceTableSize     = 128,
-            InScatteredRadianceTableSizeX = 128,
-            InScatteredRadianceTableSizeY = 128,
+            // 64 KiB
+            OpticalDepthTableSizeX        = 128, // height
+            OpticalDepthTableSizeY        = 128, // <N, X>
+
+            // Tiny
+            GroundIrradianceTableSize     = 128, // <N, L>
+
+            // 32 MiB
+            InScatteredRadianceTableSizeX = 32,  // height
+            InScatteredRadianceTableSizeY = 128, // <N, V>
+            InScatteredRadianceTableSizeZ = 64,  // <N, L>
+            InScatteredRadianceTableSizeW = 16,  // <L, V>
         }
+
+        // Store the hash of the parameters each time precomputation is done.
+        // If the hash does not match, we must recompute our data.
+        int lastPrecomputationParamHash;
+
+        PbrSkySettings            m_Settings;
+        // Precomputed data below.
+        RTHandleSystem.RTHandle   m_OpticalDepthTable;
+        RTHandleSystem.RTHandle   m_GroundIrradianceTable;
+        RTHandleSystem.RTHandle[] m_InScatteredRadianceTable;
+
+        static ComputeShader      s_OpticalDepthPrecomputationCS;
+        static ComputeShader      s_GroundIrradiancePrecomputationCS;
+        static ComputeShader      s_InScatteredRadiancePrecomputationCS;
 
         public PbrSkyRenderer(PbrSkySettings settings)
         {
@@ -48,7 +56,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             s_GroundIrradiancePrecomputationCS    = hdrpResources.shaders.groundIrradiancePrecomputationCS;
             s_InScatteredRadiancePrecomputationCS = hdrpResources.shaders.inScatteredRadiancePrecomputationCS;
 
-
             Debug.Assert(s_OpticalDepthPrecomputationCS        != null);
             Debug.Assert(s_GroundIrradiancePrecomputationCS    != null);
             Debug.Assert(s_InScatteredRadiancePrecomputationCS != null);
@@ -56,23 +63,37 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // Textures
             m_OpticalDepthTable = RTHandles.Alloc((int)PbrSkyConfig.OpticalDepthTableSizeX,
                                                   (int)PbrSkyConfig.OpticalDepthTableSizeY,
-                                                  filterMode: FilterMode.Bilinear, colorFormat: GraphicsFormat.R16G16_SFloat,
+                                                  filterMode: FilterMode.Bilinear,
+                                                  colorFormat: GraphicsFormat.R16G16_SFloat,
                                                   enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
                                                   name: "OpticalDepthTable");
 
             m_GroundIrradianceTable = RTHandles.Alloc((int)PbrSkyConfig.GroundIrradianceTableSize, 1,
-                                                      filterMode: FilterMode.Bilinear, colorFormat: GraphicsFormat.R16G16B16A16_SFloat,
+                                                      filterMode: FilterMode.Bilinear,
+                                                      colorFormat: GraphicsFormat.R16G16B16A16_SFloat,
                                                       enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
                                                       name: "GroundIrradianceTable");
 
-            m_InScatteredRadianceTable = RTHandles.Alloc((int)PbrSkyConfig.InScatteredRadianceTableSizeX,
-                                                         (int)PbrSkyConfig.InScatteredRadianceTableSizeY,
-                                                         filterMode: FilterMode.Bilinear, colorFormat: GraphicsFormat.R16G16B16A16_SFloat,
-                                                         enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
-                                                         name: "InScatteredRadianceTable");
+            m_InScatteredRadianceTable = new RTHandleSystem.RTHandle[(int)PbrSkyConfig.InScatteredRadianceTableSizeW];
+
+            for (int w = 0; w < (int)PbrSkyConfig.InScatteredRadianceTableSizeW; w++)
+            {
+                m_InScatteredRadianceTable[w] = RTHandles.Alloc((int)PbrSkyConfig.InScatteredRadianceTableSizeX,
+                                                                (int)PbrSkyConfig.InScatteredRadianceTableSizeY,
+                                                                (int)PbrSkyConfig.InScatteredRadianceTableSizeZ,
+                                                                filterMode: FilterMode.Bilinear,
+                                                                colorFormat: GraphicsFormat.R16G16B16A16_SFloat,
+                                                                enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
+                                                                name: string.Format("InScatteredRadianceTable{0}", w));
+            }
 
             Debug.Assert(m_OpticalDepthTable     != null);
             Debug.Assert(m_GroundIrradianceTable != null);
+
+            for (int w = 0; w < (int)PbrSkyConfig.InScatteredRadianceTableSizeW; w++)
+            {
+                Debug.Assert(m_InScatteredRadianceTable[w] != null);
+            }
         }
 
         public override void Cleanup()
