@@ -82,16 +82,21 @@ float AerosolScatter(float cosTheta, float height)
     return kS * _AerosolPhasePartConstant * CornetteShanksPhasePartVarying(_AerosolAnisotropy, cosTheta);
 }
 
+float3 AtmosphereScatter(float cosTheta, float height)
+{
+    return AirScatter(cosTheta, height) + AerosolScatter(cosTheta, height);
+}
+
 void ComputeAtmosphericLocalFrame(float NdotL, float NdotV, float LdotV,
                                   out float3 L, out float3 N, out float3 V)
 {
-    // Convention: the light vector L points upwards.
+    // Convention: the normal vector N points upwards.
     // Utilize the rotational symmetry.
-    L = float3(0, 0, 1);
-    N = float3(sqrt(saturate(1 - NdotL * NdotL)), 0, NdotL);
+    N = float3(0, 0, 1);
+    L = float3(sqrt(saturate(1 - NdotL * NdotL)), 0, NdotL);
 
-    V.z = LdotV;
-    V.x = NdotV * N.x;
+    V.z = NdotV;
+    V.x = abs(L.x) >= FLT_EPS ? ((LdotV - L.z * V.z) * rcp(L.x)) : 0;
     V.y = sqrt(saturate(1 - V.x * V.x - V.z * V.z));
 }
 
