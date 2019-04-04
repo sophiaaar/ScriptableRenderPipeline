@@ -216,7 +216,7 @@ real CornetteShanksPhasePartConstant(real anisotropy)
 {
     real g = anisotropy;
 
-    return INV_FOUR_PI * 1.5 * (1 - g * g) / (2 + g * g);
+    return (3 / (8 * PI)) * (1 - g * g) / (2 + g * g);
 }
 
 real CornetteShanksPhasePartVarying(real anisotropy, real cosTheta)
@@ -236,6 +236,12 @@ real CornetteShanksPhaseFunction(real anisotropy, real cosTheta)
 {
     return CornetteShanksPhasePartConstant(anisotropy) *
            CornetteShanksPhasePartVarying(anisotropy, cosTheta);
+}
+
+real RayleighPhaseFunction(real cosTheta)
+{
+    real k = 3 / (16 * PI);
+    return k * (1 + cosTheta * cosTheta);
 }
 
 //
