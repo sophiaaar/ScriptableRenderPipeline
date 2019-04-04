@@ -265,4 +265,20 @@ void SampleDisk(real2   u,
     lightPdf = 1.0 / (PI * radius * radius);
 }
 
+// Solid angle cone sampling.
+// Takes the cosine of the aperture as an input.
+void SampleCone(real2 u, real cosHalfAngle,
+                out real3 dir, out real rcpPdf)
+{
+    real cosTheta = lerp(1, cosHalfAngle, u.x);
+    real sinTheta = sqrt(saturate(1 - cosTheta * cosTheta));
+    real phi      = TWO_PI * u.y;
+
+    dir.x  = cos(phi) * sinTheta;
+    dir.y  = sin(phi) * sinTheta;
+    dir.z  = cosTheta;
+
+    rcpPdf = TWO_PI * (1 - cosHalfAngle);
+}
+
 #endif // UNITY_SAMPLING_INCLUDED

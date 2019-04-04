@@ -201,27 +201,6 @@ float2 UnmapAerialPerspective(float3 uvw)
     return float2(cosChi, height);
 }
 
-float ComputePlanetaryAperture(float height)
-{
-    float R = _PlanetaryRadius;
-    float h = height;
-    float r = R + h;
-
-    // cos(Pi - x) = -cos(x).
-    // Compute -sqrt(r^2 - R^2) / r = -sqrt(1 - (R / r)^2).
-    //
-    // cosHor = -sqrt(1 - Sq(R * rcp(r)))
-    // cosSub = -cosHor
-    //
-    // Convert from the half-angle to the aperture angle.
-    //
-    // aperture = acos(2 * cosSub * cosSub - 1)
-    //
-    // Simplify.
-
-    return acos(1 - 2 * Sq(R * rcp(r)));
-}
-
 float3 SampleTransmittanceTexture(float2 uv)
 {
     float2 optDepth = SAMPLE_TEXTURE2D_LOD(_OpticalDepthTexture, s_linear_clamp_sampler, uv, 0).xy;
