@@ -267,9 +267,7 @@ float UnmapCosineOfZenithAngle(float u)
 
 float3 SampleGroundIrradianceTexture(float NdotL)
 {
-    // NdotL = 1 - 2 * u
-    // u     = 0.5 - 0.5 * NdotL
-    float2 uv = float2(0.5 - 0.5 * NdotL, 0);
+    float2 uv = float2(MapCosineOfZenithAngle(NdotL), 0);
 
     return SAMPLE_TEXTURE2D_LOD(_GroundIrradianceTexture, s_linear_clamp_sampler, uv, 0).rgb;
 }

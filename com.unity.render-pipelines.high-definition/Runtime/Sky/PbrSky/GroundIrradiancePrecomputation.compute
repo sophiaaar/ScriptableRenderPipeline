@@ -21,7 +21,7 @@ void main(uint dispatchThreadId : SV_DispatchThreadID)
     float uv = tableCoord.x * scale + bias;
 
     // As we look at the planet in the direction of the sun, the ground is rotationally invariant.
-    float NdotL = 1 - 2 * uv.x;
+    float NdotL = UnmapCosineOfZenithAngle(uv.x);
 
     float4 tableEntry = float4(0, 0, 0, 1);
 
@@ -29,9 +29,7 @@ void main(uint dispatchThreadId : SV_DispatchThreadID)
     {
         float3 transm = SampleTransmittanceTexture(NdotL, 0, false);
 
-        // Reflected lighting.
-        // TODO: precompute all these together?
-        tableEntry.rgb = INV_PI * _GroundAlbedo * _SunRadiance * transm * NdotL;
+        tableEntry.rgb = _SunRadiance * transm * NdotL;
     }
 
     _GroundIrradianceTable[tableCoord] = tableEntry;

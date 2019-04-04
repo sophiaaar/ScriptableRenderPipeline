@@ -3,35 +3,95 @@
 #pragma kernel main
 
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyCommon.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Sampling/Sampling.hlsl"
 
-#define TABLE_SIZE float(PBRSKYCONFIG_GROUND_IRRADIANCE_TABLE_SIZE)
+#define TABLE_SIZE uint3(PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_X, \
+                         PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_Y, \
+                         PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_Z)
 
-RW_TEXTURE2D(float4, _GroundIrradianceTable); // of TABLE_SIZE
+RW_TEXTURE3D(float4, _InScatteredRadianceTable); // x PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_W
 
-[numthreads(64, 1, 1)]
-void main(uint dispatchThreadId : SV_DispatchThreadID)
+// Don't need a Constant Buffer for 2 floats.
+float LdotV;
+float aboveHorizon; // Viewing direction
+
+[numthreads(4, 4, 4)]
+void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
-    const float scale = rcp(TABLE_SIZE);
-    const float bias  = 0.5 * scale;
+    const float3 scale = rcp(TABLE_SIZE);
+    const float3 bias  = 0.5 * scale;
 
     // Let the hardware and the driver handle the ordering of the computation.
-    uint2 tableCoord = uint2(dispatchThreadId, 0);
+    uint3 tableCoord = dispatchThreadId;
 
     // We don't care about the extremal points (boundary values).
-    float uv = tableCoord.x * scale + bias;
+    float3 uvw = tableCoord * scale + bias;
 
-    // As we look at the planet in the direction of the sun, the ground is rotationally invariant.
-    float NdotL = 1 - 2 * uv.x;
+    float NdotL  = UnmapCosineOfZenithAngle(uvw.z);
+    float NdotV  = UnmapAerialPerspective(float3(uvw.xy, aboveHorizon)).x;
+    float height = UnmapAerialPerspective(float3(uvw.xy, aboveHorizon)).y;
+    float cosHor = GetCosineOfHorizonZenithAngle(height);
 
-    float4 tableEntry = float4(0, 0, 0, 1);
+    float3 L, N, V;
+    ComputeAtmosphericLocalFrame(NdotL, NdotV, LdotV, L, N, V);
 
-    if (NdotL > 0)
+    float3 radiance = 0;
+
+    if (NdotL > cosHor)
     {
-        float3 transmittance = SampleTransmittanceTexture(NdotL, 0);
+        // Sun is directly visible from this position.
+        float3 transm  = SampleTransmittanceTexture(NdotL, height);
+        float3 scatter = AtmosphereScatter(-LdotV, height);
 
-        // Direct lighting only (no lighting reflected by the ground).
-        tableEntry.rgb = _SunRadiance * transmittance * NdotL;
+        radiance += scatter * transm * _SunRadiance;
+    }
+    else
+    {
+        // The sun is occluded by the planet.
     }
 
-    _GroundIrradianceTable[tableCoord] = tableEntry;
+    // Integrate ground contribution.
+    // The ground is a Lambertian reflector. It is basically a textured sphere light.
+    {
+        // We will importance sample according to the solid angle.
+        // Hard to take transmittance, the phase function and the illumination into account...
+        float R = _PlanetaryRadius;
+        float h = height;
+        float r = R + h;
+
+        float3 origin      = r * N;
+        float  cosAperture = -cosHor; // Cosine of the half-angle
+
+        const float3 groundBrdf       = INV_PI * _GroundAlbedo;
+        const int    numGroundSamples = 34;
+
+        for (int i = 0; i < numGroundSamples; i++)
+        {
+            float2 f = Fibonacci2d(i, numGroundSamples);
+
+            // Construct a direction around the up vector.
+            float3 dir; float rcpPdf;
+            SampleCone(f, cosAperture, dir, rcpPdf);
+
+            float weight = rcpPdf * rcp(numGroundSamples);
+
+            // Make it point towards the ground.
+            dir = -dir;
+
+            float  t = IntersectPlanetFromOutside(dir.z, height);
+            float3 P = origin + t * dir;
+
+            float3 groundNormal     = normalize(P);
+            float  groundNdotL      = dot(groundNormal, L);
+            float3 groundIrradiance = SampleGroundIrradianceTexture(groundNdotL);
+            float3 groundRadiance   = groundBrdf * groundIrradiance * saturate(dot(groundNormal, -dir));
+
+            float3 transm  = SampleTransmittanceTexture(dir.z, height);
+            float3 scatter = AtmosphereScatter(dot(-dir, V), height);
+
+            radiance += weight * transm * scatter * groundRadiance;
+        }
+    }
+
+    _InScatteredRadianceTable[tableCoord] = float4(radiance, 1);
 }
