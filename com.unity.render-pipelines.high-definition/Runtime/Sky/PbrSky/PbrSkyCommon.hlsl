@@ -3,7 +3,7 @@
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyRenderer.cs.hlsl"
 
 CBUFFER_START(UnityPbrSky)
-    // All the entries use km and 1/km units.
+    // All the distance-related entries use km and 1/km units.
     float  _PlanetaryRadius;
     float  _RcpPlanetaryRadius;
     float  _AtmosphericDepth;
@@ -11,23 +11,90 @@ CBUFFER_START(UnityPbrSky)
 
     float  _PlanetaryRadiusSquared;
     float  _AtmosphericRadiusSquared;
-    float  _GrazingAngleAtmosphereExitDistance;
+    float  _AerosolAnisotropy;
+    float  _AerosolPhasePartConstant;
 
     float  _AirDensityFalloff;
     float  _AirScaleHeight;
     float  _AerosolDensityFalloff;
     float  _AerosolScaleHeight;
 
-    float3 _SunRadiance; // TODO: isn't that just a global multiplier?
-
     float3 _AirSeaLevelExtinction;
     float  _AerosolSeaLevelExtinction;
+
+    float3 _AirSeaLevelScattering;
+    float  _AerosolSeaLevelScattering;
+
+    float3 _GroundAlbedo;
+
+    float3 _SunRadiance;  // TODO: isn't that just a global multiplier?
+    float3 _SunDirection; // TODO: useless?
 CBUFFER_END
+
+SAMPLER(s_linear_clamp_sampler);
 
 TEXTURE2D(_OpticalDepthTexture);
 TEXTURE2D(_GroundIrradianceTexture);
-TEXTURE2D(_InScatteredRadianceTexture);
-SAMPLER(s_linear_clamp_sampler);
+TEXTURE3D(_InScatteredRadianceTexture0);
+TEXTURE3D(_InScatteredRadianceTexture1);
+TEXTURE3D(_InScatteredRadianceTexture2);
+TEXTURE3D(_InScatteredRadianceTexture3);
+TEXTURE3D(_InScatteredRadianceTexture4);
+TEXTURE3D(_InScatteredRadianceTexture5);
+TEXTURE3D(_InScatteredRadianceTexture6);
+TEXTURE3D(_InScatteredRadianceTexture7);
+TEXTURE3D(_InScatteredRadianceTexture8);
+TEXTURE3D(_InScatteredRadianceTexture9);
+TEXTURE3D(_InScatteredRadianceTexture10);
+TEXTURE3D(_InScatteredRadianceTexture11);
+TEXTURE3D(_InScatteredRadianceTexture12);
+TEXTURE3D(_InScatteredRadianceTexture13);
+TEXTURE3D(_InScatteredRadianceTexture14);
+TEXTURE3D(_InScatteredRadianceTexture15);
+TEXTURE3D(_InScatteredRadianceTexture16);
+TEXTURE3D(_InScatteredRadianceTexture17);
+TEXTURE3D(_InScatteredRadianceTexture18);
+TEXTURE3D(_InScatteredRadianceTexture19);
+TEXTURE3D(_InScatteredRadianceTexture20);
+TEXTURE3D(_InScatteredRadianceTexture21);
+TEXTURE3D(_InScatteredRadianceTexture22);
+TEXTURE3D(_InScatteredRadianceTexture23);
+TEXTURE3D(_InScatteredRadianceTexture24);
+TEXTURE3D(_InScatteredRadianceTexture25);
+TEXTURE3D(_InScatteredRadianceTexture26);
+TEXTURE3D(_InScatteredRadianceTexture27);
+TEXTURE3D(_InScatteredRadianceTexture28);
+TEXTURE3D(_InScatteredRadianceTexture29);
+TEXTURE3D(_InScatteredRadianceTexture30);
+TEXTURE3D(_InScatteredRadianceTexture31);
+
+float3 AirScatter(float cosTheta, float height)
+{
+    float3 kS = _AirSeaLevelScattering * exp(-height * _AirDensityFalloff);
+
+    return kS * RayleighPhaseFunction(cosTheta);
+}
+
+float AerosolScatter(float cosTheta, float height)
+{
+    float kS = _AerosolSeaLevelScattering * exp(-height * _AerosolDensityFalloff);
+
+    return kS * _AerosolPhasePartConstant * CornetteShanksPhasePartVarying(_AerosolAnisotropy, cosTheta);
+}
+
+void ComputeAtmosphericLocalFrame(float NdotL, float NdotV, float LdotV,
+                                  out float3 L, out float3 N, out float3 V)
+{
+    // Convention: the light vector L points upwards.
+    // Utilize the rotational symmetry.
+    L = float3(0, 0, 1);
+    N = float3(sqrt(saturate(1 - NdotL * NdotL)), 0, NdotL);
+
+    V.z = LdotV;
+    V.x = NdotV * N.x;
+    V.y = sqrt(saturate(1 - V.x * V.x - V.z * V.z));
+}
+
 
 // Assumes there is an intersection.
 float IntersectAtmosphereFromInside(float cosChi, float height)
@@ -88,8 +155,7 @@ float UnmapQuadraticHeight(float v)
     return (v * v) * _AtmosphericDepth;
 }
 
-// We use the parametrization from "Outdoor Light Scattering Sample Update" by E. Yusov.
-float3 MapAerialPerspective(float cosChi, float height)
+float GetCosineOfHorizonZenithAngle(float height)
 {
     float R = _PlanetaryRadius;
     float h = height;
@@ -97,7 +163,13 @@ float3 MapAerialPerspective(float cosChi, float height)
 
     // cos(Pi - x) = -cos(x).
     // Compute -sqrt(r^2 - R^2) / r = -sqrt(1 - (R / r)^2).
-    float cosHor = -sqrt(1 - Sq(R * rcp(r)));
+    return -sqrt(1 - Sq(R * rcp(r)));
+}
+
+// We use the parametrization from "Outdoor Light Scattering Sample Update" by E. Yusov.
+float3 MapAerialPerspective(float cosChi, float height)
+{
+    float cosHor = GetCosineOfHorizonZenithAngle(height);
 
     // Above horizon?
     float s = FastSign(cosChi - cosHor);
@@ -105,7 +177,7 @@ float3 MapAerialPerspective(float cosChi, float height)
     // Map: cosHor -> 0, 1 -> +/- 1.
     // The pow(u, 0.2) will allocate most samples near the horizon.
     float u = pow(saturate((cosHor - cosChi) * rcp(cosHor - s)), 0.2);
-    float v = MapQuadraticHeight(h);
+    float v = MapQuadraticHeight(height);
 
     // Make the mapping discontinuous along the horizon to avoid interpolation artifacts.
     // We'll use an array texture for this.
@@ -118,14 +190,7 @@ float3 MapAerialPerspective(float cosChi, float height)
 float2 UnmapAerialPerspective(float3 uvw)
 {
     float height = UnmapQuadraticHeight(uvw.y);
-
-    float R = _PlanetaryRadius;
-    float h = height;
-    float r = R + h;
-
-    // cos(Pi - x) = -cos(x).
-    // Compute -sqrt(r^2 - R^2) / r = -sqrt(1 - (R / r)^2).
-    float cosHor = -sqrt(1 - Sq(R * rcp(r)));
+    float cosHor = GetCosineOfHorizonZenithAngle(height);
 
     // Above horizon?
     float s = uvw.z * 2 - 1;
@@ -136,11 +201,41 @@ float2 UnmapAerialPerspective(float3 uvw)
     return float2(cosChi, height);
 }
 
-float3 SampleTransmittanceTexture(float cosChi, float height)
+float ComputePlanetaryAperture(float height)
+{
+    float R = _PlanetaryRadius;
+    float h = height;
+    float r = R + h;
+
+    // cos(Pi - x) = -cos(x).
+    // Compute -sqrt(r^2 - R^2) / r = -sqrt(1 - (R / r)^2).
+    //
+    // cosHor = -sqrt(1 - Sq(R * rcp(r)))
+    // cosSub = -cosHor
+    //
+    // Convert from the half-angle to the aperture angle.
+    //
+    // aperture = acos(2 * cosSub * cosSub - 1)
+    //
+    // Simplify.
+
+    return acos(1 - 2 * Sq(R * rcp(r)));
+}
+
+float3 SampleTransmittanceTexture(float2 uv)
+{
+    float2 optDepth = SAMPLE_TEXTURE2D_LOD(_OpticalDepthTexture, s_linear_clamp_sampler, uv, 0).xy;
+
+    // Compose the optical depth with extinction at the sea level.
+    return TransmittanceFromOpticalDepth(optDepth.x * _AirSeaLevelExtinction +
+                                         optDepth.y * _AerosolSeaLevelExtinction);
+}
+
+float3 SampleTransmittanceTexture(float cosChi, float height, bool belowHorizon)
 {
     float2 uv = MapAerialPerspective(cosChi, height).xy;
 
-    if (MapAerialPerspective(cosChi, height).z == 0)
+    if (belowHorizon)
     {
         // Direction points below the horizon.
         // Must flip the direction and perform the look-up from the ground.
@@ -162,22 +257,26 @@ float3 SampleTransmittanceTexture(float cosChi, float height)
         uv = MapAerialPerspective(cosPhi, 0).xy;
     }
 
-	float2 optDepth = SAMPLE_TEXTURE2D_LOD(_OpticalDepthTexture, s_linear_clamp_sampler, uv, 0).xy;
+    return SampleTransmittanceTexture(uv);
+}
 
-	// Compose the optical depth with extinction at the sea level.
-	return TransmittanceFromOpticalDepth(optDepth.x * _AirSeaLevelExtinction +
-										 optDepth.y * _AerosolSeaLevelExtinction);
+float3 SampleTransmittanceTexture(float cosChi, float height)
+{
+    bool belowHorizon = MapAerialPerspective(cosChi, height).z == 0;
+
+    return SampleTransmittanceTexture(cosChi, height, belowHorizon);
 }
 
 // Map: [-0.1975, 1] -> [0, 1].
-float MapZenithAngle(float cosPhi)
+float MapCosineOfZenithAngle(float cosPhi)
 {
+    // Clamp to around 101 degrees. Seems arbitrary?
     float x = max(cosPhi, -0.1975);
     return 0.5 * (atan(x) * rcp(1.1) + (1 - 0.26));
 }
 
 // Map: [0, 1] -> [-0.1975, 1].
-float UnmapZenithAngle(float u)
+float UnmapCosineOfZenithAngle(float u)
 {
     return -0.186929 * tan(0.814 - 2.2 * u);
 }

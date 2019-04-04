@@ -8,17 +8,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public enum PbrSkyConfig
         {
             // 64 KiB
-            OpticalDepthTableSizeX        = 128, // height
-            OpticalDepthTableSizeY        = 128, // <N, X>
+            OpticalDepthTableSizeX        = 128,    // height
+            OpticalDepthTableSizeY        = 128,    // <N, X>
 
             // Tiny
-            GroundIrradianceTableSize     = 128, // <N, L>
+            GroundIrradianceTableSize     = 128,    // <N, L>
 
             // 32 MiB
-            InScatteredRadianceTableSizeX = 32,  // height
-            InScatteredRadianceTableSizeY = 128, // <N, V>
-            InScatteredRadianceTableSizeZ = 64,  // <N, L>
-            InScatteredRadianceTableSizeW = 16,  // <L, V>
+            InScatteredRadianceTableSizeX = 32,     // height
+            InScatteredRadianceTableSizeY = 64,     // <N, V>
+            InScatteredRadianceTableSizeZ = 64,     // <N, L>
+            InScatteredRadianceTableSizeW = 16 * 2, // <L, V>, the 1st half is view above the horizon, the 2nd half is below
         }
 
         // Store the hash of the parameters each time precomputation is done.
@@ -115,29 +115,43 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
         }
 
+        static float CornetteShanksPhasePartConstant(float anisotropy)
+        {
+            float g = anisotropy;
+
+            return (3.0f / (8.0f * Mathf.PI)) * (1.0f - g * g) / (2.0f + g * g);
+        }
+
         void UpdateSharedConstantBuffer(CommandBuffer cmd)
         {
             float R = m_Settings.planetaryRadius;
             float H = m_Settings.atmosphericDepth;
 
-            cmd.SetGlobalFloat( "_PlanetaryRadius",                    R);
-            cmd.SetGlobalFloat( "_RcpPlanetaryRadius",                 1.0f / R);
-            cmd.SetGlobalFloat( "_AtmosphericDepth",                   H);
-            cmd.SetGlobalFloat( "_RcpAtmosphericDepth",                1.0f / H);
+            cmd.SetGlobalFloat( "_PlanetaryRadius",           R);
+            cmd.SetGlobalFloat( "_RcpPlanetaryRadius",        1.0f / R);
+            cmd.SetGlobalFloat( "_AtmosphericDepth",          H);
+            cmd.SetGlobalFloat( "_RcpAtmosphericDepth",       1.0f / H);
 
-            cmd.SetGlobalFloat( "_PlanetaryRadiusSquared",             (R * R));
-            cmd.SetGlobalFloat( "_AtmosphericRadiusSquared",           (R + H) * (R + H));
-            cmd.SetGlobalFloat( "_GrazingAngleAtmosphereExitDistance", Mathf.Sqrt(H * (H + 2 * R)));
+            cmd.SetGlobalFloat( "_PlanetaryRadiusSquared",    (R * R));
+            cmd.SetGlobalFloat( "_AtmosphericRadiusSquared",  (R + H) * (R + H));
+            cmd.SetGlobalFloat( "_AerosolAnisotropy",         m_Settings.aerosolAnisotropy);
+            cmd.SetGlobalFloat( "_AerosolPhasePartConstant",  CornetteShanksPhasePartConstant(m_Settings.aerosolAnisotropy));
 
-            cmd.SetGlobalFloat( "_AirDensityFalloff",                  m_Settings.airDensityFalloff);
-            cmd.SetGlobalFloat( "_AirScaleHeight",                     1.0f / m_Settings.airDensityFalloff);
-            cmd.SetGlobalFloat( "_AerosolDensityFalloff",              m_Settings.aerosolDensityFalloff);
-            cmd.SetGlobalFloat( "_AerosolScaleHeight",                 1.0f / m_Settings.airDensityFalloff);
+            cmd.SetGlobalFloat( "_AirDensityFalloff",         m_Settings.airDensityFalloff);
+            cmd.SetGlobalFloat( "_AirScaleHeight",            1.0f / m_Settings.airDensityFalloff);
+            cmd.SetGlobalFloat( "_AerosolDensityFalloff",     m_Settings.aerosolDensityFalloff);
+            cmd.SetGlobalFloat( "_AerosolScaleHeight",        1.0f / m_Settings.airDensityFalloff);
 
-            cmd.SetGlobalVector("_SunRadiance",                        m_Settings.sunRadiance.value);
+            cmd.SetGlobalVector("_AirSeaLevelExtinction",     m_Settings.airThickness.value     * 0.001f); // Convert to 1/km
+            cmd.SetGlobalFloat( "_AerosolSeaLevelExtinction", m_Settings.aerosolThickness.value * 0.001f); // Convert to 1/km
 
-            cmd.SetGlobalVector("_AirSeaLevelExtinction",              m_Settings.airThickness.value     * 0.001f); // Convert to 1/km
-            cmd.SetGlobalFloat( "_AerosolSeaLevelExtinction",          m_Settings.aerosolThickness.value * 0.001f); // Convert to 1/km
+            cmd.SetGlobalVector("_AirSeaLevelScattering",     m_Settings.airAlbedo.value     * m_Settings.airThickness.value     * 0.001f); // Convert to 1/km
+            cmd.SetGlobalFloat( "_AerosolSeaLevelScattering", m_Settings.aerosolAlbedo.value * m_Settings.aerosolThickness.value * 0.001f); // Convert to 1/km
+
+            cmd.SetGlobalVector("_GroundAlbedo",              m_Settings.groundColor.value);
+
+            cmd.SetGlobalVector("_SunRadiance",               m_Settings.sunRadiance.value);
+            cmd.SetGlobalVector("_SunDirection",              m_Settings.sunDirection.value);
         }
 
         void PrecomputeTables(CommandBuffer cmd)
