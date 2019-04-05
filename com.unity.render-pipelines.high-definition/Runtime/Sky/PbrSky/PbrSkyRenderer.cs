@@ -8,15 +8,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public enum PbrSkyConfig
         {
             // 64 KiB
-            OpticalDepthTableSizeX        = 128,    // height
-            OpticalDepthTableSizeY        = 128,    // <N, X>
+            OpticalDepthTableSizeX        = 128,    // <N, X>
+            OpticalDepthTableSizeY        = 128,    // height
 
             // Tiny
             GroundIrradianceTableSize     = 128,    // <N, L>
 
             // 32 MiB
-            InScatteredRadianceTableSizeX = 32,     // height
-            InScatteredRadianceTableSizeY = 64,     // <N, V>
+            InScatteredRadianceTableSizeX = 64,     // <N, V>
+            InScatteredRadianceTableSizeY = 32,     // height
             InScatteredRadianceTableSizeZ = 64,     // <N, L>
             InScatteredRadianceTableSizeW = 16 * 2, // <L, V>, the 1st half is view above the horizon, the 2nd half is below
         }
@@ -81,12 +81,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 m_InScatteredRadianceTable[w] = RTHandles.Alloc((int)PbrSkyConfig.InScatteredRadianceTableSizeX,
                                                                 (int)PbrSkyConfig.InScatteredRadianceTableSizeY,
                                                                 (int)PbrSkyConfig.InScatteredRadianceTableSizeZ,
+                                                                dimension: TextureDimension.Tex3D,
                                                                 filterMode: FilterMode.Bilinear,
                                                                 colorFormat: GraphicsFormat.R16G16B16A16_SFloat,
                                                                 enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
                                                                 name: string.Format("InScatteredRadianceTable{0}", w));
             }
 
+            // Texture validation.
             Debug.Assert(m_OpticalDepthTable     != null);
             Debug.Assert(m_GroundIrradianceTable != null);
 
@@ -120,6 +122,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             float g = anisotropy;
 
             return (3.0f / (8.0f * Mathf.PI)) * (1.0f - g * g) / (2.0f + g * g);
+        }
+
+        static float UnmapCosineOfLightViewAngle(float u)
+        {
+            float s = ((0.5f - u) >= 0) ? 1 : -1;
+            float p = Mathf.Clamp01(s * (1 - 2 * u));
+            float a = Mathf.Pow(p, 0.66666667f);
+            float y = s * a;
+            float x = 0.5f - 0.5f * y;
+
+            return Mathf.Cos(Mathf.PI * x);
         }
 
         void UpdateSharedConstantBuffer(CommandBuffer cmd)
@@ -168,6 +181,34 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, 0, "_GroundIrradianceTable", m_GroundIrradianceTable);
                 cmd.DispatchCompute(s_GroundIrradiancePrecomputationCS, 0, (int)PbrSkyConfig.GroundIrradianceTableSize / 64, 1, 1);
             }
+
+            using (new ProfilingSample(cmd, "InScattered Radiance Precomputation"))
+            {
+                cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, 0, "_OpticalDepthTexture", m_OpticalDepthTable);
+
+                const int numBounces = 0;
+                for (int i = 0; i <= numBounces; i++)
+                {
+                    cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, 0, "_GroundIrradianceTexture", m_GroundIrradianceTable);
+
+                    for (int w = 0; w < (int)PbrSkyConfig.InScatteredRadianceTableSizeW; w++)
+                    {
+                        bool aboveHorizon = w < ((int)PbrSkyConfig.InScatteredRadianceTableSizeW / 2);
+
+                        int   k     = w % ((int)PbrSkyConfig.InScatteredRadianceTableSizeW / 2);
+                        float u     = k / (float)((int)PbrSkyConfig.InScatteredRadianceTableSizeW / 2);
+                        float LdotV = UnmapCosineOfLightViewAngle(u);
+
+                        cmd.SetComputeFloatParam(s_InScatteredRadiancePrecomputationCS, "_LdotV", LdotV);
+                        cmd.SetComputeFloatParam(s_InScatteredRadiancePrecomputationCS, "_AboveHorizon", aboveHorizon ? 1.0f : 0.0f);
+                        cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, 0, "_InScatteredRadianceTable", m_InScatteredRadianceTable[w]);
+                        cmd.DispatchCompute(s_InScatteredRadiancePrecomputationCS, 0, (int)PbrSkyConfig.InScatteredRadianceTableSizeX / 4,
+                                                                                      (int)PbrSkyConfig.InScatteredRadianceTableSizeY / 4,
+                                                                                      (int)PbrSkyConfig.InScatteredRadianceTableSizeZ / 4);
+                    }
+                }
+            }
+
         }
 
         // 'renderSunDisk' parameter is meaningless and is thus ignored.
@@ -176,15 +217,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             CommandBuffer cmd = builtinParams.commandBuffer;
 
             m_Settings.UpdateParameters(builtinParams);
-            UpdateSharedConstantBuffer(cmd);
-
             int currentParamHash = m_Settings.GetHashCode();
 
             if (currentParamHash != lastPrecomputationParamHash)
             {
+                UpdateSharedConstantBuffer(cmd);
                 PrecomputeTables(cmd);
 
-                //lastPrecomputationParamHash = currentParamHash;
+                // lastPrecomputationParamHash = currentParamHash;
             }
 
             /* TODO */

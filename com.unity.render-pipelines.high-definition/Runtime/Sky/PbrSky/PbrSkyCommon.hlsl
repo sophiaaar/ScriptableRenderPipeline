@@ -66,25 +66,25 @@ TEXTURE3D(_InScatteredRadianceTexture27);
 TEXTURE3D(_InScatteredRadianceTexture28);
 TEXTURE3D(_InScatteredRadianceTexture29);
 TEXTURE3D(_InScatteredRadianceTexture30);
-TEXTURE3D(_InScatteredRadianceTexture31);
+TEXTURE3D(_InScatteredRadianceTexture31); // PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_W = 32
 
-float3 AirScatter(float cosTheta, float height)
+float3 AirScatter(float LdotV, float height)
 {
     float3 kS = _AirSeaLevelScattering * exp(-height * _AirDensityFalloff);
 
-    return kS * RayleighPhaseFunction(cosTheta);
+    return kS * RayleighPhaseFunction(-LdotV);
 }
 
-float AerosolScatter(float cosTheta, float height)
+float AerosolScatter(float LdotV, float height)
 {
     float kS = _AerosolSeaLevelScattering * exp(-height * _AerosolDensityFalloff);
 
-    return kS * _AerosolPhasePartConstant * CornetteShanksPhasePartVarying(_AerosolAnisotropy, cosTheta);
+    return kS * _AerosolPhasePartConstant * CornetteShanksPhasePartVarying(_AerosolAnisotropy, -LdotV);
 }
 
-float3 AtmosphereScatter(float cosTheta, float height)
+float3 AtmosphereScatter(float LdotV, float height)
 {
-    return AirScatter(cosTheta, height) + AerosolScatter(cosTheta, height);
+    return AirScatter(LdotV, height) + AerosolScatter(LdotV, height);
 }
 
 void ComputeAtmosphericLocalFrame(float NdotL, float NdotV, float LdotV,
@@ -252,10 +252,10 @@ float3 SampleTransmittanceTexture(float cosChi, float height)
 }
 
 // Map: [-0.1975, 1] -> [0, 1].
-float MapCosineOfZenithAngle(float cosPhi)
+float MapCosineOfZenithAngle(float NdotL)
 {
     // Clamp to around 101 degrees. Seems arbitrary?
-    float x = max(cosPhi, -0.1975);
+    float x = max(NdotL, -0.1975);
     return 0.5 * (atan(x) * rcp(1.1) + (1 - 0.26));
 }
 
@@ -270,4 +270,28 @@ float3 SampleGroundIrradianceTexture(float NdotL)
     float2 uv = float2(MapCosineOfZenithAngle(NdotL), 0);
 
     return SAMPLE_TEXTURE2D_LOD(_GroundIrradianceTexture, s_linear_clamp_sampler, uv, 0).rgb;
+}
+
+float MapCosineOfLightViewAngle(float LdotV)
+{
+    float x = acos(LdotV) * INV_PI;
+    float y = 1 - 2 * x;
+    float s = FastSign(LdotV);
+    float a = saturate(s * y);
+    float r = sqrt(a);
+    float p = r * r * r;
+    float u = 0.5 - 0.5 * s * p;
+
+    return u;
+}
+
+float UnmapCosineOfLightViewAngle(float u)
+{
+    float s = FastSign(0.5 - u);
+    float p = saturate(s * (1 - 2 * u));
+    float a = pow(p, 0.66666667);
+    float y = s * a;
+    float x = 0.5 - 0.5 * y;
+
+    return cos(PI * x);
 }
