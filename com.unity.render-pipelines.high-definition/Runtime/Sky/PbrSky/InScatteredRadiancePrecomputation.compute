@@ -9,31 +9,31 @@
                          PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_Y, \
                          PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_Z)
 
-RW_TEXTURE3D(float4, _InScatteredRadianceTable); // x PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_W
-
-// Don't need a Constant Buffer for 2 floats.
-float _LdotV;
-float _AboveHorizon; // Viewing direction
+RW_TEXTURE3D(float4, _InScatteredRadianceTable); // Emulate a 4D texture with a "deep" 3D texture
 
 [numthreads(4, 4, 4)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
     const float3 scale = rcp(TABLE_SIZE);
     const float3 bias  = 0.5 * scale;
+    const uint   n     = PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_W / 2;
 
     // Let the hardware and the driver handle the ordering of the computation.
-    uint3 tableCoord = dispatchThreadId;
+    uint3 tableCoord   = dispatchThreadId;
+    uint  textureId    = dispatchThreadId.z / PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_Z;
+    float aboveHorizon = (textureId < n) ? 1 : 0;
 
     // We don't care about the extremal points (boundary values).
     float3 uvw = tableCoord * scale + bias;
 
-    float NdotV  = UnmapAerialPerspective(float3(uvw.xy, _AboveHorizon)).x;
-    float height = UnmapAerialPerspective(float3(uvw.xy, _AboveHorizon)).y;
-    float NdotL  = UnmapCosineOfZenithAngle(uvw.z);
+    float NdotV  = UnmapAerialPerspective(float3(uvw.xy, aboveHorizon)).x;
+    float height = UnmapAerialPerspective(float3(uvw.xy, aboveHorizon)).y;
+    float NdotL  = UnmapCosineOfZenithAngle(frac(uvw.z));
+    float LdotV  = UnmapCosineOfLightViewAngle((textureId & ~n) * rcp(n - 1));
     float cosHor = GetCosineOfHorizonZenithAngle(height);
 
     float3 L, N, V;
-    ComputeAtmosphericLocalFrame(NdotL, NdotV, _LdotV, L, N, V);
+    ComputeAtmosphericLocalFrame(NdotL, NdotV, LdotV, L, N, V);
 
     float3 radiance = 0;
 
@@ -41,7 +41,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     {
         // Sun is directly visible from this position.
         float3 transm  = SampleTransmittanceTexture(NdotL, height);
-        float3 scatter = AtmosphereScatter(_LdotV, height);
+        float3 scatter = AtmosphereScatter(LdotV, height);
 
         radiance += scatter * transm * _SunRadiance;
     }

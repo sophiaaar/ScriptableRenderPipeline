@@ -25,25 +25,20 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // If the hash does not match, we must recompute our data.
         int lastPrecomputationParamHash;
 
-        PbrSkySettings            m_Settings;
+        PbrSkySettings          m_Settings;
         // Precomputed data below.
-        RTHandleSystem.RTHandle   m_OpticalDepthTable;
-        RTHandleSystem.RTHandle   m_GroundIrradianceTable;
-        RTHandleSystem.RTHandle[] m_InScatteredRadianceTable;
+        RTHandleSystem.RTHandle m_OpticalDepthTable;
+        RTHandleSystem.RTHandle m_GroundIrradianceTable;
+        RTHandleSystem.RTHandle m_InScatteredRadianceTable;
 
-        static ComputeShader      s_OpticalDepthPrecomputationCS;
-        static ComputeShader      s_GroundIrradiancePrecomputationCS;
-        static ComputeShader      s_InScatteredRadiancePrecomputationCS;
+        static ComputeShader    s_OpticalDepthPrecomputationCS;
+        static ComputeShader    s_GroundIrradiancePrecomputationCS;
+        static ComputeShader    s_InScatteredRadiancePrecomputationCS;
+        static Material         s_PbrSkyMaterial;
 
         public PbrSkyRenderer(PbrSkySettings settings)
         {
             m_Settings = settings;
-        }
-
-        public override bool IsValid()
-        {
-            /* TODO */
-            return true;
         }
 
         public override void Build()
@@ -55,6 +50,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             s_OpticalDepthPrecomputationCS        = hdrpResources.shaders.opticalDepthPrecomputationCS;
             s_GroundIrradiancePrecomputationCS    = hdrpResources.shaders.groundIrradiancePrecomputationCS;
             s_InScatteredRadiancePrecomputationCS = hdrpResources.shaders.inScatteredRadiancePrecomputationCS;
+            s_PbrSkyMaterial                      = CoreUtils.CreateEngineMaterial(hdrpResources.shaders.pbrSkyPS);
 
             Debug.Assert(s_OpticalDepthPrecomputationCS        != null);
             Debug.Assert(s_GroundIrradiancePrecomputationCS    != null);
@@ -74,28 +70,26 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                                                       enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
                                                       name: "GroundIrradianceTable");
 
-            m_InScatteredRadianceTable = new RTHandleSystem.RTHandle[(int)PbrSkyConfig.InScatteredRadianceTableSizeW];
+            // Emulate a 4D texture with a "deep" 3D texture.
+            m_InScatteredRadianceTable = RTHandles.Alloc((int)PbrSkyConfig.InScatteredRadianceTableSizeX,
+                                                         (int)PbrSkyConfig.InScatteredRadianceTableSizeY,
+                                                         (int)PbrSkyConfig.InScatteredRadianceTableSizeZ *
+                                                         (int)PbrSkyConfig.InScatteredRadianceTableSizeW,
+                                                         dimension: TextureDimension.Tex3D,
+                                                         filterMode: FilterMode.Bilinear,
+                                                         colorFormat: GraphicsFormat.R16G16B16A16_SFloat,
+                                                         enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
+                                                         name: "InScatteredRadianceTable");
 
-            for (int w = 0; w < (int)PbrSkyConfig.InScatteredRadianceTableSizeW; w++)
-            {
-                m_InScatteredRadianceTable[w] = RTHandles.Alloc((int)PbrSkyConfig.InScatteredRadianceTableSizeX,
-                                                                (int)PbrSkyConfig.InScatteredRadianceTableSizeY,
-                                                                (int)PbrSkyConfig.InScatteredRadianceTableSizeZ,
-                                                                dimension: TextureDimension.Tex3D,
-                                                                filterMode: FilterMode.Bilinear,
-                                                                colorFormat: GraphicsFormat.R16G16B16A16_SFloat,
-                                                                enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
-                                                                name: string.Format("InScatteredRadianceTable{0}", w));
-            }
+            Debug.Assert(m_OpticalDepthTable        != null);
+            Debug.Assert(m_GroundIrradianceTable    != null);
+            Debug.Assert(m_InScatteredRadianceTable != null);
+        }
 
-            // Texture validation.
-            Debug.Assert(m_OpticalDepthTable     != null);
-            Debug.Assert(m_GroundIrradianceTable != null);
-
-            for (int w = 0; w < (int)PbrSkyConfig.InScatteredRadianceTableSizeW; w++)
-            {
-                Debug.Assert(m_InScatteredRadianceTable[w] != null);
-            }
+        public override bool IsValid()
+        {
+            /* TODO */
+            return true;
         }
 
         public override void Cleanup()
@@ -122,17 +116,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             float g = anisotropy;
 
             return (3.0f / (8.0f * Mathf.PI)) * (1.0f - g * g) / (2.0f + g * g);
-        }
-
-        static float UnmapCosineOfLightViewAngle(float u)
-        {
-            float s = ((0.5f - u) >= 0) ? 1 : -1;
-            float p = Mathf.Clamp01(s * (1 - 2 * u));
-            float a = Mathf.Pow(p, 0.66666667f);
-            float y = s * a;
-            float x = 0.5f - 0.5f * y;
-
-            return Mathf.Cos(Mathf.PI * x);
         }
 
         void UpdateSharedConstantBuffer(CommandBuffer cmd)
@@ -164,7 +147,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.SetGlobalVector("_GroundAlbedo",              m_Settings.groundColor.value);
 
             cmd.SetGlobalVector("_SunRadiance",               m_Settings.sunRadiance.value);
-            cmd.SetGlobalVector("_SunDirection",              m_Settings.sunDirection.value);
         }
 
         void PrecomputeTables(CommandBuffer cmd)
@@ -189,23 +171,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 const int numBounces = 0;
                 for (int i = 0; i <= numBounces; i++)
                 {
-                    cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, 0, "_GroundIrradianceTexture", m_GroundIrradianceTable);
+                    cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, 0, "_GroundIrradianceTexture",  m_GroundIrradianceTable);
+                    cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, 0, "_InScatteredRadianceTable", m_InScatteredRadianceTable);
 
-                    for (int w = 0; w < (int)PbrSkyConfig.InScatteredRadianceTableSizeW; w++)
-                    {
-                        bool aboveHorizon = w < ((int)PbrSkyConfig.InScatteredRadianceTableSizeW / 2);
-
-                        int   k     = w % ((int)PbrSkyConfig.InScatteredRadianceTableSizeW / 2);
-                        float u     = k / (float)((int)PbrSkyConfig.InScatteredRadianceTableSizeW / 2);
-                        float LdotV = UnmapCosineOfLightViewAngle(u);
-
-                        cmd.SetComputeFloatParam(s_InScatteredRadiancePrecomputationCS, "_LdotV", LdotV);
-                        cmd.SetComputeFloatParam(s_InScatteredRadiancePrecomputationCS, "_AboveHorizon", aboveHorizon ? 1.0f : 0.0f);
-                        cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, 0, "_InScatteredRadianceTable", m_InScatteredRadianceTable[w]);
-                        cmd.DispatchCompute(s_InScatteredRadiancePrecomputationCS, 0, (int)PbrSkyConfig.InScatteredRadianceTableSizeX / 4,
-                                                                                      (int)PbrSkyConfig.InScatteredRadianceTableSizeY / 4,
-                                                                                      (int)PbrSkyConfig.InScatteredRadianceTableSizeZ / 4);
-                    }
+                    // Emulate a 4D dispatch with a "deep" 3D dispatch.
+                    cmd.DispatchCompute(s_InScatteredRadiancePrecomputationCS, 0, (int)PbrSkyConfig.InScatteredRadianceTableSizeX / 4,
+                                                                                  (int)PbrSkyConfig.InScatteredRadianceTableSizeY / 4,
+                                                                                  (int)PbrSkyConfig.InScatteredRadianceTableSizeZ *
+                                                                                  (int)PbrSkyConfig.InScatteredRadianceTableSizeW / 4);
                 }
             }
 

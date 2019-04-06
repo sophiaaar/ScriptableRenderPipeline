@@ -28,45 +28,15 @@ CBUFFER_START(UnityPbrSky)
     float3 _GroundAlbedo;
 
     float3 _SunRadiance;  // TODO: isn't that just a global multiplier?
-    float3 _SunDirection; // TODO: useless?
 CBUFFER_END
-
-SAMPLER(s_linear_clamp_sampler);
 
 TEXTURE2D(_OpticalDepthTexture);
 TEXTURE2D(_GroundIrradianceTexture);
-TEXTURE3D(_InScatteredRadianceTexture0);
-TEXTURE3D(_InScatteredRadianceTexture1);
-TEXTURE3D(_InScatteredRadianceTexture2);
-TEXTURE3D(_InScatteredRadianceTexture3);
-TEXTURE3D(_InScatteredRadianceTexture4);
-TEXTURE3D(_InScatteredRadianceTexture5);
-TEXTURE3D(_InScatteredRadianceTexture6);
-TEXTURE3D(_InScatteredRadianceTexture7);
-TEXTURE3D(_InScatteredRadianceTexture8);
-TEXTURE3D(_InScatteredRadianceTexture9);
-TEXTURE3D(_InScatteredRadianceTexture10);
-TEXTURE3D(_InScatteredRadianceTexture11);
-TEXTURE3D(_InScatteredRadianceTexture12);
-TEXTURE3D(_InScatteredRadianceTexture13);
-TEXTURE3D(_InScatteredRadianceTexture14);
-TEXTURE3D(_InScatteredRadianceTexture15);
-TEXTURE3D(_InScatteredRadianceTexture16);
-TEXTURE3D(_InScatteredRadianceTexture17);
-TEXTURE3D(_InScatteredRadianceTexture18);
-TEXTURE3D(_InScatteredRadianceTexture19);
-TEXTURE3D(_InScatteredRadianceTexture20);
-TEXTURE3D(_InScatteredRadianceTexture21);
-TEXTURE3D(_InScatteredRadianceTexture22);
-TEXTURE3D(_InScatteredRadianceTexture23);
-TEXTURE3D(_InScatteredRadianceTexture24);
-TEXTURE3D(_InScatteredRadianceTexture25);
-TEXTURE3D(_InScatteredRadianceTexture26);
-TEXTURE3D(_InScatteredRadianceTexture27);
-TEXTURE3D(_InScatteredRadianceTexture28);
-TEXTURE3D(_InScatteredRadianceTexture29);
-TEXTURE3D(_InScatteredRadianceTexture30);
-TEXTURE3D(_InScatteredRadianceTexture31); // PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_W = 32
+TEXTURE3D(_InScatteredRadianceTexture); // Emulate a 4D texture with a "deep" 3D texture
+
+#ifndef UNITY_SHADER_VARIABLES_INCLUDED
+    SAMPLER(s_linear_clamp_sampler);
+#endif
 
 float3 AirScatter(float LdotV, float height)
 {
@@ -100,9 +70,8 @@ void ComputeAtmosphericLocalFrame(float NdotL, float NdotV, float LdotV,
     V.y = sqrt(saturate(1 - V.x * V.x - V.z * V.z));
 }
 
-
-// Assumes there is an intersection.
-float IntersectAtmosphereFromInside(float cosChi, float height)
+// Returns a negative number if there's no intersection.
+float IntersectAtmosphereFromOutside(float cosChi, float height)
 {
     float R = _PlanetaryRadius;
     float h = height;
@@ -128,8 +97,8 @@ float IntersectAtmosphereFromInside(float cosChi, float height)
     float c = r * r - _AtmosphericRadiusSquared;
     float d = b * b - c;
 
-    // We are only interested in the largest root (the other one is negative).
-    return -b + sqrt(abs(d)); // Prevent NaNs
+    // We are only interested in the smallest root (closest intersection).
+    return (d >= 0) ? (-b + sqrt(d)) : d;
 }
 
 // Assumes there is an intersection.

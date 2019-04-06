@@ -120,6 +120,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public ComputeShader opticalDepthPrecomputationCS;
             public ComputeShader groundIrradiancePrecomputationCS;
             public ComputeShader inScatteredRadiancePrecomputationCS;
+            public Shader        pbrSkyPS;
 
             // Material
             [Reload("Runtime/Material/PreIntegratedFGD/PreIntegratedFGD_GGXDisneyDiffuse.shader")]
