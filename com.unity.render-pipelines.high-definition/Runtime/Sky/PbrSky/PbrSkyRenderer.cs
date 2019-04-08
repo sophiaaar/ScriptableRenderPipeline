@@ -25,16 +25,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // If the hash does not match, we must recompute our data.
         int lastPrecomputationParamHash;
 
-        PbrSkySettings          m_Settings;
+        PbrSkySettings               m_Settings;
         // Precomputed data below.
-        RTHandleSystem.RTHandle m_OpticalDepthTable;
-        RTHandleSystem.RTHandle m_GroundIrradianceTable;
-        RTHandleSystem.RTHandle m_InScatteredRadianceTable;
+        RTHandleSystem.RTHandle      m_OpticalDepthTable;
+        RTHandleSystem.RTHandle      m_GroundIrradianceTable;
+        RTHandleSystem.RTHandle      m_InScatteredRadianceTable;
 
-        static ComputeShader    s_OpticalDepthPrecomputationCS;
-        static ComputeShader    s_GroundIrradiancePrecomputationCS;
-        static ComputeShader    s_InScatteredRadiancePrecomputationCS;
-        static Material         s_PbrSkyMaterial;
+        static ComputeShader         s_OpticalDepthPrecomputationCS;
+        static ComputeShader         s_GroundIrradiancePrecomputationCS;
+        static ComputeShader         s_InScatteredRadiancePrecomputationCS;
+        static Material              s_PbrSkyMaterial;
+        static MaterialPropertyBlock s_PbrSkyMaterialProperties;
 
         public PbrSkyRenderer(PbrSkySettings settings)
         {
@@ -84,6 +85,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             Debug.Assert(m_OpticalDepthTable        != null);
             Debug.Assert(m_GroundIrradianceTable    != null);
             Debug.Assert(m_InScatteredRadianceTable != null);
+
+            s_PbrSkyMaterialProperties = new MaterialPropertyBlock();
         }
 
         public override bool IsValid()
@@ -145,7 +148,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.SetGlobalFloat( "_AerosolSeaLevelScattering", m_Settings.aerosolAlbedo.value * m_Settings.aerosolThickness.value * 0.001f); // Convert to 1/km
 
             cmd.SetGlobalVector("_GroundAlbedo",              m_Settings.groundColor.value);
-
+            cmd.SetGlobalVector("_PlanetCenterPosition",      m_Settings.planetCenterPosition.value);
             cmd.SetGlobalVector("_SunRadiance",               m_Settings.sunRadiance.value);
         }
 
@@ -177,11 +180,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     // Emulate a 4D dispatch with a "deep" 3D dispatch.
                     cmd.DispatchCompute(s_InScatteredRadiancePrecomputationCS, 0, (int)PbrSkyConfig.InScatteredRadianceTableSizeX / 4,
                                                                                   (int)PbrSkyConfig.InScatteredRadianceTableSizeY / 4,
-                                                                                  (int)PbrSkyConfig.InScatteredRadianceTableSizeZ *
-                                                                                  (int)PbrSkyConfig.InScatteredRadianceTableSizeW / 4);
+                                                                                  (int)PbrSkyConfig.InScatteredRadianceTableSizeZ / 4 *
+                                                                                  (int)PbrSkyConfig.InScatteredRadianceTableSizeW);
                 }
             }
-
         }
 
         // 'renderSunDisk' parameter is meaningless and is thus ignored.
@@ -200,7 +202,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // lastPrecomputationParamHash = currentParamHash;
             }
 
-            /* TODO */
+            // This matrix needs to be updated at the draw call frequency.
+            s_PbrSkyMaterialProperties.SetMatrix( HDShaderIDs._PixelCoordToViewDirWS,  builtinParams.pixelCoordToViewDirMatrix);
+            s_PbrSkyMaterialProperties.SetVector( "_SunDirection",                    -builtinParams.sunLight.transform.forward);
+            s_PbrSkyMaterialProperties.SetTexture("_OpticalDepthTexture",              m_OpticalDepthTable);
+            s_PbrSkyMaterialProperties.SetTexture("_GroundIrradianceTexture",          m_GroundIrradianceTable);
+            s_PbrSkyMaterialProperties.SetTexture("_InScatteredRadianceTexture",       m_InScatteredRadianceTable);
+
+            CoreUtils.DrawFullScreen(builtinParams.commandBuffer, s_PbrSkyMaterial, s_PbrSkyMaterialProperties, renderForCubemap ? 0 : 1);
         }
     }
 }

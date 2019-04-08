@@ -8,6 +8,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         /* We use the measurements from Earth as the defaults. */
         // Radius of the planet (distance from the core to the sea level). Units: km.
         public MinFloatParameter planetaryRadius = new MinFloatParameter(6378.759f, 0);
+        // Position of the center of the planet in the world space.
+        public Vector3Parameter planetCenterPosition = new Vector3Parameter(new Vector3(0, -6378.759f, 0));
         // Extinction coefficient of air molecules at the sea level. Units: 1/(1000 km).
         // TODO: use mean free path?
         public ColorParameter airThickness = new ColorParameter(new Color(5.8f, 13.5f, 33.1f), hdr: true, showAlpha: false, showEyeDropper: false);
@@ -34,23 +36,20 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // -1: backward scattering.
         public ClampedFloatParameter aerosolAnisotropy = new ClampedFloatParameter(0, -1, 1);
         // Albedo of the planetary surface.
-        public ColorParameter groundColor = new ColorParameter(new Color(1.0f, 1.0f, 1.0f), hdr: false, showAlpha: false, showEyeDropper: false);
+        public ColorParameter groundColor = new ColorParameter(new Color(1, 1, 1), hdr: false, showAlpha: false, showEyeDropper: false);
 
         /* Properties below should be interpolated, but they should not be accessible via the GUI. */
 
         // Height of all the atmospheric layers starting from the sea level. Units: km.
-        public FloatParameter   atmosphericDepth { get; set; }
-        // Light's properties.
-        // TODO: Do we really need them???
-        public Vector3Parameter sunRadiance      { get; set; }
-        public Vector3Parameter sunDirection     { get; set; }
+        public FloatParameter atmosphericDepth { get; set; }
+
+        public Vector3Parameter sunRadiance { get; set; } // TODO: isn't that just a global multiplier?
 
         public void Awake()
         {
             // Allocate memory on startup.
             atmosphericDepth = new FloatParameter(0.0f);
             sunRadiance      = new Vector3Parameter(Vector3.zero);
-            sunDirection     = new Vector3Parameter(Vector3.zero);
         }
 
         float ComputeAtmosphericDepth()
@@ -82,7 +81,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             sunRadiance.value      = new Vector3(sun.intensity * sun.color.linear.r,
                                                  sun.intensity * sun.color.linear.g,
                                                  sun.intensity * sun.color.linear.b);
-            sunDirection.value     = -sun.transform.forward;
+//            sunDirection.value     = -sun.transform.forward;
         }
 
         public override int GetHashCode()
@@ -92,6 +91,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             unchecked
             {
                 hash = hash * 23 + planetaryRadius.GetHashCode();
+                hash = hash * 23 + planetCenterPosition.GetHashCode();
                 hash = hash * 23 + airThickness.GetHashCode();
                 hash = hash * 23 + airAlbedo.GetHashCode();
                 hash = hash * 23 + airDensityFalloff.GetHashCode();
@@ -102,7 +102,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 hash = hash * 23 + groundColor.GetHashCode();
                 hash = hash * 23 + atmosphericDepth.GetHashCode();
                 hash = hash * 23 + sunRadiance.GetHashCode();
-                hash = hash * 23 + sunDirection.GetHashCode();
             }
 
             return hash;

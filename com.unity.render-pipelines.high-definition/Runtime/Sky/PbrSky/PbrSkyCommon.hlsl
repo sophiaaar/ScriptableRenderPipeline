@@ -27,6 +27,8 @@ CBUFFER_START(UnityPbrSky)
 
     float3 _GroundAlbedo;
 
+    float3 _PlanetCenterPosition;
+
     float3 _SunRadiance;  // TODO: isn't that just a global multiplier?
 CBUFFER_END
 

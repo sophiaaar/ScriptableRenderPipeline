@@ -4,6 +4,7 @@ Shader "Hidden/HDRP/Sky/RenderPbrSky"
 
     #pragma vertex Vert
 
+    #pragma enable_d3d11_debug_symbols
     #pragma target 4.5
     #pragma only_renderers d3d11 ps4 xboxone vulkan metal switch
 
@@ -14,7 +15,6 @@ Shader "Hidden/HDRP/Sky/RenderPbrSky"
 
     float4x4 _PixelCoordToViewDirWS; // Actually just 3x3, but Unity can only set 4x4
     float3   _SunDirection;
-    float3   _PlanetCenterPosition;
 
     struct Attributes
     {
@@ -43,11 +43,13 @@ Shader "Hidden/HDRP/Sky/RenderPbrSky"
 
         float3 L = _SunDirection;
         float3 V = GetSkyViewDirWS(input.positionCS.xy, (float3x3)_PixelCoordToViewDirWS);
-        float3 O = _WorldSpaceCameraPos;
+        float3 O = _WorldSpaceCameraPos * 0.001; // Convert to km
         float3 C = _PlanetCenterPosition;
         float3 P = O - C;
         float3 N = normalize(P);
         float  h = max(0, length(P) - _PlanetaryRadius); // Must not be inside the planet
+
+        float3 radiance = 0;
 
         if (h <= _AtmosphericDepth)
         {
@@ -67,7 +69,7 @@ Shader "Hidden/HDRP/Sky/RenderPbrSky"
             }
             else
             {
-                return float4(0, 0, 0, 1);
+                return float4(radiance, 1);
             }
         }
 
@@ -79,7 +81,17 @@ Shader "Hidden/HDRP/Sky/RenderPbrSky"
         float v = MapAerialPerspective(NdotV, h).y;
         float s = MapAerialPerspective(NdotV, h).z;
         float t = MapCosineOfZenithAngle(NdotL);
+
         float k = (n - 1) * MapCosineOfLightViewAngle(LdotV); // Index
+
+        // Do we see the ground?
+        if (s == 0)
+        {
+            // Shade the ground.
+            const float3 groundBrdf = INV_PI * _GroundAlbedo;
+            float3 T = SampleTransmittanceTexture(-NdotV, h, true);
+            radiance += T * groundBrdf * SampleGroundIrradianceTexture(NdotL);
+        }
 
         const uint zTexSize  = PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_Z;
         const uint zTexCount = PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_W;
@@ -92,11 +104,12 @@ Shader "Hidden/HDRP/Sky/RenderPbrSky"
         float w0 = t * rcp(zTexCount) + 0.5 * (1 - s) + 0.5 * (floor(k) * rcp(n));
         float w1 = t * rcp(zTexCount) + 0.5 * (1 - s) + 0.5 * (ceil(k)  * rcp(n));
 
-        float3 radiance = lerp(SAMPLE_TEXTURE3D(_InScatteredRadianceTexture, s_linear_clamp_sampler, float3(u, v, w0)),
-                               SAMPLE_TEXTURE3D(_InScatteredRadianceTexture, s_linear_clamp_sampler, float3(u, v, w1)),
-                               frac(k));
+        radiance += lerp(SAMPLE_TEXTURE3D(_InScatteredRadianceTexture, s_linear_clamp_sampler, float3(u, v, w0)),
+                         SAMPLE_TEXTURE3D(_InScatteredRadianceTexture, s_linear_clamp_sampler, float3(u, v, w1)),
+                         frac(k)).rgb;
 
-        return float4(radiance, 1.0);
+        // return float4(radiance, 1.0);
+        return float4(radiance / (radiance + 1), 1.0);
     }
 
     float4 FragBaking(Varyings input) : SV_Target
