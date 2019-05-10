@@ -1,0 +1,208 @@
+#include "GTAOCommon.hlsl"
+#include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/NormalBuffer.hlsl"
+
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel GTAOMain
+#pragma enable_d3d11_debug_symbols
+
+// --------------------------------------------
+// Integration functions
+// --------------------------------------------
+
+float IntegrateArcUniform(float horizon1, float horizon2)
+{
+    return (1.0f - cos(horizon1) + (1.0f - cos(horizon2)));
+}
+
+float IntegrateArcCosWeighted(float horzion1, float horizon2, float n, float cosN)
+{
+    float h1 = horzion1 * 2.0f; // TODO_FCC: Better names
+    float h2 = horizon2 * 2.0f; // TODO_FCC: Better names
+    float sinN = sin(n);
+    return 0.25f * ((-cos(h1 - n) + cosN + h1 * sinN) + (-cos(h2 - n) + cosN + h2 * sinN));
+}
+
+// --------------------------------------------
+// Noisy functions
+// --------------------------------------------
+
+#define TEMPORAL_ROTATION 0 // FIXME TODO_FCC: This is broken now.
+
+float2 GetDirection(uint2 positionSS)
+{
+    // Spatial distribution 
+    float noise = (1.0 / 16.0) * ((((positionSS.x + positionSS.y) & 0x3) << 2) +
+        // Note: in the original presentation, this has a bug as the following needs to be positionSS.y and not positionSS.x
+        (positionSS.y & 0x3)) * PI;
+
+
+
+#if TEMPORAL_ROTATION
+    // Temporal rotations (verify this)
+    float rotations[] = { 60.0f, 300.0f, 180.0f, 240.0f, 120.0f, 0.0f };
+    float rotation = (rotations[_FrameCount % 6u] / 360.0f); // << VERIFY
+
+    noise += rotation; 
+#endif
+
+    float2 dir = float2(cos(noise), sin(noise));
+
+    return dir;
+}
+
+// --------------------------------------------
+// Get sample start offset
+// --------------------------------------------
+
+#define ENABLE_TEMPORAL_OFFSET 1
+
+float GetOffset(uint2 positionSS)
+{
+    // Spatial offset
+    float offset = 0.25f * ((positionSS.y - positionSS.x) & 0x3);
+
+    // Temporal offset
+#if ENABLE_TEMPORAL_OFFSET
+    float offsets[] = { 0.0f, 0.5f, 0.25f, 0.75f };
+    // TODO_FCC: Verify how to combine. 
+    offset += offsets[(_FrameCount / 6u) % 4u];
+#endif
+    return frac(offset);
+}
+
+// --------------------------------------------
+// Input generation functions
+// --------------------------------------------
+
+float GetDepth(float2 positionSS)
+{
+    int2 mipOffset = _DepthPyramidMipLevelOffsets[_AOBaseResMip];
+    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, mipOffset + positionSS.xy).r;
+}
+
+// Normal fetching options
+#define NORMAL_FROM_DEPTH 0
+#define NORMAL_FROM_GBUFFER 1
+#define NORMAL_COMPUTATION NORMAL_FROM_GBUFFER
+float3 GetNormalVS(uint2 positionSS)
+{
+#if NORMAL_COMPUTATION == NORMAL_FROM_GBUFFER
+    NormalData normalData;
+    DecodeFromNormalBuffer(positionSS, normalData);
+    // move to view space << ??
+    float3 normalVS = normalize(mul((float3x3)UNITY_MATRIX_V, normalData.normalWS));
+    normalVS.z *= -1;
+    return normalVS;
+#elif NORMAL_COMPUTATION == NORMAL_FROM_DEPTH
+    // TODO_FCC: Implement.
+#endif
+}
+
+float3 GetPositionVS(float2 positionSS)
+{
+    float depth = GetDepth(positionSS);
+
+    // TODO: VERIFY THIS.
+    return ComputeViewSpacePosition(positionSS * _ScreenSize.zw, depth, UNITY_MATRIX_I_P);
+}
+
+
+// TODO_FCC: Optimize
+float UpdateHorizon(float maxH, float candidateH, float distSq)
+{
+    // This is empirical, TODO_FCC: Investigate better here.
+    float falloff = saturate((1.0f -  (distSq / (_AORadius*_AORadius)) ));
+    falloff *= falloff;
+
+   //return max(maxH, candidateH);
+    return (candidateH > maxH ) ? lerp( maxH, candidateH, falloff) : maxH;
+
+}
+
+#define INTEGRAL_UNIFORM 0
+#define INTEGRAL_COSINE 1
+#define INTEGRAL_TYPE INTEGRAL_COSINE
+
+// High level TODOs:
+//  - Depth mip chain traversal for sampling.
+
+RW_TEXTURE2D_X(float4, _OcclusionTexture);
+
+[numthreads(8,8,1)]
+void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    // Read buffers as early as possible.
+    float3 positionVS = GetPositionVS(dispatchThreadId.xy);
+    float3 normalVS = GetNormalVS(dispatchThreadId.xy * (_AOBaseResMip + 1));
+
+
+    // TODO: Define max length AO rays can travel
+    // TODO: Define step count with variable from cbuff
+    float fovCorrectedradiusSS = _AORadius * _AOFOVCorrection * rcp(positionVS.z);
+
+    float step = fovCorrectedradiusSS / (_AOStepCount + 1); // TODO_FCC: Verify this +1
+
+    float2 dir = GetDirection(dispatchThreadId.xy);
+    float offset = GetOffset(dispatchThreadId.xy);
+
+    float t = offset * step + step;
+    float2 rayStart = dispatchThreadId.xy;
+
+
+    float3 V = normalize(-positionVS);
+
+    // Searching for horizons.  TODO: Optimize so that we hide latency (load position first and then do work for one then the other). 
+    float2 maxHorizons = -1.0f;
+    for (int i = 0; i < _AOStepCount; i++)
+    {
+        // xy in positive, zw in negative
+        float4 samplePos = rayStart.xyxy + t * float4(dir.xy, -dir.xy);
+
+        // Find horizons at these steps:
+        float3 posFw = GetPositionVS(samplePos.xy);
+        float3 posBw = GetPositionVS(samplePos.zw);
+
+        float3 deltaFw = posFw - positionVS;
+
+        // Lengths of the vectors
+        float fwLenSq = dot(deltaFw, deltaFw);
+
+        float3 deltaBw = posBw - positionVS;
+        float bwLenSq = dot(deltaBw, deltaBw);
+
+
+        // TODO: Some kind of falloff?
+        // TODO: Some kind of thickness heuristic. << Must do.
+        // Note these are still in cos, so not really the horizon angles. 
+        float2 currHorizons = float2(dot(deltaFw, V) * rsqrt(fwLenSq), dot(deltaBw, V) * rsqrt(bwLenSq));
+        maxHorizons.x = UpdateHorizon(maxHorizons.x, currHorizons.x, fwLenSq);
+        maxHorizons.y = UpdateHorizon(maxHorizons.y, currHorizons.y, bwLenSq);
+
+        t += step;
+    }
+
+
+    // --------------------------------
+    // ----- This needs optimizing ----
+    // --------------------------------
+    float3 sliceN = normalize(cross(float3(dir.xy, 0.0f), V.xyz));   // Is this correct? 
+    float3 projN = normalVS - sliceN * dot(normalVS, sliceN);
+    float projNLen = length(projN);
+    float cosN = clamp(dot(projN / projNLen, V), -1.0f, 1.0f);
+
+    float3 T = cross(V, sliceN);
+    float n = -sign(dot(projN, T)) * GTAOFastAcos(cosN);
+
+    // Now we find the actual horizon angles
+    maxHorizons.x = -GTAOFastAcos(clamp(maxHorizons.x, -1.0f, 1.0f));
+    maxHorizons.y = GTAOFastAcos(clamp(maxHorizons.y, -1.0f, 1.0f));
+    maxHorizons.x = n + max(maxHorizons.x - n, -HALF_PI);
+    maxHorizons.y = n + min(maxHorizons.y - n, HALF_PI);
+
+#if INTEGRAL_TYPE == INTEGRAL_COSINE
+    float integral = projNLen * IntegrateArcCosWeighted(maxHorizons.x, maxHorizons.y, n, cosN);
+#elif INTEGRAL_TYPE == INTEGRAL_UNIFORM
+    float integral = projNLen * IntegrateArcUniform(maxHorizons.x, maxHorizons.y);
+#endif 
+    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] =  1-saturate(integral);
+}

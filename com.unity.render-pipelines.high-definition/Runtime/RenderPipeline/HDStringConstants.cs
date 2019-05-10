@@ -355,9 +355,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public static readonly int _SsrLightingTextureRW              = Shader.PropertyToID("_SsrLightingTextureRW");
         public static readonly int _SsrHitPointTexture                = Shader.PropertyToID("_SsrHitPointTexture");
         public static readonly int _SsrClearCoatMaskTexture           = Shader.PropertyToID("_SsrClearCoatMaskTexture");
-        public static readonly int _SsrDepthPyramidMipOffsets         = Shader.PropertyToID("_SsrDepthPyramidMipLevelOffsets");
         public static readonly int _SsrStencilExclusionValue          = Shader.PropertyToID("_SsrStencilExclusionValue");
         public static readonly int _SsrReflectsSky                    = Shader.PropertyToID("_SsrReflectsSky");
+
+        public static readonly int _DepthPyramidMipLevelOffsets       = Shader.PropertyToID("_DepthPyramidMipLevelOffsets");
 
 
         public static readonly int _ShadowMaskTexture = Shader.PropertyToID("_ShadowMaskTexture");
@@ -705,6 +706,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public static readonly int _LowResDepthTexture             = Shader.PropertyToID("_LowResDepthTexture");
         public static readonly int _LowResTransparent              = Shader.PropertyToID("_LowResTransparent");
 
+        public static readonly int _AOBufferSize                   = Shader.PropertyToID("_AOBufferSize");
+        public static readonly int _AOParams0                      = Shader.PropertyToID("_AOParams0");
+        public static readonly int _OcclusionTexture               = Shader.PropertyToID("_OcclusionTexture");
 
     }
 }

@@ -162,6 +162,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             [Reload("Runtime/RenderPipeline/RenderPass/MSAA/AmbientOcclusionResolve.shader")]
             public Shader aoResolvePS;
 
+
+            [Reload("Runtime/Lighting/ScreenSpaceLighting/GTAO.compute")]
+            public ComputeShader GTAOCS;
+
             // MSAA Shaders
             [Reload("Runtime/RenderPipeline/RenderPass/MSAA/DepthValues.shader")]
             public Shader depthValuesPS;
