@@ -172,9 +172,10 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     for (int i = 0; i < numSamples; i++)
     {
-        // Use (n = 1/2) when looking down, and (n = 2) when looking up.
+        // Use (n = 0.5) when looking down, (n = 1) when looking horizontally,
+        // and (n = 2) when looking up.
         // TODO: use exponential media importance sampling...
-        float n  = lerp(0.5, 2, saturate(cosChi * 0.5 + 0.5));
+        float n  = pow(2, cosChi);
         float t1 = tMin + (tMax - tMin) * pow((i + 1) * rcp(numSamples), n);
         float dt = t1 - t0;
 
@@ -209,6 +210,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
 
     // TODO: deep compositing.
+    // Note: ground reflection is computed at runtime.
     _AirSingleScatteringTable[tableCoord]     = airTableEntry;
     _AerosolSingleScatteringTable[tableCoord] = aerosolTableEntry;
 
@@ -235,7 +237,6 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             // Flip it upside-down to point towards the sphere light (planet).
             float3 gL = -dir;
 
-            // TODO: compute analytically?
             float  t  = IntersectSphere(_PlanetaryRadius, gL.z, r).x;
             float3 gP = O + t * gL;
             float3 gN = normalize(gP);
@@ -243,8 +244,10 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             // Shade the ground.
             const float3 gBrdf = INV_PI * _GroundAlbedo;
 
-            float3 transm  = SampleTransmittanceTexture(gL.z, h);
+            // TODO: we compute the same thing for many voxels,
+            // the only real difference is the phase function...
             float3 scatter = AtmospherPhaseScatter(dot(gL, V), h);
+            float3 transm  = SampleTransmittanceTexture(gL.z, h);
 
             float weight = rcpPdf * rcp(numGroundSamples);
             radiance += weight * scatter * transm * gBrdf * SampleGroundIrradianceTexture(dot(gN, L));
