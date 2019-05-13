@@ -75,6 +75,11 @@ namespace UnityEditor.ShaderGraph.Drawing
         public override void BuildContextualMenu(ContextualMenuPopulateEvent evt)
         {
             base.BuildContextualMenu(evt);
+            if(evt.target is GraphView)
+            {
+                evt.menu.AppendAction("Create Sticky Note", CreateStickyNote, DropdownMenuAction.Status.Normal );
+            }
+            
             if (evt.target is GraphView || evt.target is Node)
             {
                 evt.menu.AppendAction("Convert To Sub-graph", ConvertToSubgraph, ConvertToSubgraphStatus);
@@ -174,6 +179,12 @@ namespace UnityEditor.ShaderGraph.Drawing
                 graph.SetNodeGroup(shaderNodeView.node, groupData);
             }
         }
+
+        public void CreateStickyNote(DropdownMenuAction action)
+        {
+            Debug.Log("SCHTICKKYY");
+        }
+
 
         void RemoveFromGroupNode(DropdownMenuAction action)
         {
