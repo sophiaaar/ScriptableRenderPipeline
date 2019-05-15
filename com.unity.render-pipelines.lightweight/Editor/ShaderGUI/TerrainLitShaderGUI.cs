@@ -230,6 +230,7 @@ namespace UnityEditor.Rendering.LWRP
             var maskMapRemapMin = terrainLayer.maskMapRemapMin;
             var maskMapRemapMax = terrainLayer.maskMapRemapMax;
             var smoothness = terrainLayer.smoothness;
+            var metallic = terrainLayer.metallic;
 
             ++EditorGUI.indentLevel;
             EditorGUI.BeginChangeCheck();
@@ -275,20 +276,26 @@ namespace UnityEditor.Rendering.LWRP
                     min = maskMapRemapMin.w; max = maskMapRemapMax.w;
                     EditorGUILayout.MinMaxSlider(s_Styles.smoothness, ref min, ref max, 0, 1);
                     maskMapRemapMin.w = min; maskMapRemapMax.w = max;
-                    smoothness = 1.0f;
                 }
                 else
                 {
-                    maskMapRemapMax.x = EditorGUILayout.Slider(s_Styles.metallic, maskMapRemapMax.x, 0, 1);
+                    metallic = EditorGUILayout.Slider(s_Styles.metallic, metallic, 0, 1);
                     maskMapRemapMax.y = EditorGUILayout.Slider(s_Styles.ao, maskMapRemapMax.y, 0, 1);
                     if (heightBlend)
-                        maskMapRemapMax.z = EditorGUILayout.FloatField(s_Styles.heightCm, maskMapRemapMin.z * 100) / 100;
-                    maskMapRemapMax.w = EditorGUILayout.Slider(s_Styles.smoothness, maskMapRemapMax.w, 0, 1);
+                        maskMapRemapMax.z = EditorGUILayout.FloatField(s_Styles.heightCm, maskMapRemapMin.z * 100);
+
+                    //                    maskMapRemapMax.x = EditorGUILayout.Slider(s_Styles.metallic, maskMapRemapMax.x, 0, 1);
+                    //                    maskMapRemapMax.y = EditorGUILayout.Slider(s_Styles.ao, maskMapRemapMax.y, 0, 1);
+                    //                    if (heightBlend)
+                    //                        maskMapRemapMax.z = EditorGUILayout.FloatField(s_Styles.heightCm, maskMapRemapMin.z * 100) / 100;
+                    //                    maskMapRemapMax.w = EditorGUILayout.Slider(s_Styles.smoothness, maskMapRemapMax.w, 0, 1);
                     // Setting the min to zero and the max to the slider value has the same effect as
                     // just multiplying by max.  In the case and x & y, this is just multiplied by one
                     // when we have no mask map, and in the case of w, it's the alpha value of diffuse.
-                    maskMapRemapMin = Vector4.zero;
-                    smoothness = maskMapRemapMax.w;
+                    //                    maskMapRemapMin = Vector4.zero;
+                    //                    smoothness = maskMapRemapMax.w;
+                    maskMapRemapMin.y = 0;
+                    maskMapRemapMin.z = 0;
                 }
             }
 
@@ -297,6 +304,7 @@ namespace UnityEditor.Rendering.LWRP
                 terrainLayer.maskMapRemapMin = maskMapRemapMin;
                 terrainLayer.maskMapRemapMax = maskMapRemapMax;
                 terrainLayer.smoothness = smoothness;
+                terrainLayer.metallic = metallic;
             }
             --EditorGUI.indentLevel;
 

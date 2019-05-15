@@ -310,39 +310,30 @@ half4 SplatmapFragment(Varyings IN) : SV_TARGET
     SplatmapMix(IN.uvMainAndLM, IN.uvSplat01, IN.uvSplat23, splatControl, weight, mixedDiffuse, defaultSmoothness, normalTS);
     half3 albedo = mixedDiffuse.rgb;
     
-//#ifndef _MASKMAP
-//    masks[0] = half4(1.0h, 1.0h, 1.0h, defaultSmoothness.r);
-//    masks[1] = half4(1.0h, 1.0h, 1.0h, defaultSmoothness.g);
-//    masks[2] = half4(1.0h, 1.0h, 1.0h, defaultSmoothness.b);
-//    masks[3] = half4(1.0h, 1.0h, 1.0h, defaultSmoothness.a);
-//#endif
     half4 hasMask = half4(_LayerHasMask0, _LayerHasMask1, _LayerHasMask2, _LayerHasMask3);
-    half4 hasNoMask = 1.0h - hasMask;
     half4 defaultMetallic = half4(_Metallic0, _Metallic1, _Metallic2, _Metallic3);
     half4 defaultOcclusion = 1.0h;
     
+    masks[0] *= _MaskMapRemapScale0.rbga;
+    masks[0] += _MaskMapRemapOffset0.rbga;
+    masks[1] *= _MaskMapRemapScale1.rbga;
+    masks[1] += _MaskMapRemapOffset1.rbga;    
+    masks[2] *= _MaskMapRemapScale2.rbga;
+    masks[2] += _MaskMapRemapOffset2.rbga;
+    masks[3] *= _MaskMapRemapScale3.rbga;
+    masks[3] += _MaskMapRemapOffset3.rbga;
+    
+    
     half4 maskSmoothness = half4(masks[0].a, masks[1].a, masks[2].a, masks[3].a);
-    maskSmoothness *= half4(_MaskMapRemapScale0.a, _MaskMapRemapScale1.a, _MaskMapRemapScale2.a, _MaskMapRemapScale3.a);
-    maskSmoothness += half4(_MaskMapRemapOffset0.a, _MaskMapRemapOffset1.a, _MaskMapRemapOffset2.a, _MaskMapRemapOffset3.a);
-    
-    half4 maskMetallic = half4(masks[0].r, masks[1].r, masks[2].r, masks[3].r);
-    maskMetallic *= half4(_MaskMapRemapScale0.r, _MaskMapRemapScale1.r, _MaskMapRemapScale3.r, _MaskMapRemapScale3.r);
-    maskMetallic += half4(_MaskMapRemapOffset0.r, _MaskMapRemapOffset1.r, _MaskMapRemapOffset2.r, _MaskMapRemapOffset3.r);
-    
-    half4 maskOcclusion = half4(masks[0].g, masks[1].g, masks[2].g, masks[3].g);
-    maskOcclusion *= half4(_MaskMapRemapScale0.g, _MaskMapRemapScale1.g, _MaskMapRemapScale3.g, _MaskMapRemapScale3.g);
-    maskOcclusion += half4(_MaskMapRemapOffset0.g, _MaskMapRemapOffset1.g, _MaskMapRemapOffset2.g, _MaskMapRemapOffset3.g);
-
-    defaultSmoothness *= hasNoMask;
-    defaultSmoothness += hasMask * maskSmoothness;
+    defaultSmoothness = lerp(defaultSmoothness, maskSmoothness, hasMask);
     half smoothness = dot(splatControl, defaultSmoothness);
     
-    defaultMetallic *= hasNoMask;
-    defaultMetallic += hasMask * maskMetallic;
+    half4 maskMetallic = half4(masks[0].r, masks[1].r, masks[2].r, masks[3].r);
+    defaultMetallic = lerp(defaultMetallic, maskMetallic, hasMask);
     half metallic = dot(splatControl, defaultMetallic);
     
-    defaultOcclusion *= hasNoMask;
-    defaultOcclusion += hasMask * maskOcclusion;
+    half4 maskOcclusion = half4(masks[0].g, masks[1].g, masks[2].g, masks[3].g);
+    defaultOcclusion = lerp(defaultOcclusion, maskOcclusion, hasMask);
     half occlusion = dot(splatControl, defaultOcclusion);
     
     /*
