@@ -108,21 +108,20 @@ Shader "Hidden/HDRP/Sky/PbrSky"
             radiance += transm * gBrdf * SampleGroundIrradianceTexture(dot(gN, L));
         }
 
-
-        // Apply the phase function.
+        // Single scattering does not contain the phase function.
         float LdotV = dot(L, V);
 
-        radiance += lerp(SAMPLE_TEXTURE3D(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0)),
-                         SAMPLE_TEXTURE3D(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1)),
-                         tc.a).rgb * AirPhase(LdotV);
+        radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                         SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                         tc.a) * AirPhase(LdotV);
 
-        radiance += lerp(SAMPLE_TEXTURE3D(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0)),
-                         SAMPLE_TEXTURE3D(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1)),
-                         tc.a).rgb * AerosolPhase(LdotV);
+        radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                         SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                         tc.a) * AerosolPhase(LdotV);
 
-        radiance += lerp(SAMPLE_TEXTURE3D(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0)),
-                         SAMPLE_TEXTURE3D(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1)),
-                         tc.a).rgb;
+        radiance += lerp(SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                         SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                         tc.a);
 
         radiance *= _SunRadiance;
 

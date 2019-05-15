@@ -190,6 +190,12 @@ real IsotropicPhaseFunction()
     return INV_FOUR_PI;
 }
 
+real RayleighPhaseFunction(real cosTheta)
+{
+    real k = 3 / (16 * PI);
+    return k * (1 + cosTheta * cosTheta);
+}
+
 real HenyeyGreensteinPhasePartConstant(real anisotropy)
 {
     real g = anisotropy;
@@ -219,15 +225,25 @@ real CornetteShanksPhasePartConstant(real anisotropy)
     return (3 / (8 * PI)) * (1 - g * g) / (2 + g * g);
 }
 
-real CornetteShanksPhasePartVarying(real anisotropy, real cosTheta)
+// Similar to the RayleighPhaseFunction.
+real CornetteShanksPhasePartSymmetrical(real cosTheta)
+{
+    real h = 1 + cosTheta * cosTheta;
+    return h;
+}
+
+real CornetteShanksPhasePartAsymmetrical(real anisotropy, real cosTheta)
 {
     real g = anisotropy;
     real x = 1 + g * g - 2 * g * cosTheta;
     real f = rsqrt(max(x, FLT_EPS)); // x^(-1/2)
-    real h = (1 + cosTheta * cosTheta);
+    return f * f * f;                // x^(-3/2)
+}
 
-    // Note that this function is not perfectly isotropic for (g = 0).
-    return h * (f * f * f); // h * x^(-3/2)
+real CornetteShanksPhasePartVarying(real anisotropy, real cosTheta)
+{
+    return CornetteShanksPhasePartSymmetrical(cosTheta) *
+           CornetteShanksPhasePartAsymmetrical(anisotropy, cosTheta); // h * x^(-3/2)
 }
 
 // A better approximation of the Mie phase function.
@@ -236,12 +252,6 @@ real CornetteShanksPhaseFunction(real anisotropy, real cosTheta)
 {
     return CornetteShanksPhasePartConstant(anisotropy) *
            CornetteShanksPhasePartVarying(anisotropy, cosTheta);
-}
-
-real RayleighPhaseFunction(real cosTheta)
-{
-    real k = 3 / (16 * PI);
-    return k * (1 + cosTheta * cosTheta);
 }
 
 //
@@ -332,6 +342,19 @@ void ImportanceSamplePunctualLight(real rndVal, real3 lightPosition, real lightS
 
     // Remove the virtual light offset to obtain the real geometric distance.
     sqDist = max(sqDist - lightSqRadius, FLT_EPS);
+}
+
+// Returns the cosine.
+// Weight = Phase / Pdf = 1.
+real ImportanceSampleRayleighPhase(real rndVal)
+{
+    // real a = sqrt(16 * (rndVal - 1) * rndVal + 5);
+    // real b = -4 * rndVal + a + 2;
+    // real c = PositivePow(b, 0.33333333);
+    // return rcp(c) - c;
+
+    // Approximate...
+    return lerp(cos(PI * rndVal + PI), 2 * rndVal - 1, 0.5);
 }
 
 //

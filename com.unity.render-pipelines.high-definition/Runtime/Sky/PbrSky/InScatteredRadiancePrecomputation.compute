@@ -1,8 +1,9 @@
 #pragma enable_d3d11_debug_symbols
 #pragma only_renderers d3d11 ps4 xboxone vulkan metal switch
 
-#pragma kernel MAIN_1 main=MAIN_1 SINGLE_SCATTERING
-#pragma kernel MAIN_N main=MAIN_N MULTIPLE_SCATTERING
+#pragma kernel MAIN_1   main=MAIN_1   SINGLE_SCATTERING
+#pragma kernel MAIN_N_G main=MAIN_N_G MULTIPLE_SCATTERING_GATHER
+#pragma kernel MAIN_N_A main=MAIN_N_A MULTIPLE_SCATTERING_ACCUMULATE
 
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyCommon.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Sampling/Sampling.hlsl"
@@ -176,7 +177,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         // and (n = 2) when looking up.
         // TODO: use exponential media importance sampling...
         float n  = pow(2, cosChi);
-        float t1 = tMin + (tMax - tMin) * pow((i + 1) * rcp(numSamples), n);
+        float x  = pow((i + 1) * rcp(numSamples), n); // TODO: Cranley-Patterson Rotation
+        float t1 = tMin + (tMax - tMin) * x;
         float dt = t1 - t0;
 
         float3 P = O + t1 * -V;
@@ -214,21 +216,23 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     _AirSingleScatteringTable[tableCoord]     = airTableEntry;
     _AerosolSingleScatteringTable[tableCoord] = aerosolTableEntry;
 
-#else // MULTIPLE_SCATTERING
+#elif MULTIPLE_SCATTERING_GATHER
 
     float3 radiance = 0;
 
-    // Integrate ground contribution.
+    // Gather the ground contribution.
     // The ground is a Lambertian reflector. It is basically a textured sphere light.
-    // TODO: 50% of the ground is black! And most of the time it's too far away! How to early-out?
+    // TODO: 50% of the ground is black! And most of the time it's too far away!
+    // Also, anisotropic Mie scattering will make sure the contribution is near-zero...
     {
         float cosAperture = -cosHor; // Cosine of the half-angle
 
+        // Arbitrary number of samples...
         const int numGroundSamples = 89;
 
         for (int i = 0; i < numGroundSamples; i++)
         {
-            float2 f = Fibonacci2d(i, numGroundSamples);
+            float2 f = Fibonacci2d(i, numGroundSamples); // TODO: Cranley-Patterson Rotation
 
             // Construct a direction around the up vector.
             float3 dir; float rcpPdf;
@@ -246,11 +250,57 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
             // TODO: we compute the same thing for many voxels,
             // the only real difference is the phase function...
-            float3 scatter = AtmospherPhaseScatter(dot(gL, V), h);
-            float3 transm  = SampleTransmittanceTexture(gL.z, h);
+            float3 phase  = AtmospherPhaseScatter(dot(gL, V), h);
+            float3 transm = SampleTransmittanceTexture(gL.z, h);
 
             float weight = rcpPdf * rcp(numGroundSamples);
-            radiance += weight * scatter * transm * gBrdf * SampleGroundIrradianceTexture(dot(gN, L));
+            radiance += weight * phase * transm * gBrdf * SampleGroundIrradianceTexture(dot(gN, L));
+        }
+    }
+
+    // Gather the volume contribution.
+    {
+        // Arbitrary number of samples...
+        const int numVolumeSamples = 89;
+
+        for (int i = 0; i < numVolumeSamples; i++)
+        {
+            float2 f = Fibonacci2d(i, numVolumeSamples); // TODO: Cranley-Patterson Rotation
+
+            float cosTheta = ImportanceSampleRayleighPhase(f.x);
+            float phi      = TWO_PI * f.y;
+
+            // Construct a direction around the V vector.
+            float3x3 frame = GetLocalFrame(V); // Orientation around V is arbitrary, so maybe Cranley-Patterson Rotation is not needed
+
+            // Note that this direction is likely no longer in the V-N plane.
+            float3 V1 = SphericalToCartesian(phi, cosTheta);
+                   V1 = mul(V1, frame);
+
+            float NdotV1 = V1.z;
+            float phiL1  = acos(clamp(dot(L.xy, V1.xy) * rsqrt(max(dot(L.xy, L.xy) * dot(V1.xy, V1.xy), FLT_EPS)), -1, 1));
+
+            TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(h, NdotV1, NdotL, phiL1);
+
+            float3 incRadiance = 0;
+
+            // Single scattering does not contain the phase function.
+            float LdotV1 = dot(L, V1);
+
+            incRadiance += lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                                SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                                tc.a) * AirPhase(LdotV1);
+
+            incRadiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                                SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                                tc.a) * AerosolPhase(LdotV1);
+
+            // AtmospherPhaseScatter / AirPhase.
+            // The view direction is the opposite of the incoming direction.
+            float3 phase  = AirScatter(height) + AerosolScatter(height) * AerosolToAirPhaseRatio(-cosTheta);
+            float  weight = rcp(numVolumeSamples);
+
+            radiance += weight * phase * incRadiance;
         }
     }
 
@@ -258,5 +308,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     // TODO: deep compositing.
     _MultipleScatteringTable[tableCoord] = tableEntry;
+#else // MULTIPLE_SCATTERING_ACCUMULATE
+
 #endif
 }
