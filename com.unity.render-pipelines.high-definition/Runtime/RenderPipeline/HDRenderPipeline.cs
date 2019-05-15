@@ -1691,7 +1691,19 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 if (!hdCamera.frameSettings.SSAORunsAsync())
                     m_AmbientOcclusionSystem.Render(cmd, hdCamera, m_SharedRTManager, renderContext, m_FrameCount);
 
-                m_LightLoop.CopyStencilBufferIfNeeded(cmd, hdCamera, m_SharedRTManager);
+                    m_GTAOSystem.Render(cmd, hdCamera, m_SharedRTManager, m_DepthPyramidMipLevelOffsetsBuffer);
+                    m_GTAOSystem.Denoise(cmd, hdCamera, m_SharedRTManager, m_DepthPyramidMipLevelOffsetsBuffer);
+                    var aosett = VolumeManager.instance.stack.GetComponent<GTAO>();
+
+                    if (aosett.intensity.value > 0)
+                    {
+                        cmd.SetGlobalTexture(HDShaderIDs._AmbientOcclusionTexture, m_GTAOSystem.GetAOTex());
+                        (RenderPipelineManager.currentPipeline as HDRenderPipeline).PushFullScreenDebugTexture(hdCamera, cmd, m_GTAOSystem.GetAOTex(), FullScreenDebugMode.SSAO);
+                    }
+
+
+
+                    m_LightLoop.CopyStencilBufferIfNeeded(cmd, hdCamera, m_SharedRTManager);
 
                 // When debug is enabled we need to clear otherwise we may see non-shadows areas with stale values.
                 if (hdCamera.frameSettings.IsEnabled(FrameSettingsField.ContactShadows) && m_CurrentDebugDisplaySettings.data.fullScreenDebugMode == FullScreenDebugMode.ContactShadows)
@@ -1963,9 +1975,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 #endif
             }
 
-
-            m_GTAOSystem.Render(cmd, hdCamera, m_SharedRTManager, m_DepthPyramidMipLevelOffsetsBuffer);
-            (RenderPipelineManager.currentPipeline as HDRenderPipeline).PushFullScreenDebugTexture(hdCamera, cmd, m_GTAOSystem.GetAOTex(), FullScreenDebugMode.SSAO);
 
                 // At this point, m_CameraColorBuffer has been filled by either debug views are regular rendering so we can push it here.
                 PushColorPickerDebugTexture(cmd, hdCamera, m_CameraColorBuffer);
