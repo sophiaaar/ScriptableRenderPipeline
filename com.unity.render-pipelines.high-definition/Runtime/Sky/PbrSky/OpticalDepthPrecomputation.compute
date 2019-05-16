@@ -55,6 +55,24 @@ float ChapmanFunction(float x, float cosChi)
     return cu;
 }
 
+float RescaledChapmanFunction(float x, float cosChi, float logScale)
+{
+    // cos(Pi - chi) = -cos(chi).
+    float cu = ChapmanUpper(x, abs(cosChi)) * exp(logScale);
+
+    if (cosChi < 0)
+    {
+        // Ch(x, chi) = 2 * exp(x - x * sin(chi)) * Ch(x * sin(chi), Pi/2) - Ch(x, Pi - chi).
+        float z = x * sqrt(1 - cosChi * cosChi);
+        float a = exp(x - z + logScale);
+        float b = 2 * ChapmanHorizontal(z);
+
+        cu = a * b - cu;
+    }
+
+    return cu;
+}
+
 [numthreads(8, 8, 1)]
 void main(uint2 dispatchThreadId : SV_DispatchThreadID)
 {
@@ -115,8 +133,12 @@ void main(uint2 dispatchThreadId : SV_DispatchThreadID)
 
     float2 tableEntry;
 
-    tableEntry.x = S.x * exp(-h * F.x) * ChapmanFunction(r * F.x, cosChi);
-    tableEntry.y = S.y * exp(-h * F.y) * ChapmanFunction(r * F.y, cosChi);
+    // tableEntry.x = S.x * exp(-h * F.x) * ChapmanFunction(r * F.x, cosChi, h, F.x);
+    // tableEntry.y = S.y * exp(-h * F.y) * ChapmanFunction(r * F.y, cosChi, h, F.y);
+
+    // By default, the IEEE FP arithmetic rounds overflowed numbers to INF.
+    tableEntry.x = min(S.x * RescaledChapmanFunction(r * F.x, cosChi, -h * F.x), HALF_MAX);
+    tableEntry.y = min(S.y * RescaledChapmanFunction(r * F.y, cosChi, -h * F.y), HALF_MAX);
 
     _OpticalDepthTable[tableCoord] = tableEntry;
 }
