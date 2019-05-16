@@ -10,7 +10,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     {
         // TODO_FCC: This might not be relevant.
         [Tooltip("Controls the strength of the ambient occlusion effect. Increase this value to produce darker areas.")]
-        public ClampedFloatParameter intensity = new ClampedFloatParameter(2f, 0f, 4f);
+        public ClampedFloatParameter intensity = new ClampedFloatParameter(1f, 0f, 8f);
 
         [Tooltip("TODO.")]
         public ClampedIntParameter stepCount = new ClampedIntParameter(4, 2, 32);
@@ -51,7 +51,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         void AllocRT(float scaleFactor)
         {
             m_AmbientOcclusionTex = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R8_UNorm, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "Occlusion texture");
-            m_BentNormalTex = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R8G8B8A8_UNorm, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "Bent normal tex");
+            m_BentNormalTex = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R8G8B8A8_SNorm /*GraphicsFormat.R32G32B32A32_SFloat *//*  */, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "Bent normal tex");
             m_PackedDataTex = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed data");
             m_PackedHistory = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed history");
         }
@@ -84,7 +84,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         }
 
         // TODO_FCC: Make the following steps private and expose one global thing.
-        public void Render(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, ComputeBuffer depthPyramidOffsets)
+        public void Render(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, ComputeBuffer depthPyramidOffsets, int frameCount)
         {
             // Grab current settings
             var settings = VolumeManager.instance.stack.GetComponent<GTAO>();
@@ -129,8 +129,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             Vector4 aoParams1 = new Vector4(
                 settings.intensity.value,
                 1.0f / (settings.radius.value * settings.radius.value),
-                0,
-                0
+                (frameCount / 6) % 4,
+                (frameCount % 6)
                 );
 
 

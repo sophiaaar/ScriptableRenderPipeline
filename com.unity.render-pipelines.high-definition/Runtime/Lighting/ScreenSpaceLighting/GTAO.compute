@@ -66,7 +66,7 @@ float2 GetDirection(uint2 positionSS)
 #if TEMPORAL_ROTATION
     // Temporal rotations (verify this)
     float rotations[] = { 60.0f, 300.0f, 180.0f, 240.0f, 120.0f, 0.0f };
-    float rotation = (rotations[(_FrameCount) % 6u] / 360.0f); // << VERIFY
+    float rotation = (rotations[_AOTemporalRotationIdx] / 360.0f); // << VERIFY
 
     noise += rotation; 
 #endif
@@ -88,7 +88,7 @@ float GetOffset(uint2 positionSS)
     // Temporal offset
 #if ENABLE_TEMPORAL_OFFSET
     float offsets[] = { 0.0f, 0.5f, 0.25f, 0.75f };
-    offset += offsets[(_FrameCount / 6u) % 4u];
+    offset += offsets[_AOTemporalOffsetIdx];
 #endif
     return frac(offset);
 }
@@ -133,21 +133,18 @@ float3 GetNormalVS(uint2 positionSS)
 //
 //}
 
-
-
 // --------------------------------------------
 // Kernel
 // --------------------------------------------
 
-float HorizonLoop(float3 positionVS, float3 V, float2 rayStart, float2 rayDir, float rayOffset, float rayStep)
+float HorizonLoop(float3 positionVS, float3 V, float2 rayStart, float2 rayDir, float rayOffset, float rayStep, int mipModifier)
 {
     float maxHorizon = -1;
     float t = rayOffset * rayStep + rayStep;
 
     for (int i = 0; i < _AOStepCount; i++)
     {
-        int mipOffset = 0;  // TODO_FCC: Implement. 
-
+        int mipOffset = 0;// clamp(i - mipModifier, 0, 4);
         float2 samplePos = rayStart + t * rayDir;
 
         // Find horizons at these steps:
@@ -185,27 +182,29 @@ void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
     float2 rayStart = dispatchThreadId.xy;
 
     float3 V = normalize(-positionVS);
-    float fovCorrectedradiusSS = _AORadius * _AOFOVCorrection * rcp(positionVS.z);
+    float fovCorrectedradiusSS =  clamp(_AORadius * _AOFOVCorrection * rcp(positionVS.z), _AOStepCount, 128);
     float step = fovCorrectedradiusSS / (_AOStepCount + 1); // TODO_FCC: Verify this +1
 
+
+    //int mipModifier = (1 + _AOBaseResMip);
     // Find horizons 
     float2 maxHorizons;
-    maxHorizons.x = HorizonLoop(positionVS, V, rayStart, dir, offset, step);
-    maxHorizons.y = HorizonLoop(positionVS, V, rayStart, -dir, offset, step);
+    maxHorizons.y = HorizonLoop(positionVS, V, rayStart, -dir, offset, step, 0);
+    maxHorizons.x = HorizonLoop(positionVS, V, rayStart, dir, offset, step, 0);
 
 
     // Integrate horizons 
     float3 sliceN =  normalize(cross(float3(dir.xy, 0.0f), V.xyz));   // Can we skip normalize?? 
     float3 projN = normalVS - sliceN * dot(normalVS, sliceN);
     float projNLen = length(projN);
-    float cosN = clamp(dot(projN / projNLen, V), -1.0f, 1.0f);
+    float cosN = dot(projN / projNLen, V); //TODO_FCC: Need to clamp? clamp(dot(projN / projNLen, V), -1.0f, 1.0f);
 
     float3 T = cross(V, sliceN);
     float n = -sign(dot(projN, T)) * GTAOFastAcos(cosN);
 
     // Now we find the actual horizon angles
-    maxHorizons.x = -GTAOFastAcos(clamp(maxHorizons.x, -1.0f, 1.0f));
-    maxHorizons.y = GTAOFastAcos(clamp(maxHorizons.y, -1.0f, 1.0f));
+    maxHorizons.x = -GTAOFastAcos(maxHorizons.x);//-GTAOFastAcos(clamp(maxHorizons.x, -1.0f, 1.0f));
+    maxHorizons.y = GTAOFastAcos(maxHorizons.y);// GTAOFastAcos(clamp(maxHorizons.y, -1.0f, 1.0f));
     maxHorizons.x = n + max(maxHorizons.x - n, -HALF_PI);
     maxHorizons.y = n + min(maxHorizons.y - n, HALF_PI);
 
@@ -222,6 +221,4 @@ void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
 
     // This will be the only output at some point
     _AOPackedData[COORD_TEXTURE2D_X(dispatchThreadId.xy)] =  PackOutputToDenoise(saturate(integral), currDepth);
-   // _BentNormalsTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = (offset * step + step) * dir.xyx;
-
 } 

@@ -27,6 +27,8 @@ CBUFFER_END
 #define _AOStepCount (uint)_AOParams0.w
 #define _AOIntensity _AOParams1.x
 #define _AOInvRadiusSq _AOParams1.y
+#define _AOTemporalOffsetIdx _AOParams1.z
+#define _AOTemporalRotationIdx _AOParams1.w
 
 float GetDepth(float2 positionSS, int offset)
 {
