@@ -86,10 +86,10 @@ Shader "Hidden/HDRP/Sky/PbrSky"
         float3 projL = L - N * NdotL;
         float3 projV = V - N * NdotV;
         float  phiL  = acos(clamp(dot(projL, projV) * rsqrt(max(dot(projL, projL) * dot(projV, projV), FLT_EPS)), -1, 1));
+        float cosChi = -NdotV;
 
         TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(h, NdotV, NdotL, phiL);
 
-        float cosChi = -NdotV;
         float cosHor = GetCosineOfHorizonZenithAngle(h);
 
         bool lookAboveHorizon = (cosChi > cosHor);

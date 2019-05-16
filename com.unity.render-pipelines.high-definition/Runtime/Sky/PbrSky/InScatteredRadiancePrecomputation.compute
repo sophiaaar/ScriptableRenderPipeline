@@ -63,7 +63,6 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     float3 O = r * N;
 
     // Determine the region of integration.
-    float tMin = 0;
     float tMax;
 
     if (lookAboveHorizon)
@@ -85,6 +84,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     // which is shaped like a cylinder with the planet's radius, aligned with the light direction.
     // We can use it to optimize the integration process, as the shadowed region has 0 contribution.
 
+    float  tMin = 0;
     float2 tCyl = IntersectRayCylinder(L, _PlanetaryRadius, r, -V);
 
     if (tCyl.y >= 0) // Will exit?
@@ -153,7 +153,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         float3 P = O + tMin * -V;
 
         // Update these for the step along the ray...
-        height = length(P) - R;
+        height = max(0, length(P) - R);
         cosChi = dot(normalize(P), -V);
         NdotL  = dot(normalize(P),  L);
 
@@ -184,7 +184,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         float3 P = O + t1 * -V;
 
         // Update these for the step along the ray...
-        height = length(P) - R;
+        height = max(0, length(P) - R);
         cosChi = dot(normalize(P), -V);
         NdotL  = dot(normalize(P),  L);
 
@@ -218,7 +218,10 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
 #elif MULTIPLE_SCATTERING_GATHER
 
-    float3 radiance = 0;
+    float4 tableEntry;
+
+    tableEntry.rgb = 0;
+    tableEntry.a   = tMax;
 
     // Gather the ground contribution.
     // The ground is a Lambertian reflector. It is basically a textured sphere light.
@@ -254,7 +257,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             float3 transm = SampleTransmittanceTexture(gL.z, h);
 
             float weight = rcpPdf * rcp(numGroundSamples);
-            radiance += weight * phase * transm * gBrdf * SampleGroundIrradianceTexture(dot(gN, L));
+            tableEntry.rgb += weight * phase * transm * gBrdf * SampleGroundIrradianceTexture(dot(gN, L));
         }
     }
 
@@ -282,36 +285,90 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
             TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(h, NdotV1, NdotL, phiL1);
 
-            float3 incRadiance = 0;
+            float3 radiance = 0;
 
             // Single scattering does not contain the phase function.
             float LdotV1 = dot(L, V1);
 
-            incRadiance += lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                                SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                                tc.a) * AirPhase(LdotV1);
+            radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                             SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                             tc.a) * AirPhase(LdotV1);
 
-            incRadiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                                SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                                tc.a) * AerosolPhase(LdotV1);
+            radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                             SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                             tc.a) * AerosolPhase(LdotV1);
 
             // AtmospherPhaseScatter / AirPhase.
             // The view direction is the opposite of the incoming direction.
             float3 phase  = AirScatter(height) + AerosolScatter(height) * AerosolToAirPhaseRatio(-cosTheta);
             float  weight = rcp(numVolumeSamples);
 
-            radiance += weight * phase * incRadiance;
+            tableEntry.rgb += weight * phase * radiance;
         }
     }
-
-    float4 tableEntry = float4(radiance, 1);
 
     // TODO: deep compositing.
     _MultipleScatteringTable[tableCoord] = tableEntry;
 
 #else // MULTIPLE_SCATTERING_ACCUMULATE
 
-// ...
+    float4 tableEntry;
+
+    tableEntry.rgb = 0;
+    tableEntry.a   = tMax;
+
+    // Integrate in-scattered radiance along -V.
+
+    float  t0          = 0;
+    float3 viewTransmX = SampleTransmittanceTexture(cosChi, height); // Start to end
+    float3 viewTransm  = 1;                                          // Start to sample
+
+    float3 inScatteredRadiance = LOAD_TEXTURE3D(_MultipleScatteringTexture, tableCoord).rgb;
+
+    float3 inScatterTerm0 = viewTransm * inScatteredRadiance;
+
+    // Eye-balled number of samples.
+    const int numSamples = 256;
+    // const int numSamples = 4096;
+
+    for (int i = 0; i < numSamples; i++)
+    {
+        // Use (n = 0.5) when looking down, (n = 1) when looking horizontally,
+        // and (n = 2) when looking up.
+        // TODO: use exponential media importance sampling...
+        float n  = pow(2, cosChi);
+        float x  = pow((i + 1) * rcp(numSamples), n); // TODO: Cranley-Patterson Rotation
+        float t1 = tMax * x;
+        float dt = t1 - t0;
+
+        float3 P = O + t1 * -V;
+
+        // Update these for the step along the ray...
+        height = max(0, length(P) - R);
+        cosChi = dot(normalize(P), -V);
+        NdotV  = -cosChi;
+        NdotL  = dot(normalize(P),  L);
+
+        // TODO: maybe better to use optical depth?
+        viewTransm = viewTransmX * rcp(SampleTransmittanceTexture(cosChi, height));
+
+        // 'phiL' is unchanged, so quadrilinear interpolation is actually unnecessary.
+        TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(height, NdotV, NdotL, phiL);
+
+        inScatteredRadiance = SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb;
+
+        float3 inScatterTerm1 = viewTransm * inScatteredRadiance;
+
+        // Apply the phase function at runtime.
+        tableEntry.rgb += (inScatterTerm0 + inScatterTerm1) * (0.5 * dt);
+
+        // Carry these over to the next iteration...
+        t0             = t1;
+        inScatterTerm0 = inScatterTerm1;
+    }
+
+    // TODO: deep compositing.
+    _MultipleScatteringTable[tableCoord] = tableEntry;
 
 #endif
 }
