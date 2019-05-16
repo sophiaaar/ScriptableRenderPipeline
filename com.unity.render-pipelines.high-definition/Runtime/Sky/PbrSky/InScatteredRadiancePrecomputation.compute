@@ -308,7 +308,10 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     // TODO: deep compositing.
     _MultipleScatteringTable[tableCoord] = tableEntry;
+
 #else // MULTIPLE_SCATTERING_ACCUMULATE
+
+// ...
 
 #endif
 }
