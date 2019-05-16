@@ -105,13 +105,11 @@ void SplatmapMix(float4 uvMainAndLM, float4 uvSplat01, float4 uvSplat23, inout h
     
     // This might be a bit of a gamble -- the assumption here is that if the diffuseMap has no
     // alpha channel, then diffAlbedo[n].a = 1.0 (and _DiffuseHasAlphaN = 0.0)
-    // Therefore, max(_DiffuseHasAlphaN, _SmoothnessN) = _SmoothnessN, and thus you get the
-    // slider value in defaultSmoothness.
-    // Otherwise, if there is an alpha channel, diffAlbedo[n].a can be anything, and the
-    // max operation will necessarily = 1.0 
+    // Prior to coming in, _SmoothnessN is actually set to max(_DiffuseHasAlphaN, _SmoothnessN)
+    // This means that if we have an alpha channel, _SmoothnessN is locked to 1.0 and
+    // otherwise, the true slider value is passed down and diffAlbedo[n].a == 1.0.
     defaultSmoothness = half4(diffAlbedo[0].a, diffAlbedo[1].a, diffAlbedo[2].a, diffAlbedo[3].a);
-    defaultSmoothness *= max(half4(_DiffuseHasAlpha0, _DiffuseHasAlpha1, _DiffuseHasAlpha2, _DiffuseHasAlpha3), 
-            half4(_Smoothness0, _Smoothness1, _Smoothness2, _Smoothness3));
+    defaultSmoothness *= half4(_Smoothness0, _Smoothness1, _Smoothness2, _Smoothness3);
     
 #ifndef _TERRAIN_BLEND_HEIGHT
     // 20.0 is the number of steps in inputAlphaMask (Density mask. We decided 20 empirically)
@@ -323,7 +321,6 @@ half4 SplatmapFragment(Varyings IN) : SV_TARGET
     masks[3] *= _MaskMapRemapScale3.rbga;
     masks[3] += _MaskMapRemapOffset3.rbga;
     
-    
     half4 maskSmoothness = half4(masks[0].a, masks[1].a, masks[2].a, masks[3].a);
     defaultSmoothness = lerp(defaultSmoothness, maskSmoothness, hasMask);
     half smoothness = dot(splatControl, defaultSmoothness);
@@ -335,25 +332,6 @@ half4 SplatmapFragment(Varyings IN) : SV_TARGET
     half4 maskOcclusion = half4(masks[0].g, masks[1].g, masks[2].g, masks[3].g);
     defaultOcclusion = lerp(defaultOcclusion, maskOcclusion, hasMask);
     half occlusion = dot(splatControl, defaultOcclusion);
-    
-    /*
-    defaultSmoothness = half4(_Smoothness0, _Smoothness1, _Smoothness2, _Smoothness3);
-    defaultSmoothness *= half4(masks[0].a, masks[1].a, masks[2].a, masks[3].a);
-    defaultSmoothness *= half4(_MaskMapRemapScale0.a, _MaskMapRemapScale1.a, _MaskMapRemapScale2.a, _MaskMapRemapScale3.a);
-    defaultSmoothness += half4(_MaskMapRemapOffset0.a, _MaskMapRemapOffset1.a, _MaskMapRemapOffset2.a, _MaskMapRemapOffset3.a);
-    half smoothness = dot(splatControl, defaultSmoothness);
-    
-    half4 defaultMetallic = half4(_Metallic0, _Metallic1, _Metallic2, _Metallic3);
-    defaultMetallic *= half4(masks[0].r, masks[1].r, masks[2].r, masks[3].r);
-    defaultMetallic *= half4(_MaskMapRemapScale0.r, _MaskMapRemapScale1.r, _MaskMapRemapScale3.r, _MaskMapRemapScale3.r);
-    defaultMetallic += half4(_MaskMapRemapOffset0.r, _MaskMapRemapOffset1.r, _MaskMapRemapOffset2.r, _MaskMapRemapOffset3.r);
-    half metallic = dot(splatControl, defaultMetallic);  
-    
-    half4 defaultOcclusion = half4(masks[0].g, masks[1].g, masks[2].g, masks[3].g);
-    defaultOcclusion *= half4(_MaskMapRemapScale0.g, _MaskMapRemapScale1.g, _MaskMapRemapScale3.g, _MaskMapRemapScale3.g);
-    defaultOcclusion += half4(_MaskMapRemapOffset0.g, _MaskMapRemapOffset1.g, _MaskMapRemapOffset2.g, _MaskMapRemapOffset3.g);
-    half occlusion = dot(splatControl, defaultOcclusion);
-    */
     
     half alpha = weight;
 #endif

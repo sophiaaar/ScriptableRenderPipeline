@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEditor;
+using UnityEngine.Experimental.Rendering;
 
 namespace UnityEditor.Rendering.LWRP
 {
@@ -88,6 +89,15 @@ namespace UnityEditor.Rendering.LWRP
 
             bool enableInstancedPerPixelNormal = material.GetFloat(kEnableInstancedPerPixelNormal) > 0.0f;
             CoreUtils.SetKeyword(material, "_TERRAIN_INSTANCED_PERPIXEL_NORMAL", enableInstancedPerPixelNormal);
+        }
+
+        static public bool TextureHasAlpha(Texture2D inTex)
+        {
+            if (inTex != null)
+            {
+                return GraphicsFormatUtility.HasAlphaChannel(GraphicsFormatUtility.GetGraphicsFormat(inTex.format, true));
+            }
+            return false;
         }
 
         public override void OnGUI(MaterialEditor materialEditorIn, MaterialProperty[] properties)
@@ -280,22 +290,24 @@ namespace UnityEditor.Rendering.LWRP
                 else
                 {
                     metallic = EditorGUILayout.Slider(s_Styles.metallic, metallic, 0, 1);
+                    // AO and Height are still exclusively controlled via the maskRemap controls
+                    // metallic and smoothness have their own values as fields within the LayerData.
+                    maskMapRemapMin.y = 0.0f;
                     maskMapRemapMax.y = EditorGUILayout.Slider(s_Styles.ao, maskMapRemapMax.y, 0, 1);
                     if (heightBlend)
-                        maskMapRemapMax.z = EditorGUILayout.FloatField(s_Styles.heightCm, maskMapRemapMin.z * 100);
+                    {
+                        maskMapRemapMin.z = 0.0f;
+                        maskMapRemapMax.z = EditorGUILayout.FloatField(s_Styles.heightCm, maskMapRemapMax.z * 100);
+                    }
 
-                    //                    maskMapRemapMax.x = EditorGUILayout.Slider(s_Styles.metallic, maskMapRemapMax.x, 0, 1);
-                    //                    maskMapRemapMax.y = EditorGUILayout.Slider(s_Styles.ao, maskMapRemapMax.y, 0, 1);
-                    //                    if (heightBlend)
-                    //                        maskMapRemapMax.z = EditorGUILayout.FloatField(s_Styles.heightCm, maskMapRemapMin.z * 100) / 100;
-                    //                    maskMapRemapMax.w = EditorGUILayout.Slider(s_Styles.smoothness, maskMapRemapMax.w, 0, 1);
-                    // Setting the min to zero and the max to the slider value has the same effect as
-                    // just multiplying by max.  In the case and x & y, this is just multiplied by one
-                    // when we have no mask map, and in the case of w, it's the alpha value of diffuse.
-                    //                    maskMapRemapMin = Vector4.zero;
-                    //                    smoothness = maskMapRemapMax.w;
-                    maskMapRemapMin.y = 0;
-                    maskMapRemapMin.z = 0;
+                    if (TextureHasAlpha(terrainLayer.diffuseTexture))
+                    {
+                        GUIStyle warnStyle = new GUIStyle(GUI.skin.label);
+                        warnStyle.wordWrap = true;
+                        GUILayout.Label("Smoothness is controlled by diffuse alpha channel", warnStyle);
+                    }
+                    else
+                        smoothness = EditorGUILayout.Slider(s_Styles.smoothness, smoothness, 0, 1);
                 }
             }
 

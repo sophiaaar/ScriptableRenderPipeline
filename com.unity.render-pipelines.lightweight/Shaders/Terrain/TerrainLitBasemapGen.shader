@@ -111,19 +111,12 @@ Shader "Hidden/Lightweight Render Pipeline/Terrain/Lit (Basemap Gen)"
                 SplatmapMix(IN.uvMainAndLM, IN.uvSplat01, IN.uvSplat23, splatControl, weight, mixedDiffuse, defaultSmoothness, normalTS);
                 
                 half4 hasMask = half4(_LayerHasMask0, _LayerHasMask1, _LayerHasMask2, _LayerHasMask3);
-                half4 hasNoMask = 1.0h - hasMask;
                 
                 half4 maskSmoothness = half4(masks[0].a, masks[1].a, masks[2].a, masks[3].a);
                 maskSmoothness *= half4(_MaskMapRemapScale0.a, _MaskMapRemapScale1.a, _MaskMapRemapScale2.a, _MaskMapRemapScale3.a);
                 maskSmoothness += half4(_MaskMapRemapOffset0.a, _MaskMapRemapOffset1.a, _MaskMapRemapOffset2.a, _MaskMapRemapOffset3.a);
-
-                 
-                //defaultSmoothness = half4(_Smoothness0, _Smoothness1, _Smoothness2, _Smoothness3);
-                //defaultSmoothness *= half4(masks[0].a, masks[1].a, masks[2].a, masks[3].a);
-                //defaultSmoothness *= half4(_MaskMapRemapScale0.a, _MaskMapRemapScale1.a, _MaskMapRemapScale2.a, _MaskMapRemapScale3.a);
-                //defaultSmoothness += half4(_MaskMapRemapOffset0.a, _MaskMapRemapOffset1.a, _MaskMapRemapOffset2.a, _MaskMapRemapOffset3.a);
-                defaultSmoothness *= hasNoMask;
-                defaultSmoothness += hasMask * maskSmoothness;
+                
+                defaultSmoothness = lerp(defaultSmoothness, maskSmoothness, hasMask);
                 half smoothness = dot(splatControl, defaultSmoothness);
 
                 return half4(mixedDiffuse.rgb, smoothness);
@@ -196,17 +189,13 @@ Shader "Hidden/Lightweight Render Pipeline/Terrain/Lit (Basemap Gen)"
                 SplatmapMix(IN.uvMainAndLM, IN.uvSplat01, IN.uvSplat23, splatControl, weight, mixedDiffuse, defaultSmoothness, normalTS);
                 
                 half4 hasMask = half4(_LayerHasMask0, _LayerHasMask1, _LayerHasMask2, _LayerHasMask3);
-                half4 hasNoMask = 1.0h - hasMask;
+
                 half4 defaultMetallic = half4(_Metallic0, _Metallic1, _Metallic2, _Metallic3);
                 half4 maskMetallic = half4(masks[0].r, masks[1].r, masks[2].r, masks[3].r);
                 maskMetallic *= half4(_MaskMapRemapScale0.r, _MaskMapRemapScale1.r, _MaskMapRemapScale3.r, _MaskMapRemapScale3.r);
                 maskMetallic += half4(_MaskMapRemapOffset0.r, _MaskMapRemapOffset1.r, _MaskMapRemapOffset2.r, _MaskMapRemapOffset3.r);
     
-                //defaultMetallic *= half4(masks[0].r, masks[1].r, masks[2].r, masks[3].r);
-                //defaultMetallic *= half4(_MaskMapRemapScale0.r, _MaskMapRemapScale1.r, _MaskMapRemapScale3.r, _MaskMapRemapScale3.r);
-                //defaultMetallic += half4(_MaskMapRemapOffset0.r, _MaskMapRemapOffset1.r, _MaskMapRemapOffset2.r, _MaskMapRemapOffset3.r);
-                defaultMetallic *= hasNoMask;
-                defaultMetallic += hasMask * maskMetallic;
+                defaultMetallic = lerp(defaultMetallic, maskMetallic, hasMask);
                 half metallic = dot(splatControl, defaultMetallic);
                 
                 return metallic;
