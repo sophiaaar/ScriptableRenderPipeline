@@ -219,7 +219,7 @@ float2 UnmapAerialPerspectiveAboveHorizon(float2 uv)
     return float2(cosChi, height);
 }
 
-float3 SampleTransmittanceTexture(float cosChi, float height, bool belowHorizon)
+float3 SampleOpticalDepthTexture(float cosChi, float height, bool belowHorizon)
 {
     // TODO: pass the sign? Do not recompute?
     float s = belowHorizon ? -1 : 1;
@@ -257,16 +257,15 @@ float3 SampleTransmittanceTexture(float cosChi, float height, bool belowHorizon)
     }
 
     // Compose the optical depth with extinction at the sea level.
-    return TransmittanceFromOpticalDepth(optDepth.x * _AirSeaLevelExtinction +
-                                         optDepth.y * _AerosolSeaLevelExtinction);
+    return optDepth.x * _AirSeaLevelExtinction + optDepth.y * _AerosolSeaLevelExtinction;
 }
 
-float3 SampleTransmittanceTexture(float cosChi, float height)
+float3 SampleOpticalDepthTexture(float cosChi, float height)
 {
     float cosHor           = GetCosineOfHorizonZenithAngle(height);
     bool  lookAboveHorizon = (cosChi > cosHor);
 
-    return SampleTransmittanceTexture(cosChi, height, !lookAboveHorizon);
+    return SampleOpticalDepthTexture(cosChi, height, !lookAboveHorizon);
 }
 
 // Map: [cos(120 deg), 1] -> [0, 1].

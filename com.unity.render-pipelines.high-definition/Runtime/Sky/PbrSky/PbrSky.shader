@@ -71,7 +71,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
                 P = P + t * -V;
                 N = normalize(P);
                 h = _AtmosphericDepth;
-                r = h + _PlanetaryRadius;
+                r = _AtmosphericDepth + _PlanetaryRadius;
             }
             else
             {
@@ -104,7 +104,10 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
             // Shade the ground.
             const float3 gBrdf = INV_PI * _GroundAlbedo;
-            float3 transm = SampleTransmittanceTexture(cosChi, h, true);
+
+            float3 oDepth = SampleOpticalDepthTexture(cosChi, h, true);
+            float3 transm = TransmittanceFromOpticalDepth(oDepth);
+
             radiance += transm * gBrdf * SampleGroundIrradianceTexture(dot(gN, L));
         }
 
