@@ -8,7 +8,8 @@
 
 #define TABLE_SIZE uint(PBRSKYCONFIG_GROUND_IRRADIANCE_TABLE_SIZE)
 
-RW_TEXTURE2D(float4, _GroundIrradianceTable); // of TABLE_SIZE
+RW_TEXTURE2D(float4, _GroundIrradianceTable);      // of TABLE_SIZE
+RW_TEXTURE2D(float4, _GroundIrradianceTableOrder); // of TABLE_SIZE
 
 [numthreads(64, 1, 1)]
 void main(uint dispatchThreadId : SV_DispatchThreadID)
@@ -36,7 +37,8 @@ void main(uint dispatchThreadId : SV_DispatchThreadID)
         tableEntry.rgb = transm * NdotL;
     }
 
-    _GroundIrradianceTable[tableCoord] = tableEntry; // Overwrite
+    _GroundIrradianceTableOrder[tableCoord] = tableEntry; // One order
+    _GroundIrradianceTable[tableCoord]      = tableEntry; // All orders
 
 #else  // MULTIPLE_SCATTERING
 
@@ -73,7 +75,8 @@ void main(uint dispatchThreadId : SV_DispatchThreadID)
         tableEntry.rgb += weight * radiance;
     }
 
-    _GroundIrradianceTable[tableCoord] += tableEntry; // Accumulate
+    _GroundIrradianceTableOrder[tableCoord] = tableEntry; // One order
+    _GroundIrradianceTable[tableCoord]     += tableEntry; // All orders
 
 #endif // MULTIPLE_SCATTERING
 

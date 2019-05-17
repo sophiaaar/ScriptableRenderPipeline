@@ -15,6 +15,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
     float4x4 _PixelCoordToViewDirWS; // Actually just 3x3, but Unity can only set 4x4
     float3   _SunDirection;
+    float3   _SunRadiance;
 
     struct Attributes
     {
@@ -79,7 +80,6 @@ Shader "Hidden/HDRP/Sky/PbrSky"
                 earlyOut = true;
             }
         }
-
 
         float  NdotL = dot(N, L);
         float  NdotV = dot(N, V);

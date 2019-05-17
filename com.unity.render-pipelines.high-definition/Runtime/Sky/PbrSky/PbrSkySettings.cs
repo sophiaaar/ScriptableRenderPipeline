@@ -38,21 +38,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // Albedo of the planetary surface.
         public ColorParameter groundColor = new ColorParameter(new Color(1, 1, 1), hdr: false, showAlpha: false, showEyeDropper: false);
 
-        /* Properties below should be interpolated, but they should not be accessible via the GUI. */
-
-        // Height of all the atmospheric layers starting from the sea level. Units: km.
-        public FloatParameter atmosphericDepth { get; set; }
-
-        public Vector3Parameter sunRadiance { get; set; } // TODO: isn't that just a global multiplier?
-
-        public void Awake()
-        {
-            // Allocate memory on startup.
-            atmosphericDepth = new FloatParameter(0.0f);
-            sunRadiance      = new Vector3Parameter(Vector3.zero);
-        }
-
-        float ComputeAtmosphericDepth()
+        public float ComputeAtmosphericDepth()
         {
             // What's the thickness at the boundary of the outer space (units: 1/(1000 km))?
             const float outerThickness = 0.01f;
@@ -73,26 +59,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return Mathf.Max(airLim, aerosolLim);
         }
 
-        public void UpdateParameters(BuiltinSkyParameters builtinParams)
-        {
-            atmosphericDepth.value = ComputeAtmosphericDepth();
-
-            Light sun = builtinParams.sunLight;
-
-            if (sun != null)
-            {
-                sunRadiance.value = new Vector3(sun.intensity * sun.color.linear.r,
-                                                sun.intensity * sun.color.linear.g,
-                                                sun.intensity * sun.color.linear.b);
-            }
-            else
-            {
-                sunRadiance.value = Vector3.zero;
-            }
-
-//            sunDirection.value     = -sun.transform.forward;
-        }
-
         public override int GetHashCode()
         {
             int hash = base.GetHashCode();
@@ -109,8 +75,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 hash = hash * 23 + aerosolDensityFalloff.GetHashCode();
                 hash = hash * 23 + aerosolAnisotropy.GetHashCode();
                 hash = hash * 23 + groundColor.GetHashCode();
-                hash = hash * 23 + atmosphericDepth.GetHashCode();
-                hash = hash * 23 + sunRadiance.GetHashCode();
             }
 
             return hash;

@@ -29,9 +29,7 @@ CBUFFER_START(UnityPbrSky)
 
     float3 _GroundAlbedo;
 
-    float3 _PlanetCenterPosition;
-
-    float3 _SunRadiance;
+    float3 _PlanetCenterPosition; // Not used during the precomputation, but needed to apply the atmospheric effect
 CBUFFER_END
 
 TEXTURE2D(_OpticalDepthTexture);
