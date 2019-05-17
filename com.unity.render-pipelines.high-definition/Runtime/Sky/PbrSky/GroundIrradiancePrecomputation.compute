@@ -27,6 +27,7 @@ void main(uint dispatchThreadId : SV_DispatchThreadID)
 
     float4 tableEntry = float4(0, 0, 0, 1);
 
+#ifdef SINGLE_SCATTERING
     if (NdotL > 0)
     {
         float3 oDepth = SampleOpticalDepthTexture(NdotL, 0, false);
@@ -35,5 +36,45 @@ void main(uint dispatchThreadId : SV_DispatchThreadID)
         tableEntry.rgb = transm * NdotL;
     }
 
-    _GroundIrradianceTable[tableCoord] = tableEntry;
+    _GroundIrradianceTable[tableCoord] = tableEntry; // Overwrite
+
+#else  // MULTIPLE_SCATTERING
+
+    // Gather the volume contribution.
+    // Arbitrary number of samples...
+    const int numVolumeSamples = 89;
+
+    for (int i = 0; i < numVolumeSamples; i++)
+    {
+        float2 f = Fibonacci2d(i, numVolumeSamples); // TODO: Cranley-Patterson Rotation
+        float2 s = SampleHemisphereCosine(f.x, f.y);
+
+        float cosChi = s.x;
+        float NdotV  = -cosChi;
+        float phiL   = s.y;
+
+        TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(0, NdotV, NdotL, phiL);
+
+        // Single scattering does not contain the phase function.
+        float LdotV = SphericalDot(NdotV, 0, NdotL, phiL);
+
+        float3 radiance = 0;
+
+        radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                         SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                         tc.a) * AirPhase(LdotV);
+
+        radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                         SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                         tc.a) * AerosolPhase(LdotV);
+
+        float weight = PI * rcp(numVolumeSamples);
+
+        tableEntry.rgb += weight * radiance;
+    }
+
+    _GroundIrradianceTable[tableCoord] += tableEntry; // Accumulate
+
+#endif // MULTIPLE_SCATTERING
+
 }

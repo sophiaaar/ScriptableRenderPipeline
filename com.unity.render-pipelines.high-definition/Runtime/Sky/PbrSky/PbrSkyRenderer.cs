@@ -218,10 +218,18 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     }
 
                     // Re-illuminate the ground with each bounce.
-                    cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, 0, "_OpticalDepthTexture",   m_OpticalDepthTable);
-                    cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, 0, "_GroundIrradianceTable", m_GroundIrradianceTable);
+                    {
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_OpticalDepthTexture",            m_OpticalDepthTable);
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_GroundIrradianceTable",          m_GroundIrradianceTable);
+                    }
 
-                    cmd.DispatchCompute(s_GroundIrradiancePrecomputationCS, 0, (int)PbrSkyConfig.GroundIrradianceTableSize / 64, 1, 1);
+                    if (firstPass == 1)
+                    {
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_AirSingleScatteringTexture",     m_InScatteredRadianceTables[0]);
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_AerosolSingleScatteringTexture", m_InScatteredRadianceTables[1]);
+                    }
+
+                    cmd.DispatchCompute(s_GroundIrradiancePrecomputationCS, firstPass, (int)PbrSkyConfig.GroundIrradianceTableSize / 64, 1, 1);
                 }
             }
         }

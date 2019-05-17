@@ -6,7 +6,6 @@
 #pragma kernel MAIN_N_A main=MAIN_N_A MULTIPLE_SCATTERING_ACCUMULATE
 
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyCommon.hlsl"
-#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Sampling/Sampling.hlsl"
 
 #define TABLE_SIZE uint3(PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_X, \
                          PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_Y, \
@@ -367,5 +366,5 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     // TODO: deep compositing.
     _MultipleScatteringTable[tableCoord] = tableEntry;
 
-#endif
+#endif // MULTIPLE_SCATTERING_ACCUMULATE
 }
