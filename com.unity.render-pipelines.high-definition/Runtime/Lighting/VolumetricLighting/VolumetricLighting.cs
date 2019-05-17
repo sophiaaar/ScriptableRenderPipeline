@@ -74,57 +74,57 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public List<DensityVolumeEngineData> density;
     }
 
-    public enum VolumetricLightingPreset
-    {
-        Off,
-        Medium,
-        High,
-        Count
+        public enum VolumetricLightingPreset
+        {
+            Off,
+            Medium,
+            High,
+            Count
     }
 
-    public struct VBufferParameters
-    {
-        public Vector3Int viewportSize;
-        public Vector4 depthEncodingParams;
-        public Vector4 depthDecodingParams;
-
-        public VBufferParameters(Vector3Int viewportResolution, float depthExtent, float camNear, float camFar, float camVFoV, float sliceDistributionUniformity)
+        public struct VBufferParameters
         {
-            viewportSize = viewportResolution;
+            public Vector3Int viewportSize;
+            public Vector4    depthEncodingParams;
+            public Vector4    depthDecodingParams;
 
-            // The V-Buffer is sphere-capped, while the camera frustum is not.
-            // We always start from the near plane of the camera.
+            public VBufferParameters(Vector3Int viewportResolution, float depthExtent, float camNear, float camFar, float camVFoV, float sliceDistributionUniformity)
+            {
+                viewportSize = viewportResolution;
 
-            float aspectRatio = viewportResolution.x / (float)viewportResolution.y;
-            float farPlaneHeight = 2.0f * Mathf.Tan(0.5f * camVFoV) * camFar;
-            float farPlaneWidth = farPlaneHeight * aspectRatio;
-            float farPlaneMaxDim = Mathf.Max(farPlaneWidth, farPlaneHeight);
-            float farPlaneDist = Mathf.Sqrt(camFar * camFar + 0.25f * farPlaneMaxDim * farPlaneMaxDim);
+                // The V-Buffer is sphere-capped, while the camera frustum is not.
+                // We always start from the near plane of the camera.
 
-            float nearDist = camNear;
-            float farDist = Math.Min(nearDist + depthExtent, farPlaneDist);
+                float aspectRatio    = viewportResolution.x / (float)viewportResolution.y;
+                float farPlaneHeight = 2.0f * Mathf.Tan(0.5f * camVFoV) * camFar;
+                float farPlaneWidth  = farPlaneHeight * aspectRatio;
+                float farPlaneMaxDim = Mathf.Max(farPlaneWidth, farPlaneHeight);
+                float farPlaneDist   = Mathf.Sqrt(camFar * camFar + 0.25f * farPlaneMaxDim * farPlaneMaxDim);
 
-            float c = 2 - 2 * sliceDistributionUniformity; // remap [0, 1] -> [2, 0]
-            c = Mathf.Max(c, 0.001f);                // Avoid NaNs
+                float nearDist = camNear;
+                float farDist  = Math.Min(nearDist + depthExtent, farPlaneDist);
 
-            depthEncodingParams = ComputeLogarithmicDepthEncodingParams(nearDist, farDist, c);
-            depthDecodingParams = ComputeLogarithmicDepthDecodingParams(nearDist, farDist, c);
-        }
+                float c = 2 - 2 * sliceDistributionUniformity; // remap [0, 1] -> [2, 0]
+                      c = Mathf.Max(c, 0.001f);                // Avoid NaNs
 
-        public Vector4 ComputeUvScaleAndLimit(Vector2Int bufferSize)
-        {
-            // The slice count is fixed for now.
-            return HDUtils.ComputeUvScaleAndLimit(new Vector2Int(viewportSize.x, viewportSize.y), bufferSize);
-        }
+                depthEncodingParams = ComputeLogarithmicDepthEncodingParams(nearDist, farDist, c);
+                depthDecodingParams = ComputeLogarithmicDepthDecodingParams(nearDist, farDist, c);
+            }
 
-        public float ComputeLastSliceDistance()
-        {
-            float d = 1.0f - 0.5f / viewportSize.z;
-            float ln2 = 0.69314718f;
+            public Vector4 ComputeUvScaleAndLimit(Vector2Int bufferSize)
+            {
+                // The slice count is fixed for now.
+                return HDUtils.ComputeUvScaleAndLimit(new Vector2Int(viewportSize.x, viewportSize.y), bufferSize);
+            }
 
-            // DecodeLogarithmicDepthGeneralized(1 - 0.5 / sliceCount)
-            return depthDecodingParams.x * Mathf.Exp(ln2 * d * depthDecodingParams.y) + depthDecodingParams.z;
-        }
+            public float ComputeLastSliceDistance()
+            {
+                float d   = 1.0f - 0.5f / viewportSize.z;
+                float ln2 = 0.69314718f;
+
+                // DecodeLogarithmicDepthGeneralized(1 - 0.5 / sliceCount)
+                return depthDecodingParams.x * Mathf.Exp(ln2 * d * depthDecodingParams.y) + depthDecodingParams.z;
+            }
 
         // See EncodeLogarithmicDepthGeneralized().
         static Vector4 ComputeLogarithmicDepthEncodingParams(float nearPlane, float farPlane, float c)
@@ -200,6 +200,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // | x | x | x | x | x | x | x |
         float[] m_zSeq = { 7.0f / 14.0f, 3.0f / 14.0f, 11.0f / 14.0f, 5.0f / 14.0f, 9.0f / 14.0f, 1.0f / 14.0f, 13.0f / 14.0f };
 
+        Matrix4x4[] m_PixelCoordToViewDirWS;
 
         public void InitializeVolumetricLighting()
         {
@@ -221,6 +222,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             m_xySeq = new Vector2[7];
             m_xySeqOffset = new Vector4();
+
+            m_PixelCoordToViewDirWS = new Matrix4x4[TextureXR.kMaxSliceCount];
 
             CreateVolumetricLightingBuffers();
         }
@@ -535,7 +538,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     // TODO: account for custom near and far planes of the V-Buffer's frustum.
                     // It's typically much shorter (along the Z axis) than the camera's frustum.
                     // XRTODO: fix combined frustum culling
-                    if (GeometryUtils.Overlap(obb, hdCamera.frustum, 6, 8) || hdCamera.camera.stereoEnabled)
+                    if (GeometryUtils.Overlap(obb, hdCamera.frustum, 6, 8) || hdCamera.xr.instancingEnabled)
                     {
                         // TODO: cache these?
                         var data = volume.parameters.ConvertToEngineData();
@@ -579,14 +582,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 Vector4 resolution  = new Vector4(cvp.x, cvp.y, 1.0f / cvp.x, 1.0f / cvp.y);
 #if UNITY_2019_1_OR_NEWER
                 var vFoV        = hdCamera.camera.GetGateFittedFieldOfView() * Mathf.Deg2Rad;
-                var lensShift = hdCamera.camera.GetGateFittedLensShift();
 #else
                 var vFoV        = hdCamera.camera.fieldOfView * Mathf.Deg2Rad;
-                var lensShift = Vector2.zero;
 #endif
-
                 // Compose the matrix which allows us to compute the world space view direction.
-                Matrix4x4 transform = HDUtils.ComputePixelCoordToWorldSpaceViewDirectionMatrix(vFoV, lensShift, resolution, hdCamera.mainViewConstants.viewMatrix, false);
+                hdCamera.GetPixelCoordToViewDirWS(resolution, ref m_PixelCoordToViewDirWS);
 
                 // Compute texel spacing at the depth of 1 meter.
                 float unitDepthTexelSpacing = HDUtils.ComputZPlaneTexelSpacing(1.0f, vFoV, resolution.y);
@@ -621,7 +621,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cmd.SetComputeTextureParam(m_VolumeVoxelizationCS, kernel, HDShaderIDs._VolumeMaskAtlas, volumeAtlas);
 
                 // TODO: set the constant buffer data only once.
-                cmd.SetComputeMatrixParam(m_VolumeVoxelizationCS, HDShaderIDs._VBufferCoordToViewDirWS,      transform);
+                cmd.SetComputeMatrixArrayParam(m_VolumeVoxelizationCS, HDShaderIDs._VBufferCoordToViewDirWS,      m_PixelCoordToViewDirWS);
                 cmd.SetComputeFloatParam( m_VolumeVoxelizationCS, HDShaderIDs._VBufferUnitDepthTexelSpacing, unitDepthTexelSpacing);
                 cmd.SetComputeIntParam(   m_VolumeVoxelizationCS, HDShaderIDs._NumVisibleDensityVolumes,     numVisibleVolumes);
                 cmd.SetComputeVectorParam(m_VolumeVoxelizationCS, HDShaderIDs._VolumeMaskDimensions,         volumeAtlasDimensions);
@@ -699,13 +699,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 Vector4 resolution = new Vector4(cvp.x, cvp.y, 1.0f / cvp.x, 1.0f / cvp.y);
 #if UNITY_2019_1_OR_NEWER
                 var vFoV = hdCamera.camera.GetGateFittedFieldOfView() * Mathf.Deg2Rad;
-                var lensShift = hdCamera.camera.GetGateFittedLensShift();
 #else
                 var vFoV        = hdCamera.camera.fieldOfView * Mathf.Deg2Rad;
-                var lensShift   = Vector2.zero;
 #endif
                 // Compose the matrix which allows us to compute the world space view direction.
-                Matrix4x4 transform = HDUtils.ComputePixelCoordToWorldSpaceViewDirectionMatrix(vFoV, lensShift, resolution, hdCamera.mainViewConstants.viewMatrix, false);
+                hdCamera.GetPixelCoordToViewDirWS(resolution, ref m_PixelCoordToViewDirWS);
 
                 // Compute texel spacing at the depth of 1 meter.
                 float unitDepthTexelSpacing = HDUtils.ComputZPlaneTexelSpacing(1.0f, vFoV, resolution.y);
@@ -721,7 +719,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 // TODO: set 'm_VolumetricLightingPreset'.
                 // TODO: set the constant buffer data only once.
-                cmd.SetComputeMatrixParam( m_VolumetricLightingCS,         HDShaderIDs._VBufferCoordToViewDirWS,      transform);
+                cmd.SetComputeMatrixArrayParam( m_VolumetricLightingCS,         HDShaderIDs._VBufferCoordToViewDirWS,      m_PixelCoordToViewDirWS);
                 cmd.SetComputeFloatParam(  m_VolumetricLightingCS,         HDShaderIDs._VBufferUnitDepthTexelSpacing, unitDepthTexelSpacing);
                 cmd.SetComputeFloatParam(  m_VolumetricLightingCS,         HDShaderIDs._CornetteShanksConstant,       CornetteShanksPhasePartConstant(fog.anisotropy.value));
                 cmd.SetComputeVectorParam( m_VolumetricLightingCS,         HDShaderIDs._VBufferSampleOffset,          m_xySeqOffset);
