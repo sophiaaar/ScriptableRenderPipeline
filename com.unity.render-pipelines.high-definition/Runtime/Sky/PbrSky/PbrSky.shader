@@ -120,6 +120,8 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
         // TODO: since aerosols are in a separate texture,
         // they could use a different max height value for improved precision.
+        radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                         SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
                          tc.a) * AerosolPhase(LdotV);
 
         radiance += lerp(SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,

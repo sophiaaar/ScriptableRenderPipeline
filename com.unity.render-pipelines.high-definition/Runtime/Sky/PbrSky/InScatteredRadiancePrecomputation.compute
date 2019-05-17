@@ -145,8 +145,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     // It's easy enough to use a simple quadratic remap.
 
     float  t0          = tMin;
-    float3 viewODepthX = SampleOpticalDepthTexture(cosChi, height); // Start to end
-    float3 viewODepth  = 0;                                         // Start to sample
+    float3 viewODepthX = SampleOpticalDepthTexture(NdotV, height); // Back to start
+    float3 viewODepth  = 0;                                        // Sample to start
 
     if (tMin > 0) // Start changed?
     {
@@ -154,10 +154,10 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
         // Update these for the step along the ray...
         height = max(0, length(P) - R);
-        cosChi = dot(normalize(P), -V);
-        NdotL  = dot(normalize(P),  L);
+        NdotV  = dot(normalize(P), V);
+        NdotL  = dot(normalize(P), L);
 
-        viewODepth = viewODepthX - SampleOpticalDepthTexture(cosChi, height);
+        viewODepth = SampleOpticalDepthTexture(NdotV, height) - viewODepthX;
     }
 
     float3 lightODepth = SampleOpticalDepthTexture(NdotL, height);
@@ -175,7 +175,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         // Use (n = 0.5) when looking down, (n = 1) when looking horizontally,
         // and (n = 2) when looking up.
         // TODO: use exponential media importance sampling...
-        float n  = pow(2, cosChi);
+        float n  = pow(2, -NdotV);
         float x  = pow((i + 1) * rcp(numSamples), n); // TODO: Cranley-Patterson Rotation
         float t1 = tMin + (tMax - tMin) * x;
         float dt = t1 - t0;
@@ -184,10 +184,10 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
         // Update these for the step along the ray...
         height = max(0, length(P) - R);
-        cosChi = dot(normalize(P), -V);
-        NdotL  = dot(normalize(P),  L);
+        NdotV  = dot(normalize(P), V);
+        NdotL  = dot(normalize(P), L);
 
-        viewODepth  = viewODepthX - SampleOpticalDepthTexture(cosChi, height);
+        viewODepth  = SampleOpticalDepthTexture(NdotV, height) - viewODepthX;
         lightODepth = SampleOpticalDepthTexture(NdotL, height);
 
         // Compute the amount of in-scattered radiance.
@@ -319,8 +319,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     // Integrate in-scattered radiance along -V.
 
     float  t0          = 0;
-    float3 viewODepthX = SampleOpticalDepthTexture(cosChi, height); // Start to end
-    float3 viewODepth  = 0;                                         // Start to sample
+    float3 viewODepthX = SampleOpticalDepthTexture(NdotV, height); // Back to start
+    float3 viewODepth  = 0;                                        // Sample to start
 
     float3 inScatteredRadiance = LOAD_TEXTURE3D(_MultipleScatteringTexture, tableCoord).rgb;
 
@@ -335,7 +335,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         // Use (n = 0.5) when looking down, (n = 1) when looking horizontally,
         // and (n = 2) when looking up.
         // TODO: use exponential media importance sampling...
-        float n  = pow(2, cosChi);
+        float n  = pow(2, -NdotV);
         float x  = pow((i + 1) * rcp(numSamples), n); // TODO: Cranley-Patterson Rotation
         float t1 = tMax * x;
         float dt = t1 - t0;
@@ -344,11 +344,10 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
         // Update these for the step along the ray...
         height = max(0, length(P) - R);
-        cosChi = dot(normalize(P), -V);
-        NdotV  = -cosChi;
-        NdotL  = dot(normalize(P),  L);
+        NdotV  = dot(normalize(P), V);
+        NdotL  = dot(normalize(P), L);
 
-        viewODepth = viewODepthX - SampleOpticalDepthTexture(cosChi, height);
+        viewODepth = SampleOpticalDepthTexture(NdotV, height) - viewODepthX;
 
         // 'phiL' is unchanged, so quadrilinear interpolation is actually unnecessary.
         TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(height, NdotV, NdotL, phiL);
