@@ -288,10 +288,10 @@ half4 SplatmapFragment(Varyings IN) : SV_TARGET
     half4 masks[4];
     splatControl = SAMPLE_TEXTURE2D(_Control, sampler_Control, IN.uvMainAndLM.xy);
     
-    masks[0] = 1.0h;
-    masks[1] = 1.0h;
-    masks[2] = 1.0h;
-    masks[3] = 1.0h;
+    masks[0] = half4(1, _MaskMapRemapScale0.g + _MaskMapRemapOffset0.g, _MaskMapRemapScale0.b + _MaskMapRemapOffset0.b, 1);
+    masks[1] = half4(1, _MaskMapRemapScale1.g + _MaskMapRemapOffset1.g, _MaskMapRemapScale1.b + _MaskMapRemapOffset1.b, 1);
+    masks[2] = half4(1, _MaskMapRemapScale2.g + _MaskMapRemapOffset2.g, _MaskMapRemapScale2.b + _MaskMapRemapOffset2.b, 1);
+    masks[3] = half4(1, _MaskMapRemapScale3.g + _MaskMapRemapOffset3.g, _MaskMapRemapScale3.b + _MaskMapRemapOffset3.b, 1);
     
 #ifdef _MASKMAP
     masks[0] = SAMPLE_TEXTURE2D(_Mask0, sampler_Mask0, IN.uvSplat01.xy);
@@ -312,14 +312,14 @@ half4 SplatmapFragment(Varyings IN) : SV_TARGET
     half4 defaultMetallic = half4(_Metallic0, _Metallic1, _Metallic2, _Metallic3);
     half4 defaultOcclusion = 1.0h;
     
-    masks[0] *= _MaskMapRemapScale0.rbga;
-    masks[0] += _MaskMapRemapOffset0.rbga;
-    masks[1] *= _MaskMapRemapScale1.rbga;
-    masks[1] += _MaskMapRemapOffset1.rbga;    
-    masks[2] *= _MaskMapRemapScale2.rbga;
-    masks[2] += _MaskMapRemapOffset2.rbga;
-    masks[3] *= _MaskMapRemapScale3.rbga;
-    masks[3] += _MaskMapRemapOffset3.rbga;
+    masks[0] *= _MaskMapRemapScale0.rgba;
+    masks[0] += _MaskMapRemapOffset0.rgba;
+    masks[1] *= _MaskMapRemapScale1.rgba;
+    masks[1] += _MaskMapRemapOffset1.rgba;    
+    masks[2] *= _MaskMapRemapScale2.rgba;
+    masks[2] += _MaskMapRemapOffset2.rgba;
+    masks[3] *= _MaskMapRemapScale3.rgba;
+    masks[3] += _MaskMapRemapOffset3.rgba;
     
     half4 maskSmoothness = half4(masks[0].a, masks[1].a, masks[2].a, masks[3].a);
     defaultSmoothness = lerp(defaultSmoothness, maskSmoothness, hasMask);

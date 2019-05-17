@@ -292,11 +292,9 @@ namespace UnityEditor.Rendering.LWRP
                     metallic = EditorGUILayout.Slider(s_Styles.metallic, metallic, 0, 1);
                     // AO and Height are still exclusively controlled via the maskRemap controls
                     // metallic and smoothness have their own values as fields within the LayerData.
-                    maskMapRemapMin.y = 0.0f;
                     maskMapRemapMax.y = EditorGUILayout.Slider(s_Styles.ao, maskMapRemapMax.y, 0, 1);
                     if (heightBlend)
                     {
-                        maskMapRemapMin.z = 0.0f;
                         maskMapRemapMax.z = EditorGUILayout.FloatField(s_Styles.heightCm, maskMapRemapMax.z * 100);
                     }
 
