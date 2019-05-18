@@ -30,7 +30,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // Precomputed data below.
         RTHandleSystem.RTHandle      m_OpticalDepthTable;
         RTHandleSystem.RTHandle[]    m_GroundIrradianceTables;    // All orders, one order
-        RTHandleSystem.RTHandle[]    m_InScatteredRadianceTables; // Air SS, Aerosol SS, Atmosphere MS, Atmosphere one order, temp
+        RTHandleSystem.RTHandle[]    m_InScatteredRadianceTables; // Air SS, Aerosol SS, Atmosphere MS, Atmosphere one order, Temp
 
         static ComputeShader         s_OpticalDepthPrecomputationCS;
         static ComputeShader         s_GroundIrradiancePrecomputationCS;
@@ -85,9 +85,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 Debug.Assert(m_GroundIrradianceTables[i] != null);
             }
 
-            m_InScatteredRadianceTables = new RTHandleSystem.RTHandle[4];
+            m_InScatteredRadianceTables = new RTHandleSystem.RTHandle[5];
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 5; i++)
             {
                 // Emulate a 4D texture with a "deep" 3D texture.
                 m_InScatteredRadianceTables[i] = RTHandles.Alloc((int)PbrSkyConfig.InScatteredRadianceTableSizeX,
@@ -182,13 +182,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     // For efficiency reasons, multiple scattering is computed in 2 passes:
                     // 1. Gather the in-scattered radiance over the entire sphere of directions.
                     // 2. Accumulate the in-scattered radiance along the ray.
-                    // Single scattering only performs the 2nd step.
+                    // Single scattering performs both steps during the same pass.
 
-                    int firstPass = Math.Min(order - 1, 1);
+                    int firstPass = Math.Min(order - 1, 2);
+                    int accumPass = 3;
                     int numPasses = Math.Min(order, 2);
 
-                    for (int pass = firstPass; pass < (firstPass + numPasses); pass++)
+                    for (int i = 0; i < numPasses; i++)
                     {
+                        int pass = (i == 0) ? firstPass : accumPass;
+
                         {
                             // Used by all passes.
                             cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_OpticalDepthTexture",            m_OpticalDepthTable);
@@ -199,21 +202,31 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         case 0:
                             cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_AirSingleScatteringTable",       m_InScatteredRadianceTables[0]);
                             cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_AerosolSingleScatteringTable",   m_InScatteredRadianceTables[1]);
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTable",        m_InScatteredRadianceTables[2]); // MS orders
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTableOrder",   m_InScatteredRadianceTables[3]); // One order
                             break;
                         case 1:
                             cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_AirSingleScatteringTexture",     m_InScatteredRadianceTables[0]);
                             cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_AerosolSingleScatteringTexture", m_InScatteredRadianceTables[1]);
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_GroundIrradianceTexture",        m_GroundIrradianceTables[1]);
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTable",        m_InScatteredRadianceTables[3]);
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_GroundIrradianceTexture",        m_GroundIrradianceTables[1]);    // One order
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTable",        m_InScatteredRadianceTables[4]); // Temp
                             break;
                         case 2:
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTexture",      m_InScatteredRadianceTables[3]);
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTable",        m_InScatteredRadianceTables[2]);
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTexture",      m_InScatteredRadianceTables[3]); // One order
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_GroundIrradianceTexture",        m_GroundIrradianceTables[1]);    // One order
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTable",        m_InScatteredRadianceTables[4]); // Temp
+                            break;
+                        case 3:
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTexture",      m_InScatteredRadianceTables[4]); // Temp
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTableOrder",   m_InScatteredRadianceTables[3]); // One order
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTable",        m_InScatteredRadianceTables[2]); // MS orders
                             break;
                         default:
+                            Debug.Assert(false);
                             break;
                         }
 
+                        // Re-illuminate the sky with each bounce.
                         // Emulate a 4D dispatch with a "deep" 3D dispatch.
                         cmd.DispatchCompute(s_InScatteredRadiancePrecomputationCS, pass, (int)PbrSkyConfig.InScatteredRadianceTableSizeX / 4,
                                                                                          (int)PbrSkyConfig.InScatteredRadianceTableSizeY / 4,
@@ -221,19 +234,30 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                                                                                          (int)PbrSkyConfig.InScatteredRadianceTableSizeW);
                     }
 
-                    // Re-illuminate the ground with each bounce.
                     {
-                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_OpticalDepthTexture",           m_OpticalDepthTable);
-                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_GroundIrradianceTable",         m_GroundIrradianceTables[0]);
-                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_GroundIrradianceTableOrder",    m_GroundIrradianceTables[1]);
+                        // Used by all passes.
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_GroundIrradianceTable",          m_GroundIrradianceTables[0]); // All orders
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_GroundIrradianceTableOrder",     m_GroundIrradianceTables[1]); // One order
                     }
 
-                    if (firstPass == 1)
+                    switch (firstPass)
                     {
+                    case 0:
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_OpticalDepthTexture",            m_OpticalDepthTable);
+                        break;
+                    case 1:
                         cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_AirSingleScatteringTexture",     m_InScatteredRadianceTables[0]);
                         cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_AerosolSingleScatteringTexture", m_InScatteredRadianceTables[1]);
+                        break;
+                    case 2:
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_MultipleScatteringTableOrder",   m_InScatteredRadianceTables[3]); // One order
+                        break;
+                    default:
+                        Debug.Assert(false);
+                        break;
                     }
 
+                    // Re-illuminate the ground with each bounce.
                     cmd.DispatchCompute(s_GroundIrradiancePrecomputationCS, firstPass, (int)PbrSkyConfig.GroundIrradianceTableSize / 64, 1, 1);
                 }
             }

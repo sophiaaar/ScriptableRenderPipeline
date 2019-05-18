@@ -1,9 +1,10 @@
 #pragma enable_d3d11_debug_symbols
 #pragma only_renderers d3d11 ps4 xboxone vulkan metal switch
 
-#pragma kernel MAIN_1   main=MAIN_1   SINGLE_SCATTERING
-#pragma kernel MAIN_N_G main=MAIN_N_G MULTIPLE_SCATTERING_GATHER
-#pragma kernel MAIN_N_A main=MAIN_N_A MULTIPLE_SCATTERING_ACCUMULATE
+#pragma kernel MAIN_1 main=MAIN_1 SINGLE_SCATTERING
+#pragma kernel MAIN_S main=MAIN_S MULTIPLE_SCATTERING_GATHER     SRC_SS
+#pragma kernel MAIN_M main=MAIN_M MULTIPLE_SCATTERING_GATHER     SRC_MS
+#pragma kernel MAIN_A main=MAIN_A MULTIPLE_SCATTERING_ACCUMULATE
 
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyCommon.hlsl"
 
@@ -15,6 +16,7 @@
 RW_TEXTURE3D(float4, _AirSingleScatteringTable);
 RW_TEXTURE3D(float4, _AerosolSingleScatteringTable);
 RW_TEXTURE3D(float4, _MultipleScatteringTable);
+RW_TEXTURE3D(float4, _MultipleScatteringTableOrder);
 
 [numthreads(4, 4, 4)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
@@ -125,13 +127,14 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         }
     }
 
-    airTableEntry.a     = max(0, tMax - tMin);
-    aerosolTableEntry.a = max(0, tMax - tMin);
+    airTableEntry.a     = tMax - tMin;
+    aerosolTableEntry.a = tMax - tMin;
 
     if (tMin >= tMax)
     {
-        _AirSingleScatteringTable[tableCoord]     = airTableEntry;     // Return 0
-        _AerosolSingleScatteringTable[tableCoord] = aerosolTableEntry; // Return 0
+        _AirSingleScatteringTable[tableCoord]     = 0; // One order
+        _AerosolSingleScatteringTable[tableCoord] = 0; // One order
+        _MultipleScatteringTable[tableCoord]      = 0; // MS orders
         return;
     }
 
@@ -210,8 +213,9 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     // TODO: deep compositing.
     // Note: ground reflection is computed at runtime.
-    _AirSingleScatteringTable[tableCoord]     = airTableEntry;
-    _AerosolSingleScatteringTable[tableCoord] = aerosolTableEntry;
+    _AirSingleScatteringTable[tableCoord]     = airTableEntry;                    // One order
+    _AerosolSingleScatteringTable[tableCoord] = aerosolTableEntry;                // One order
+    _MultipleScatteringTable[tableCoord]      = float4(0, 0, 0, airTableEntry.a); // MS orders
 
 #elif MULTIPLE_SCATTERING_GATHER
 
@@ -285,6 +289,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
             float3 radiance = 0;
 
+        #ifdef SRC_SS
             // Single scattering does not contain the phase function.
             float LdotV1 = dot(L, V1);
 
@@ -295,11 +300,16 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
                              SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
                              tc.a) * AerosolPhase(LdotV1);
+        #else  // SRC_MS
+            radiance += lerp(SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                             SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                             tc.a);
+        #endif // SRC_MS
 
             // AtmospherPhaseScatter / AirPhase.
             // The view direction is the opposite of the incoming direction.
             float3 phase  = AirScatter(height) + AerosolScatter(height) * AerosolToAirPhaseRatio(-cosTheta);
-            float  weight = rcp(numVolumeSamples);
+            float  weight = rcp(numVolumeSamples); // TODO: normalization factor for IS?
 
             tableEntry.rgb += weight * phase * radiance;
         }
@@ -364,7 +374,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     }
 
     // TODO: deep compositing.
-    _MultipleScatteringTable[tableCoord] = tableEntry;
+    _MultipleScatteringTableOrder[tableCoord] = tableEntry;                // One order
+    _MultipleScatteringTable[tableCoord]     += float4(tableEntry.rgb, 0); // MS orders
 
 #endif // MULTIPLE_SCATTERING_ACCUMULATE
 }

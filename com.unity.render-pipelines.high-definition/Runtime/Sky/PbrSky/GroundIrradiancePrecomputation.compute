@@ -2,7 +2,8 @@
 #pragma only_renderers d3d11 ps4 xboxone vulkan metal switch
 
 #pragma kernel MAIN_1 main=MAIN_1 SINGLE_SCATTERING
-#pragma kernel MAIN_N main=MAIN_N MULTIPLE_SCATTERING
+#pragma kernel MAIN_S main=MAIN_S MULTIPLE_SCATTERING SRC_SS
+#pragma kernel MAIN_M main=MAIN_M MULTIPLE_SCATTERING SRC_MS
 
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyCommon.hlsl"
 
@@ -49,18 +50,19 @@ void main(uint dispatchThreadId : SV_DispatchThreadID)
     for (int i = 0; i < numVolumeSamples; i++)
     {
         float2 f = Fibonacci2d(i, numVolumeSamples); // TODO: Cranley-Patterson Rotation
-        float2 s = SampleHemisphereCosine(f.x, f.y);
+        float3 L = SampleHemisphereCosine(f.x, f.y);
 
-        float cosChi = s.x;
+        float cosChi = L.z;
         float NdotV  = -cosChi;
-        float phiL   = s.y;
+        float phiL   = TWO_PI * f.y;
 
         TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(0, NdotV, NdotL, phiL);
 
+        float3 radiance = 0;
+
+    #ifdef SRC_SS
         // Single scattering does not contain the phase function.
         float LdotV = SphericalDot(NdotV, 0, NdotL, phiL);
-
-        float3 radiance = 0;
 
         radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
                          SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
@@ -69,14 +71,19 @@ void main(uint dispatchThreadId : SV_DispatchThreadID)
         radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
                          SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
                          tc.a) * AerosolPhase(LdotV);
+    #else  // SRC_MS
+        radiance += lerp(SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                         SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                         tc.a);
+    #endif // SRC_MS
 
         float weight = PI * rcp(numVolumeSamples);
 
         tableEntry.rgb += weight * radiance;
     }
 
-    _GroundIrradianceTableOrder[tableCoord] = tableEntry; // One order
-    _GroundIrradianceTable[tableCoord]     += tableEntry; // All orders
+    _GroundIrradianceTableOrder[tableCoord] = tableEntry;                // One order
+    _GroundIrradianceTable[tableCoord]     += float4(tableEntry.rgb, 0); // All orders
 
 #endif // MULTIPLE_SCATTERING
 
