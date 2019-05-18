@@ -62,8 +62,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             Debug.Assert(s_GroundIrradiancePrecomputationCS    != null);
             Debug.Assert(s_InScatteredRadiancePrecomputationCS != null);
 
-            //var colorFormat = GraphicsFormat.R16G16B16A16_SFloat;
-            var colorFormat = GraphicsFormat.R32G32B32A32_SFloat;
+            var colorFormat = GraphicsFormat.R16G16B16A16_SFloat;
+            //var colorFormat = GraphicsFormat.R32G32B32A32_SFloat;
 
             // Textures
             m_OpticalDepthTable = RTHandles.Alloc((int)PbrSkyConfig.OpticalDepthTableSizeX,
