@@ -24,7 +24,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         // Store the hash of the parameters each time precomputation is done.
         // If the hash does not match, we must recompute our data.
-        int lastPrecomputationParamHash;
+        int m_LastPrecomputationParamHash;
+
+        // We compute at most one bounce per frame for perf reasons.
+        int m_LastPrecomputedBounce;
 
         PbrSkySettings               m_Settings;
         // Precomputed data below.
@@ -175,9 +178,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             using (new ProfilingSample(cmd, "In-Scattered Radiance Precomputation"))
             {
-                int numBounces = 2;
-
-                for (int order = 1; order <= numBounces; order++)
+                //for (int order = 1; order <= m_Settings.numBounces; order++)
+                int order = m_LastPrecomputedBounce + 1;
                 {
                     // For efficiency reasons, multiple scattering is computed in 2 passes:
                     // 1. Gather the in-scattered radiance over the entire sphere of directions.
@@ -250,7 +252,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_AerosolSingleScatteringTexture", m_InScatteredRadianceTables[1]);
                         break;
                     case 2:
-                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_MultipleScatteringTableOrder",   m_InScatteredRadianceTables[3]); // One order
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_MultipleScatteringTexture",      m_InScatteredRadianceTables[3]); // One order
                         break;
                     default:
                         Debug.Assert(false);
@@ -267,6 +269,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public override void RenderSky(BuiltinSkyParameters builtinParams, bool renderForCubemap, bool renderSunDisk)
         {
             CommandBuffer cmd = builtinParams.commandBuffer;
+            UpdateSharedConstantBuffer(cmd);
 
             Light sun = builtinParams.sunLight;
 
@@ -283,13 +286,20 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             int currentParamHash = m_Settings.GetHashCode();
 
-            if (currentParamHash != lastPrecomputationParamHash)
+            if (currentParamHash != m_LastPrecomputationParamHash)
             {
-                UpdateSharedConstantBuffer(cmd);
-                PrecomputeTables(cmd);
-
-                // lastPrecomputationParamHash = currentParamHash;
+                // Hash does not match, have to restart the precomputation from scratch.
+                m_LastPrecomputedBounce = 0;
             }
+
+            if (m_LastPrecomputedBounce < m_Settings.numBounces)
+            {
+                PrecomputeTables(cmd);
+                m_LastPrecomputedBounce++;
+            }
+
+            // Update the hash for the current bounce.
+            m_LastPrecomputationParamHash = currentParamHash;
 
             Color sunRadiance = sun.color.linear * sun.intensity;
 

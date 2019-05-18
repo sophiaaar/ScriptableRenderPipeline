@@ -37,6 +37,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public ClampedFloatParameter aerosolAnisotropy = new ClampedFloatParameter(0, -1, 1);
         // Albedo of the planetary surface.
         public ColorParameter groundColor = new ColorParameter(new Color(1, 1, 1), hdr: false, showAlpha: false, showEyeDropper: false);
+        // Number of the scattering events.
+        public ClampedIntParameter numBounces = new ClampedIntParameter(8, 1, 10);
 
         public float ComputeAtmosphericDepth()
         {
@@ -75,6 +77,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 hash = hash * 23 + aerosolDensityFalloff.GetHashCode();
                 hash = hash * 23 + aerosolAnisotropy.GetHashCode();
                 hash = hash * 23 + groundColor.GetHashCode();
+                hash = hash * 23 + numBounces.GetHashCode();
             }
 
             return hash;
