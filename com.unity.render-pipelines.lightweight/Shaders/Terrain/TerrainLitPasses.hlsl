@@ -68,6 +68,7 @@ void InitializeInputData(Varyings IN, half3 normalTS, out InputData input)
     half3 normalWS = TransformObjectToWorldNormal(normalize(SAMPLE_TEXTURE2D(_TerrainNormalmapTexture, sampler_TerrainNormalmapTexture, sampleCoords).rgb * 2 - 1));
     half3 tangentWS = cross(GetObjectToWorldMatrix()._13_23_33, normalWS);
     input.normalWS = TransformTangentToWorld(normalTS, half3x3(tangentWS, cross(normalWS, tangentWS), normalWS));
+    SH = SampleSH(input.normalWS.xyz);
 #else
     half3 viewDirWS = IN.viewDir;
     input.normalWS = IN.normal;
