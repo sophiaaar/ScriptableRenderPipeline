@@ -36,7 +36,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // -1: backward scattering.
         public ClampedFloatParameter aerosolAnisotropy = new ClampedFloatParameter(0, -1, 1);
         // Albedo of the planetary surface.
-        public ColorParameter groundColor = new ColorParameter(new Color(1, 1, 1), hdr: false, showAlpha: false, showEyeDropper: false);
+        public ColorParameter groundColor = new ColorParameter(new Color(0.4f, 0.25f, 0.15f), hdr: false, showAlpha: false, showEyeDropper: false);
         // Number of the scattering events.
         public ClampedIntParameter numBounces = new ClampedIntParameter(8, 1, 10);
 
