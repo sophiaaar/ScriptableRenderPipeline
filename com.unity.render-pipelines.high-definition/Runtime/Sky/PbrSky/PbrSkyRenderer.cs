@@ -41,6 +41,53 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         static Material              s_PbrSkyMaterial;
         static MaterialPropertyBlock s_PbrSkyMaterialProperties;
 
+        static GraphicsFormat s_ColorFormat = GraphicsFormat.R16G16B16A16_SFloat;
+
+        RTHandleSystem.RTHandle AllocateOpticalDepthTable()
+        {
+            var table = RTHandles.Alloc((int)PbrSkyConfig.OpticalDepthTableSizeX,
+                                        (int)PbrSkyConfig.OpticalDepthTableSizeY,
+                                        filterMode: FilterMode.Bilinear,
+                                        colorFormat: GraphicsFormat.R16G16_SFloat,
+                                        enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
+                                        name: "OpticalDepthTable");
+
+            Debug.Assert(table != null);
+
+            return table;
+        }
+
+        RTHandleSystem.RTHandle AllocateGroundIrradianceTable(int index)
+        {
+            var table = RTHandles.Alloc((int)PbrSkyConfig.GroundIrradianceTableSize, 1,
+                                        filterMode: FilterMode.Bilinear,
+                                        colorFormat: s_ColorFormat,
+                                        enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
+                                        name: string.Format("GroundIrradianceTable{0}", index));
+
+            Debug.Assert(table != null);
+
+            return table;
+        }
+
+        RTHandleSystem.RTHandle AllocateInScatteredRadianceTable(int index)
+        {
+            // Emulate a 4D texture with a "deep" 3D texture.
+            var table = RTHandles.Alloc((int)PbrSkyConfig.InScatteredRadianceTableSizeX,
+                                        (int)PbrSkyConfig.InScatteredRadianceTableSizeY,
+                                        (int)PbrSkyConfig.InScatteredRadianceTableSizeZ *
+                                        (int)PbrSkyConfig.InScatteredRadianceTableSizeW,
+                                        dimension: TextureDimension.Tex3D,
+                                        filterMode: FilterMode.Bilinear,
+                                        colorFormat: s_ColorFormat,
+                                        enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
+                                        name: string.Format("InScatteredRadianceTable{0}", index));
+
+            Debug.Assert(table != null);
+
+            return table;
+        }
+
         public PbrSkyRenderer(PbrSkySettings settings)
         {
             m_Settings = settings;
@@ -62,48 +109,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             Debug.Assert(s_GroundIrradiancePrecomputationCS    != null);
             Debug.Assert(s_InScatteredRadiancePrecomputationCS != null);
 
-            var colorFormat = GraphicsFormat.R16G16B16A16_SFloat;
-            //var colorFormat = GraphicsFormat.R32G32B32A32_SFloat;
-
             // Textures
-            m_OpticalDepthTable = RTHandles.Alloc((int)PbrSkyConfig.OpticalDepthTableSizeX,
-                                                  (int)PbrSkyConfig.OpticalDepthTableSizeY,
-                                                  filterMode: FilterMode.Bilinear,
-                                                  colorFormat: GraphicsFormat.R16G16_SFloat,
-                                                  enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
-                                                  name: "OpticalDepthTable");
+            m_OpticalDepthTable = AllocateOpticalDepthTable();
 
-            Debug.Assert(m_OpticalDepthTable != null);
+            // No temp tables.
+            m_GroundIrradianceTables       = new RTHandleSystem.RTHandle[2];
+            m_GroundIrradianceTables[0]    = AllocateGroundIrradianceTable(0);
 
-            m_GroundIrradianceTables = new RTHandleSystem.RTHandle[2];
-
-            for (int i = 0; i < 2; i++)
-            {
-                m_GroundIrradianceTables[i] = RTHandles.Alloc((int)PbrSkyConfig.GroundIrradianceTableSize, 1,
-                                                              filterMode: FilterMode.Bilinear,
-                                                              colorFormat: colorFormat,
-                                                              enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
-                                                              name: string.Format("GroundIrradianceTable{0}", i));
-
-                Debug.Assert(m_GroundIrradianceTables[i] != null);
-            }
-
-            m_InScatteredRadianceTables = new RTHandleSystem.RTHandle[5];
-
-            for (int i = 0; i < 5; i++)
-            {
-                // Emulate a 4D texture with a "deep" 3D texture.
-                m_InScatteredRadianceTables[i] = RTHandles.Alloc((int)PbrSkyConfig.InScatteredRadianceTableSizeX,
-                                                                 (int)PbrSkyConfig.InScatteredRadianceTableSizeY,
-                                                                 (int)PbrSkyConfig.InScatteredRadianceTableSizeZ *
-                                                                 (int)PbrSkyConfig.InScatteredRadianceTableSizeW,
-                                                                 dimension: TextureDimension.Tex3D,
-                                                                 filterMode: FilterMode.Bilinear,
-                                                                 colorFormat: colorFormat,
-                                                                 enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
-                                                                 name: string.Format("InScatteredRadianceTable{0}", i));
-
-            }
+            m_InScatteredRadianceTables    = new RTHandleSystem.RTHandle[5];
+            m_InScatteredRadianceTables[0] = AllocateInScatteredRadianceTable(0);
+            m_InScatteredRadianceTables[1] = AllocateInScatteredRadianceTable(1);
+            m_InScatteredRadianceTables[2] = AllocateInScatteredRadianceTable(2);
         }
 
         public override bool IsValid()
@@ -148,8 +164,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.SetGlobalFloat( "_AtmosphericDepth",          H);
             cmd.SetGlobalFloat( "_RcpAtmosphericDepth",       1.0f / H);
 
-            cmd.SetGlobalFloat( "_PlanetaryRadiusSquared",    (R * R));
-            cmd.SetGlobalFloat( "_AtmosphericRadiusSquared",  (R + H) * (R + H));
+            cmd.SetGlobalFloat( "_AtmosphericRadius",         R + H);
             cmd.SetGlobalFloat( "_AerosolAnisotropy",         m_Settings.aerosolAnisotropy);
             cmd.SetGlobalFloat( "_AerosolPhasePartConstant",  CornetteShanksPhasePartConstant(m_Settings.aerosolAnisotropy));
 
@@ -170,10 +185,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         void PrecomputeTables(CommandBuffer cmd)
         {
-            using (new ProfilingSample(cmd, "Optical Depth Precomputation"))
+            if (m_LastPrecomputedBounce == 0)
             {
-                cmd.SetComputeTextureParam(s_OpticalDepthPrecomputationCS, 0, "_OpticalDepthTable", m_OpticalDepthTable);
-                cmd.DispatchCompute(s_OpticalDepthPrecomputationCS, 0, (int)PbrSkyConfig.OpticalDepthTableSizeX / 8, (int)PbrSkyConfig.OpticalDepthTableSizeY / 8, 1);
+                // Only needs to be done once.
+                using (new ProfilingSample(cmd, "Optical Depth Precomputation"))
+                {
+                    cmd.SetComputeTextureParam(s_OpticalDepthPrecomputationCS, 0, "_OpticalDepthTable", m_OpticalDepthTable);
+                    cmd.DispatchCompute(s_OpticalDepthPrecomputationCS, 0, (int)PbrSkyConfig.OpticalDepthTableSizeX / 8, (int)PbrSkyConfig.OpticalDepthTableSizeY / 8, 1);
+                }
             }
 
             using (new ProfilingSample(cmd, "In-Scattered Radiance Precomputation"))
@@ -292,10 +311,26 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 m_LastPrecomputedBounce = 0;
             }
 
+            if (m_LastPrecomputedBounce == 0)
+            {
+                // Allocate temp tables.
+                m_GroundIrradianceTables[1]    = AllocateGroundIrradianceTable(1);
+                m_InScatteredRadianceTables[3] = AllocateInScatteredRadianceTable(3);
+                m_InScatteredRadianceTables[4] = AllocateInScatteredRadianceTable(4);
+            }
+
             if (m_LastPrecomputedBounce < m_Settings.numBounces)
             {
                 PrecomputeTables(cmd);
                 m_LastPrecomputedBounce++;
+            }
+
+            if (m_LastPrecomputedBounce == m_Settings.numBounces)
+            {
+                // Free temp tables.
+                m_GroundIrradianceTables[1]    = null;
+                m_InScatteredRadianceTables[3] = null;
+                m_InScatteredRadianceTables[4] = null;
             }
 
             // Update the hash for the current bounce.

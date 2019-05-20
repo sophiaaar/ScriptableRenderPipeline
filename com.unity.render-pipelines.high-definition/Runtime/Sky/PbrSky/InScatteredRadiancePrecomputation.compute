@@ -21,6 +21,9 @@ RW_TEXTURE3D(float4, _MultipleScatteringTableOrder);
 [numthreads(4, 4, 4)]
 void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
+    const float A = _AtmosphericRadius;
+    const float R = _PlanetaryRadius;
+
     const uint zTexSize = PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_Z;
     const uint zTexCnt  = PBRSKYCONFIG_IN_SCATTERED_RADIANCE_TABLE_SIZE_W;
 
@@ -59,7 +62,6 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     // Set up the ray...
     float  h = height;
-    float  R = _PlanetaryRadius;
     float  r = h + R;
     float3 O = r * N;
 
@@ -68,12 +70,11 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     if (lookAboveHorizon)
     {
-        float _AtmosphericRadius = _PlanetaryRadius + _AtmosphericDepth;
-        tMax = IntersectSphere(_AtmosphericRadius, cosChi, r).y; // Max root
+        tMax = IntersectSphere(A, cosChi, r).y; // Max root
     }
     else
     {
-        tMax = IntersectSphere(_PlanetaryRadius,   cosChi, r).x; // Min root
+        tMax = IntersectSphere(R, cosChi, r).x; // Min root
     }
 
 #ifdef SINGLE_SCATTERING
@@ -86,7 +87,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
     // We can use it to optimize the integration process, as the shadowed region has 0 contribution.
 
     float  tMin = 0;
-    float2 tCyl = IntersectRayCylinder(L, _PlanetaryRadius, r, -V);
+    float2 tCyl = IntersectRayCylinder(L, R, r, -V);
 
     if (tCyl.y >= 0) // Will exit?
     {
@@ -245,7 +246,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             // Flip it upside-down to point towards the sphere light (planet).
             float3 gL = -dir;
 
-            float  t  = IntersectSphere(_PlanetaryRadius, gL.z, r).x;
+            float  t  = IntersectSphere(R, gL.z, r).x;
             float3 gP = O + t * gL;
             float3 gN = normalize(gP);
 
@@ -254,8 +255,8 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
             // TODO: we compute the same thing for many voxels,
             // the only real difference is the phase function...
-            float3 phase  = AtmospherePhaseScatter(dot(gL, V), h);
-            float3 oDepth = SampleOpticalDepthTexture(gL.z, h);
+            float3 phase  = AtmospherePhaseScatter(dot(gL, V), height);
+            float3 oDepth = SampleOpticalDepthTexture(gL.z, height);
             float3 transm = TransmittanceFromOpticalDepth(oDepth);
 
             float weight = rcpPdf * rcp(numGroundSamples);
@@ -282,6 +283,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             float3 V1 = SphericalToCartesian(phi, cosTheta);
                    V1 = mul(V1, frame);
 
+            // TODO: solve in spherical coords?
             float NdotV1 = V1.z;
             float phiL1  = acos(clamp(dot(L.xy, V1.xy) * rsqrt(max(dot(L.xy, L.xy) * dot(V1.xy, V1.xy), FLT_EPS)), -1, 1));
 

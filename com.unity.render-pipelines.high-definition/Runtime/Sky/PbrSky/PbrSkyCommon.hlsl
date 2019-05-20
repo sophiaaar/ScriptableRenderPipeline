@@ -11,8 +11,7 @@ CBUFFER_START(UnityPbrSky)
     float  _AtmosphericDepth;
     float  _RcpAtmosphericDepth;
 
-    float  _PlanetaryRadiusSquared;
-    float  _AtmosphericRadiusSquared;
+    float  _AtmosphericRadius;
     float  _AerosolAnisotropy;
     float  _AerosolPhasePartConstant;
 
@@ -76,11 +75,16 @@ float3 AtmospherePhaseScatter(float LdotV, float height)
     return AirPhase(LdotV) * AirScatter(height) + AerosolPhase(LdotV) * AerosolScatter(height);
 }
 
+// Computes (a^2 - b^2) in a numerically stable way.
+float DifferenceOfSquares(float a, float b)
+{
+    return (a - b) * (a + b);
+}
+
 // Returns the closest hit in X and the farthest hit in Y.
 // Returns a negative number if there's no intersection.
 float2 IntersectSphere(float sphereRadius, float cosChi, float radialDistance)
 {
-    float R = sphereRadius;
     float r = radialDistance;
 
     // r_o = float2(0, r)
@@ -101,13 +105,12 @@ float2 IntersectSphere(float sphereRadius, float cosChi, float radialDistance)
     // t = -b + sqrt(b^2 - c)
     // t = -b + sqrt((r * cosChi)^2 + R^2 - r^2)
     // t = -b + r * sqrt((cosChi)^2 + (R/r)^2 - 1)
-    // t = -b + r * sqrt((cosChi)^2 - (1 - (R/r)^2))
     // t = -b + r * sqrt(d)
     // t = r * (-cosChi + sqrt(d))
     //
     // Why do we do this? Because it is more numerically robust.
 
-    float d = cosChi * cosChi - (1 - Sq(R * rcp(r)));
+    float d = Sq(sphereRadius * rcp(r)) - saturate(1 - cosChi * cosChi);
 
     // Return the value of 'd' for debugging purposes.
     return (d < 0) ? d : (r * float2(-cosChi - sqrt(d),

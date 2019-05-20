@@ -40,39 +40,39 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
     float4 RenderSky(Varyings input)
     {
+        const float  A = _AtmosphericRadius;
+        const float  R = _PlanetaryRadius;
+        const float3 L = _SunDirection;
+        const float3 C = _PlanetCenterPosition;
+        const float3 O = _WorldSpaceCameraPos * 0.001; // Convert m to km
+
         // Convention:
         // V points towards the camera.
         // The normal vector N points upwards (local Z).
         // The view vector V and the normal vector N span the local X-Z plane.
         // The light vector is represented as {phiL, cosThataL}.
-        float3 L = _SunDirection;
         float3 V = GetSkyViewDirWS(input.positionCS.xy, (float3x3)_PixelCoordToViewDirWS);
-        float3 O = _WorldSpaceCameraPos * 0.001; // Convert m to km
-        float3 C = _PlanetCenterPosition;
         float3 P = O - C;
         float3 N = normalize(P);
-        float  r = length(P);
-        float  h = max(0, r - _PlanetaryRadius); // Must not be inside the planet
+        float  r = max(length(P), R); // Must not be inside the planet
 
         bool earlyOut = false;
 
-        if (h <= _AtmosphericDepth)
+        if (r <= A)
         {
             // We are inside the atmosphere.
         }
         else
         {
             // We are observing the planet from space.
-            float _AtmosphericRadius = _PlanetaryRadius + _AtmosphericDepth;
-            float t = IntersectSphere(_AtmosphericRadius, dot(N, -V), r).x; // Min root
+            float t = IntersectSphere(A, dot(N, -V), r).x; // Min root
 
             if (t >= 0)
             {
                 // It's in the view.
                 P = P + t * -V;
                 N = normalize(P);
-                h = _AtmosphericDepth;
-                r = _AtmosphericDepth + _PlanetaryRadius;
+                r = A;
             }
             else
             {
@@ -81,16 +81,18 @@ Shader "Hidden/HDRP/Sky/PbrSky"
             }
         }
 
-        float  NdotL = dot(N, L);
-        float  NdotV = dot(N, V);
-        float3 projL = L - N * NdotL;
-        float3 projV = V - N * NdotV;
-        float  phiL  = acos(clamp(dot(projL, projV) * rsqrt(max(dot(projL, projL) * dot(projV, projV), FLT_EPS)), -1, 1));
-        float cosChi = -NdotV;
+        // TODO: solve in spherical coords?
+        float  NdotL  = dot(N, L);
+        float  NdotV  = dot(N, V);
+        float3 projL  = L - N * NdotL;
+        float3 projV  = V - N * NdotV;
+        float  phiL   = acos(clamp(dot(projL, projV) * rsqrt(max(dot(projL, projL) * dot(projV, projV), FLT_EPS)), -1, 1));
+        float  cosChi = -NdotV;
+        float  height = r - R;
 
-        TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(h, NdotV, NdotL, phiL);
+        TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(height, NdotV, NdotL, phiL);
 
-        float cosHor = GetCosineOfHorizonZenithAngle(h);
+        float cosHor = GetCosineOfHorizonZenithAngle(height);
 
         bool lookAboveHorizon = (cosChi > cosHor);
 
@@ -98,14 +100,14 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
         if (!lookAboveHorizon) // See the ground?
         {
-            float  t  = IntersectSphere(_PlanetaryRadius, cosChi, r).x;
+            float  t  = IntersectSphere(R, cosChi, r).x;
             float3 gP = P + t * -V;
             float3 gN = normalize(gP);
 
             // Shade the ground.
             const float3 gBrdf = INV_PI * _GroundAlbedo;
 
-            float3 oDepth = SampleOpticalDepthTexture(cosChi, h, true);
+            float3 oDepth = SampleOpticalDepthTexture(cosChi, height, true);
             float3 transm = TransmittanceFromOpticalDepth(oDepth);
 
             radiance += transm * gBrdf * SampleGroundIrradianceTexture(dot(gN, L));
