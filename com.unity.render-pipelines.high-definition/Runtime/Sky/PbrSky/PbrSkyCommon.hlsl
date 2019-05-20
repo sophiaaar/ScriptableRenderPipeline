@@ -71,7 +71,7 @@ float AerosolToAirPhaseRatio(float LdotV)
     return _AerosolPhasePartConstant * rcp(k) * CornetteShanksPhasePartAsymmetrical(_AerosolAnisotropy, -LdotV);
 }
 
-float3 AtmospherPhaseScatter(float LdotV, float height)
+float3 AtmospherePhaseScatter(float LdotV, float height)
 {
     return AirPhase(LdotV) * AirScatter(height) + AerosolPhase(LdotV) * AerosolScatter(height);
 }

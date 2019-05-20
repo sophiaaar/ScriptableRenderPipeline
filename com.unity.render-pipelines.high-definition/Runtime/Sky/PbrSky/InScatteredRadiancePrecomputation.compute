@@ -254,7 +254,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
 
             // TODO: we compute the same thing for many voxels,
             // the only real difference is the phase function...
-            float3 phase  = AtmospherPhaseScatter(dot(gL, V), h);
+            float3 phase  = AtmospherePhaseScatter(dot(gL, V), h);
             float3 oDepth = SampleOpticalDepthTexture(gL.z, h);
             float3 transm = TransmittanceFromOpticalDepth(oDepth);
 
@@ -285,7 +285,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             float NdotV1 = V1.z;
             float phiL1  = acos(clamp(dot(L.xy, V1.xy) * rsqrt(max(dot(L.xy, L.xy) * dot(V1.xy, V1.xy), FLT_EPS)), -1, 1));
 
-            TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(h, NdotV1, NdotL, phiL1);
+            TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(height, NdotV1, NdotL, phiL1);
 
             float3 radiance = 0;
 
@@ -309,7 +309,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
             // AtmospherPhaseScatter / AirPhase.
             // The view direction is the opposite of the incoming direction.
             float3 phase  = AirScatter(height) + AerosolScatter(height) * AerosolToAirPhaseRatio(-cosTheta);
-            float  weight = rcp(numVolumeSamples); // TODO: normalization factor for IS?
+            float  weight = rcp(numVolumeSamples);
 
             tableEntry.rgb += weight * phase * radiance;
         }
