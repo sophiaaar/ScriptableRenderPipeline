@@ -273,6 +273,7 @@ void main(uint3 dispatchThreadId : SV_DispatchThreadID)
         {
             float2 f = Fibonacci2d(i, numVolumeSamples); // TODO: Cranley-Patterson Rotation
 
+            // TODO: anisotropy support without doubling the cost?
             float cosTheta = ImportanceSampleRayleighPhase(f.x);
             float phi      = TWO_PI * f.y;
 
