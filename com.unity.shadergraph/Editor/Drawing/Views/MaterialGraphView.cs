@@ -77,9 +77,9 @@ namespace UnityEditor.ShaderGraph.Drawing
             base.BuildContextualMenu(evt);
             if(evt.target is GraphView)
             {
-                evt.menu.AppendAction("Create Sticky Note", CreateStickyNote, DropdownMenuAction.Status.Normal );
+                evt.menu.InsertAction(1, "Create Sticky Note", (e) => { AddStickyNote(evt.mousePosition); });
             }
-            
+
             if (evt.target is GraphView || evt.target is Node)
             {
                 evt.menu.AppendAction("Convert To Sub-graph", ConvertToSubgraph, ConvertToSubgraphStatus);
@@ -175,14 +175,19 @@ namespace UnityEditor.ShaderGraph.Drawing
             graph.CreateGroup(groupData);
 
             foreach (var shaderNodeView in selection.OfType<IShaderNodeView>())
-                {
+            {
                 graph.SetNodeGroup(shaderNodeView.node, groupData);
             }
         }
 
-        public void CreateStickyNote(DropdownMenuAction action)
+        public void AddStickyNote(Vector2 position)
         {
             Debug.Log("SCHTICKKYY");
+            Debug.Log(position);
+            position = contentViewContainer.WorldToLocal(position);
+            Debug.Log(position);
+            //var title = "New Note";
+
         }
 
 
