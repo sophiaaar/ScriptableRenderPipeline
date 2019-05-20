@@ -13,7 +13,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             OpticalDepthTableSizeY        = 128, // height
 
             // Tiny
-            GroundIrradianceTableSize     = 128, // <N, L>
+            GroundIrradianceTableSize     = 256, // <N, L>
 
             // 32 MiB
             InScatteredRadianceTableSizeX = 128, // <N, V>
