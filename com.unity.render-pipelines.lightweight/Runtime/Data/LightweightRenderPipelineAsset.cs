@@ -74,6 +74,12 @@ namespace UnityEngine.Rendering.LWRP
         ForwardRenderer,
     }
 
+    internal static class ResourceGuid
+    {
+        public static readonly string forwardRenderer = "618d298269e66c542b306de85db1faea";
+        public static readonly string editorResources = "76e49a5b88430df478c504fe5a5c1a62";
+    }
+
     public class LightweightRenderPipelineAsset : RenderPipelineAsset, ISerializationCallbackReceiver
     {
         Shader m_DefaultShader;
@@ -141,7 +147,6 @@ namespace UnityEngine.Rendering.LWRP
             var instance = CreateInstance<LightweightRenderPipelineAsset>();
 
             instance.LoadBuiltinRendererData();
-            instance.m_EditorResourcesAsset = LoadResourceFile<LightweightRenderPipelineEditorResources>();
             instance.m_Renderer = instance.m_RendererData.InternalCreateRenderer();
             return instance;
         }
@@ -170,24 +175,10 @@ namespace UnityEngine.Rendering.LWRP
             AssetDatabase.CreateAsset(instance, string.Format("Assets/{0}.asset", typeof(LightweightRenderPipelineEditorResources).Name));
         }
 
-        static T LoadResourceFile<T>() where T : ScriptableObject
+        static T LoadResourceFile<T>(string guid) where T : ScriptableObject
         {
-            T resourceAsset = null;
-            var guids = AssetDatabase.FindAssets(typeof(T).Name + " t:scriptableobject", new[] { "Assets" });
-            foreach (string guid in guids)
-            {
-                string path = AssetDatabase.GUIDToAssetPath(guid);
-                resourceAsset = AssetDatabase.LoadAssetAtPath<T>(path);
-                if (resourceAsset != null)
-                    break;
-            }
-
-            // There's currently an issue that prevents FindAssets from find resources withing the package folder.
-            if (resourceAsset == null)
-            {
-                string path = packagePath + "/Runtime/Data/" + typeof(T).Name + ".asset";
-                resourceAsset = AssetDatabase.LoadAssetAtPath<T>(path);
-            }
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            T resourceAsset = AssetDatabase.LoadAssetAtPath<T>(path);
 
             // Validate the resource file
             ResourceReloader.ReloadAllNullIn(resourceAsset, packagePath);
@@ -200,7 +191,7 @@ namespace UnityEngine.Rendering.LWRP
             get
             {
                 if (m_EditorResourcesAsset == null)
-                    m_EditorResourcesAsset = LoadResourceFile<LightweightRenderPipelineEditorResources>();
+                    m_EditorResourcesAsset = LoadResourceFile<LightweightRenderPipelineEditorResources>(ResourceGuid.editorResources);
 
                 return m_EditorResourcesAsset;
             }
@@ -214,7 +205,7 @@ namespace UnityEngine.Rendering.LWRP
                 // Forward Renderer is the fallback renderer that works on all platforms
                 default:
 #if UNITY_EDITOR
-                    m_RendererData = LoadResourceFile<ForwardRendererData>();
+                    m_RendererData = LoadResourceFile<ForwardRendererData>(ResourceGuid.forwardRenderer);
 #else
                     m_RendererData = null;
 #endif
@@ -467,9 +458,17 @@ namespace UnityEngine.Rendering.LWRP
             get
             {
 #if UNITY_EDITOR
-                Shader defaultShader = scriptableRendererData.GetDefaultShader();
-                if (defaultShader != null)
-                    return defaultShader;
+                // TODO: When importing project, AssetPreviewUpdater:CreatePreviewForAsset will be called multiple time
+                // which in turns calls this property to get the default shader.
+                // The property should never return null as, when null, it loads the data using AssetDatabase.LoadAssetAtPath.
+                // However it seems there's an issue that LoadAssetAtPath will not load the asset in some cases. so adding the null check
+                // here to fix template tests.
+                if (scriptableRendererData != null)
+                {
+                    Shader defaultShader = scriptableRendererData.GetDefaultShader();
+                    if (defaultShader != null)
+                        return defaultShader;
+                }
 #endif
 
                 if (m_DefaultShader == null)
