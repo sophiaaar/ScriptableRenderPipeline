@@ -58,9 +58,8 @@ uint PackOutputToDenoise(float AO, float depth)
 {
     // BitFieldInsert(uint mask, uint src, uint dst)
      // 24 depth,  8 bit AO
-    float linearDepth = LinearEyeDepth(depth, _ZBufferParams);;
     uint packedVal = 0;
-    packedVal = BitFieldInsert(0xffffff00, UnpackInt(linearDepth, 24), packedVal);
     packedVal = BitFieldInsert(0x000000ff, UnpackInt(AO, 8), packedVal);
+    packedVal = BitFieldInsert(0xffffff00, UnpackInt(depth, 24) << 8, packedVal);
     return packedVal;
 }

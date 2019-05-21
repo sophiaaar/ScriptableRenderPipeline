@@ -220,5 +220,6 @@ void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
     //_BentNormalsTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = V * cos(bentNormalAngle) - T * sin(bentNormalAngle);
 
     // This will be the only output at some point
-    _AOPackedData[COORD_TEXTURE2D_X(dispatchThreadId.xy)] =  PackOutputToDenoise(saturate(integral), currDepth);
+    float linearDepth = LinearEyeDepth(currDepth, _ZBufferParams);;
+    _AOPackedData[COORD_TEXTURE2D_X(dispatchThreadId.xy)] =  PackOutputToDenoise(saturate(integral), linearDepth);
 } 
