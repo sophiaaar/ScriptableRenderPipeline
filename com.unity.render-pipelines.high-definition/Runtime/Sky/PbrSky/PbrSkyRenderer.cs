@@ -355,25 +355,32 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             s_PbrSkyMaterialProperties.SetTexture("_AerosolSingleScatteringTexture",  m_InScatteredRadianceTables[1]);
             s_PbrSkyMaterialProperties.SetTexture("_MultipleScatteringTexture",       m_InScatteredRadianceTables[2]);
 
-            if (m_Settings.groundTexture.value != null)
-            {
-                s_PbrSkyMaterialProperties.SetFloat("_HasGroundTexture", 1);
-                s_PbrSkyMaterialProperties.SetTexture("_GroundTexture", m_Settings.groundTexture.value);
-            }
-            else
-            {
-                s_PbrSkyMaterialProperties.SetFloat("_HasGroundTexture", 0);
-            }
+            float hasGroundAlbedoTexture = 0;
 
-            if (m_Settings.spaceTexture.value != null)
+            if (m_Settings.groundAlbedoTexture.value != null)
             {
-                s_PbrSkyMaterialProperties.SetFloat("_HasSpaceTexture", 1);
-                s_PbrSkyMaterialProperties.SetTexture("_SpaceTexture", m_Settings.spaceTexture.value);
+                hasGroundAlbedoTexture = 1;
+                s_PbrSkyMaterialProperties.SetTexture("_GroundAlbedoTexture", m_Settings.groundAlbedoTexture.value);
             }
-            else
+            s_PbrSkyMaterialProperties.SetFloat("_HasGroundAlbedoTexture", hasGroundAlbedoTexture);
+
+            float hasGroundEmissionTexture = 0;
+
+            if (m_Settings.groundEmissionTexture.value != null)
             {
-                s_PbrSkyMaterialProperties.SetFloat("_HasSpaceTexture", 0);
+                hasGroundEmissionTexture = 1;
+                s_PbrSkyMaterialProperties.SetTexture("_GroundEmissionTexture", m_Settings.groundEmissionTexture.value);
             }
+            s_PbrSkyMaterialProperties.SetFloat("_HasGroundEmissionTexture", hasGroundEmissionTexture);
+
+            float hasSpaceEmissionTexture = 0;
+
+            if (m_Settings.spaceEmissionTexture.value != null)
+            {
+                hasSpaceEmissionTexture = 1;
+                s_PbrSkyMaterialProperties.SetTexture("_SpaceEmissionTexture", m_Settings.spaceEmissionTexture.value);
+            }
+            s_PbrSkyMaterialProperties.SetFloat("_HasSpaceEmissionTexture", hasSpaceEmissionTexture);
 
             CoreUtils.DrawFullScreen(builtinParams.commandBuffer, s_PbrSkyMaterial, s_PbrSkyMaterialProperties, renderForCubemap ? 0 : 1);
         }

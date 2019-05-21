@@ -40,9 +40,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         // Albedo of the planetary surface.
         public ColorParameter groundColor = new ColorParameter(new Color(0.4f, 0.25f, 0.15f), hdr: false, showAlpha: false, showEyeDropper: false);
         // Hack. Does not affect the precomputation.
-        public CubemapParameter groundTexture = new CubemapParameter(null);
+        public CubemapParameter groundAlbedoTexture = new CubemapParameter(null);
         // Hack. Does not affect the precomputation.
-        public CubemapParameter spaceTexture = new CubemapParameter(null);
+        public CubemapParameter groundEmissionTexture = new CubemapParameter(null);
+        // Hack. Does not affect the precomputation.
+        public CubemapParameter spaceEmissionTexture = new CubemapParameter(null);
 
         public float ComputeAtmosphericDepth()
         {

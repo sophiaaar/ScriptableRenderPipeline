@@ -13,14 +13,16 @@ Shader "Hidden/HDRP/Sky/PbrSky"
     #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyCommon.hlsl"
     #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/SkyUtils.hlsl"
 
-    float4x4 _PixelCoordToViewDirWS; // Actually just 3x3, but Unity can only set 4x4
+    float4x4 _PixelCoordToViewDirWS;     // Actually just 3x3, but Unity can only set 4x4
     float3   _SunDirection;
     float3   _SunRadiance;
-    float    _HasGroundTexture;      // bool...
-    float    _HasSpaceTexture;       // bool...
+    float    _HasGroundAlbedoTexture;    // bool...
+    float    _HasGroundEmissionTexture;  // bool...
+    float    _HasSpaceEmissionTexture;   // bool...
 
-    TEXTURECUBE(_GroundTexture);
-    TEXTURECUBE(_SpaceTexture);
+    TEXTURECUBE(_GroundAlbedoTexture);
+    TEXTURECUBE(_GroundEmissionTexture);
+    TEXTURECUBE(_SpaceEmissionTexture);
 
     struct Attributes
     {
@@ -116,10 +118,9 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
                 float3 albedo;
 
-                if (_HasGroundTexture)
+                if (_HasGroundAlbedoTexture)
                 {
-                    // Use the ground texture for the first bounce.
-                    albedo = SAMPLE_TEXTURECUBE(_GroundTexture, s_trilinear_clamp_sampler, N);
+                    albedo = SAMPLE_TEXTURECUBE(_GroundAlbedoTexture, s_trilinear_clamp_sampler, N);
                 }
                 else
                 {
@@ -156,13 +157,24 @@ Shader "Hidden/HDRP/Sky/PbrSky"
             radiance *= _SunRadiance; // Globally scale the intensity
         }
 
-        if (_HasSpaceTexture && (!rayIntersectsAtmosphere || lookAboveHorizon))
+        float3 emission = 0;
+
+        if (rayIntersectsAtmosphere && !lookAboveHorizon) // See the ground?
         {
-
-            float3 emittedRadiance = SAMPLE_TEXTURECUBE(_SpaceTexture, s_trilinear_clamp_sampler, -V); // V points towards the camera
-
-            radiance += transm * emittedRadiance;
+            if (_HasGroundEmissionTexture)
+            {
+                emission = SAMPLE_TEXTURECUBE(_GroundEmissionTexture, s_trilinear_clamp_sampler, N);
+            }
         }
+        else // See the space?
+        {
+            if (_HasSpaceEmissionTexture)
+            {
+                emission = SAMPLE_TEXTURECUBE(_SpaceEmissionTexture, s_trilinear_clamp_sampler, -V); // V points towards the camera
+            }
+        }
+
+        radiance += transm * emission;
 
         return float4(radiance, 1.0);
     }
