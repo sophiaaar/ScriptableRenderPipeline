@@ -295,7 +295,7 @@ namespace UnityEditor.Rendering.LWRP
                     maskMapRemapMax.y = EditorGUILayout.Slider(s_Styles.ao, maskMapRemapMax.y, 0, 1);
                     if (heightBlend)
                     {
-                        maskMapRemapMax.z = EditorGUILayout.FloatField(s_Styles.heightCm, maskMapRemapMax.z * 100);
+                        maskMapRemapMax.z = EditorGUILayout.FloatField(s_Styles.heightCm, maskMapRemapMax.z * 100) / 100;
                     }
 
                     if (TextureHasAlpha(terrainLayer.diffuseTexture))
