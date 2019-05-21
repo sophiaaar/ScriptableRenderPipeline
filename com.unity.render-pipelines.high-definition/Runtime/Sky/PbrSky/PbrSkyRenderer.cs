@@ -365,6 +365,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 s_PbrSkyMaterialProperties.SetFloat("_HasGroundTexture", 0);
             }
 
+            if (m_Settings.spaceTexture.value != null)
+            {
+                s_PbrSkyMaterialProperties.SetFloat("_HasSpaceTexture", 1);
+                s_PbrSkyMaterialProperties.SetTexture("_SpaceTexture", m_Settings.spaceTexture.value);
+            }
+            else
+            {
+                s_PbrSkyMaterialProperties.SetFloat("_HasSpaceTexture", 0);
+            }
+
             CoreUtils.DrawFullScreen(builtinParams.commandBuffer, s_PbrSkyMaterial, s_PbrSkyMaterialProperties, renderForCubemap ? 0 : 1);
         }
     }

@@ -17,8 +17,10 @@ Shader "Hidden/HDRP/Sky/PbrSky"
     float3   _SunDirection;
     float3   _SunRadiance;
     float    _HasGroundTexture;      // bool...
+    float    _HasSpaceTexture;       // bool...
 
     TEXTURECUBE(_GroundTexture);
+    TEXTURECUBE(_SpaceTexture);
 
     struct Attributes
     {
@@ -59,7 +61,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
         float3 N = normalize(P);
         float  r = max(length(P), R); // Must not be inside the planet
 
-        bool earlyOut = false;
+        bool rayIntersectsAtmosphere = true;
 
         if (r <= A)
         {
@@ -79,8 +81,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
             }
             else
             {
-                // No atmosphere along the ray.
-                earlyOut = true;
+                rayIntersectsAtmosphere = false;
             }
         }
 
@@ -100,59 +101,67 @@ Shader "Hidden/HDRP/Sky/PbrSky"
         bool lookAboveHorizon = (cosChi > cosHor);
 
         float3 radiance = 0;
+        float3 transm   = 1;
 
-        if (!lookAboveHorizon) // See the ground?
+        if (rayIntersectsAtmosphere)
         {
-            float  t  = IntersectSphere(R, cosChi, r).x;
-            float3 gP = P + t * -V;
-            float3 gN = normalize(gP);
+            float3 oDepth = SampleOpticalDepthTexture(cosChi, height, lookAboveHorizon);
+                   transm = TransmittanceFromOpticalDepth(oDepth);
 
-            float3 oDepth = SampleOpticalDepthTexture(cosChi, height, true);
-            float3 transm = TransmittanceFromOpticalDepth(oDepth);
-
-            float3 albedo;
-
-            if (_HasGroundTexture)
+            if (!lookAboveHorizon) // See the ground?
             {
-                // Use the ground texture for the first bounce.
-                albedo = SAMPLE_TEXTURECUBE(_GroundTexture, s_trilinear_clamp_sampler, N);
-            }
-            else
-            {
-                albedo = _GroundAlbedo;
+                float  t  = IntersectSphere(R, cosChi, r).x;
+                float3 gP = P + t * -V;
+                float3 gN = normalize(gP);
+
+                float3 albedo;
+
+                if (_HasGroundTexture)
+                {
+                    // Use the ground texture for the first bounce.
+                    albedo = SAMPLE_TEXTURECUBE(_GroundTexture, s_trilinear_clamp_sampler, N);
+                }
+                else
+                {
+                    albedo = _GroundAlbedo;
+                }
+
+                // Shade the ground.
+                float3 gBrdf = INV_PI * albedo;
+
+                float3 irradiance = SampleGroundIrradianceTexture(dot(gN, L));
+                radiance += gBrdf * transm * irradiance;
             }
 
-            // Shade the ground.
-            float3 gBrdf = INV_PI * albedo;
+            // Single scattering does not contain the phase function.
+            float LdotV = dot(L, V);
 
-            float3 irradiance = SampleGroundIrradianceTexture(dot(gN, L));
-            radiance += gBrdf * transm * irradiance;
+            // Air.
+            radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                             SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                             tc.a) * AirPhase(LdotV);
+
+            // Aerosols.
+            // TODO: since aerosols are in a separate texture,
+            // they could use a different max height value for improved precision.
+            radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                             SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                             tc.a) * AerosolPhase(LdotV);
+
+            // MS.
+            radiance += lerp(SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                             SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                             tc.a);
+
+            radiance *= _SunRadiance; // Globally scale the intensity
         }
 
-        // Single scattering does not contain the phase function.
-        float LdotV = dot(L, V);
-
-        radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                         SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                         tc.a) * AirPhase(LdotV);
-
-        // TODO: since aerosols are in a separate texture,
-        // they could use a different max height value for improved precision.
-        radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                         SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                         tc.a) * AerosolPhase(LdotV);
-
-        radiance += lerp(SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                         SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                         tc.a);
-
-        radiance *= _SunRadiance;
-
-        if (earlyOut)
+        if (_HasSpaceTexture && (!rayIntersectsAtmosphere || lookAboveHorizon))
         {
-            // Can't perform an early return at the beginning of the shader
-            // due to the compiler warning...
-            radiance = 0;
+
+            float3 emittedRadiance = SAMPLE_TEXTURECUBE(_SpaceTexture, s_trilinear_clamp_sampler, -V); // V points towards the camera
+
+            radiance += transm * emittedRadiance;
         }
 
         return float4(radiance, 1.0);

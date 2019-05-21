@@ -8,7 +8,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         /* We use the measurements from Earth as the defaults. */
         // Radius of the planet (distance from the core to the sea level). Units: km.
         public MinFloatParameter planetaryRadius = new MinFloatParameter(6378.759f, 0);
-        // Position of the center of the planet in the world space.
+        // Position of the center of the planet in the world space. Does not affect the precomputation.
         public Vector3Parameter planetCenterPosition = new Vector3Parameter(new Vector3(0, -6378.759f, 0));
         // Extinction coefficient of air molecules at the sea level. Units: 1/(1000 km).
         // TODO: use mean free path?
@@ -41,6 +41,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public ColorParameter groundColor = new ColorParameter(new Color(0.4f, 0.25f, 0.15f), hdr: false, showAlpha: false, showEyeDropper: false);
         // Hack. Does not affect the precomputation.
         public CubemapParameter groundTexture = new CubemapParameter(null);
+        // Hack. Does not affect the precomputation.
+        public CubemapParameter spaceTexture = new CubemapParameter(null);
 
         public float ComputeAtmosphericDepth()
         {
@@ -69,8 +71,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             unchecked
             {
+                // No 'planetCenterPosition' or any textures..
                 hash = hash * 23 + planetaryRadius.GetHashCode();
-                hash = hash * 23 + planetCenterPosition.GetHashCode();
                 hash = hash * 23 + airThickness.GetHashCode();
                 hash = hash * 23 + airAlbedo.GetHashCode();
                 hash = hash * 23 + airDensityFalloff.GetHashCode();
@@ -78,8 +80,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 hash = hash * 23 + aerosolAlbedo.GetHashCode();
                 hash = hash * 23 + aerosolDensityFalloff.GetHashCode();
                 hash = hash * 23 + aerosolAnisotropy.GetHashCode();
-                hash = hash * 23 + groundColor.GetHashCode();
                 hash = hash * 23 + numBounces.GetHashCode();
+                hash = hash * 23 + groundColor.GetHashCode();
             }
 
             return hash;

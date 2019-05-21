@@ -221,16 +221,16 @@ float2 UnmapAerialPerspectiveAboveHorizon(float2 uv)
     return float2(cosChi, height);
 }
 
-float3 SampleOpticalDepthTexture(float cosChi, float height, bool belowHorizon)
+float3 SampleOpticalDepthTexture(float cosChi, float height, bool lookAboveHorizon)
 {
     // TODO: pass the sign? Do not recompute?
-    float s = belowHorizon ? -1 : 1;
+    float s = lookAboveHorizon ? 1 : -1;
 
     // From the current position to the atmospheric boundary.
     float2 uv       = MapAerialPerspectiveAboveHorizon(s * cosChi, height).xy;
     float2 optDepth = SAMPLE_TEXTURE2D_LOD(_OpticalDepthTexture, s_linear_clamp_sampler, uv, 0).xy;
 
-    if (belowHorizon)
+    if (!lookAboveHorizon)
     {
         // Direction points below the horizon.
         // What we want to know is transmittance from the sea level to our current position.
@@ -267,7 +267,7 @@ float3 SampleOpticalDepthTexture(float cosChi, float height)
     float cosHor           = GetCosineOfHorizonZenithAngle(height);
     bool  lookAboveHorizon = (cosChi > cosHor);
 
-    return SampleOpticalDepthTexture(cosChi, height, !lookAboveHorizon);
+    return SampleOpticalDepthTexture(cosChi, height, lookAboveHorizon);
 }
 
 // Map: [cos(120 deg), 1] -> [0, 1].
