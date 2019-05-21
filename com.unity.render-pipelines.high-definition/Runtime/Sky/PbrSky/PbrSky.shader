@@ -115,7 +115,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
             if (_HasGroundTexture)
             {
                 // Use the ground texture for the first bounce.
-                albedo = SAMPLE_TEXTURECUBE(_GroundTexture, s_linear_clamp_sampler, N);
+                albedo = SAMPLE_TEXTURECUBE(_GroundTexture, s_trilinear_clamp_sampler, N);
             }
             else
             {
