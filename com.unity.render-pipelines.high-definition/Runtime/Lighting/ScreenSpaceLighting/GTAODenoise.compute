@@ -327,11 +327,13 @@ float Blur(float2 centralPos, out float centralDepth)
 
     float total = 0.0f;
     float weightTotal = 0.0f;
-    //// This is temp, it should be a proper bilateral. 
+    //// This is temp, it should be a proper bilateral.
+
+    //  TODO_FCC: Make this a gaussian! 
     for (int i = 0; i < 16; ++i)
     {
         float delta = abs(depths[i] - centralDepth);
-        float localWeight = delta < centralDepth * 1000.2;// TODO_FCC. actual bilateral weighting here.
+        float localWeight = delta < centralDepth * 0.15;// TODO_FCC. actual bilateral weighting here.
         total += AOs[i] * localWeight;
         weightTotal += localWeight;
     }
@@ -364,8 +366,10 @@ void GTAODenoise_Spatial(uint3 dispatchThreadId : SV_DispatchThreadID)
 
 #ifdef TEMPORAL
 
-RW_TEXTURE2D_X(uint, _AOPackedHistory);
+RW_TEXTURE2D_X(uint, _AOOutputHistory);
+
 TEXTURE2D_X_UINT(_AOPackedBlurred);
+TEXTURE2D_X_UINT(_AOPackedHistory);
 
 
 
@@ -450,13 +454,13 @@ void GTAODenoise_Temporal(uint3 dispatchThreadId : SV_DispatchThreadID)
     float corners = 4.0 * (topLeft + bottomRight) - 2.0 * currAO;
     float average = ((corners + currAO) / 7.0);
 
-   prevAO = clamp(prevAO, min(topLeft, bottomRight) - 0.2, max(topLeft, bottomRight) + 0.2);
+ //  prevAO = clamp(prevAO, min(topLeft, bottomRight) - 0.2, max(topLeft, bottomRight) + 0.2);
 
 
     float newAO = (lerp(currAO, prevAO, 0.9));
 
     _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = 1.0f - pow(newAO, _AOIntensity);
-    _AOPackedHistory[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = PackOutputToDenoise(newAO, currDepth);
+    _AOOutputHistory[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = PackOutputToDenoise(newAO, currDepth);
 
     float depth_similarity = saturate(pow(prevdepth / currDepth, 8) + 0.00001);
 
