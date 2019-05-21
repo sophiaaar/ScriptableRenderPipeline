@@ -16,6 +16,9 @@ Shader "Hidden/HDRP/Sky/PbrSky"
     float4x4 _PixelCoordToViewDirWS; // Actually just 3x3, but Unity can only set 4x4
     float3   _SunDirection;
     float3   _SunRadiance;
+    float    _HasGroundTexture;      // bool...
+
+    TEXTURECUBE(_GroundTexture);
 
     struct Attributes
     {
@@ -104,13 +107,26 @@ Shader "Hidden/HDRP/Sky/PbrSky"
             float3 gP = P + t * -V;
             float3 gN = normalize(gP);
 
-            // Shade the ground.
-            const float3 gBrdf = INV_PI * _GroundAlbedo;
-
             float3 oDepth = SampleOpticalDepthTexture(cosChi, height, true);
             float3 transm = TransmittanceFromOpticalDepth(oDepth);
 
-            radiance += transm * gBrdf * SampleGroundIrradianceTexture(dot(gN, L));
+            float3 albedo;
+
+            if (_HasGroundTexture)
+            {
+                // Use the ground texture for the first bounce.
+                albedo = SAMPLE_TEXTURECUBE(_GroundTexture, s_linear_clamp_sampler, N);
+            }
+            else
+            {
+                albedo = _GroundAlbedo;
+            }
+
+            // Shade the ground.
+            float3 gBrdf = INV_PI * albedo;
+
+            float3 irradiance = SampleGroundIrradianceTexture(dot(gN, L));
+            radiance += gBrdf * transm * irradiance;
         }
 
         // Single scattering does not contain the phase function.

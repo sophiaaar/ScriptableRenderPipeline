@@ -355,6 +355,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             s_PbrSkyMaterialProperties.SetTexture("_AerosolSingleScatteringTexture",  m_InScatteredRadianceTables[1]);
             s_PbrSkyMaterialProperties.SetTexture("_MultipleScatteringTexture",       m_InScatteredRadianceTables[2]);
 
+            if (m_Settings.groundTexture.value != null)
+            {
+                s_PbrSkyMaterialProperties.SetFloat("_HasGroundTexture", 1);
+                s_PbrSkyMaterialProperties.SetTexture("_GroundTexture", m_Settings.groundTexture.value);
+            }
+            else
+            {
+                s_PbrSkyMaterialProperties.SetFloat("_HasGroundTexture", 0);
+            }
+
             CoreUtils.DrawFullScreen(builtinParams.commandBuffer, s_PbrSkyMaterial, s_PbrSkyMaterialProperties, renderForCubemap ? 0 : 1);
         }
     }
