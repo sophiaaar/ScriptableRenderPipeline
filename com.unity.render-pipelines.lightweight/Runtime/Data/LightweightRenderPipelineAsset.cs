@@ -207,6 +207,16 @@ namespace UnityEngine.Rendering.LWRP
                 return m_EditorResourcesAsset;
             }
         }
+
+        void Reset()
+        {
+            var allSubAssets = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(this));
+            foreach (var subAsset in allSubAssets)
+            {
+                if (!AssetDatabase.IsMainAsset(subAsset))
+                    AssetDatabase.RemoveObjectFromAsset(subAsset);
+            }
+        }
 #endif
 
         public ScriptableRendererData LoadBuiltinRendererData()
@@ -216,8 +226,7 @@ namespace UnityEngine.Rendering.LWRP
             {
                 case RendererType._2DRenderer:
                     {
-                        var pipelineAssetPath = AssetDatabase.GetAssetPath(this);
-                        var allSubAssets = AssetDatabase.LoadAllAssetsAtPath(pipelineAssetPath);
+                        var allSubAssets = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(this));
                         bool foundExisting = false;
                         foreach (var subAsset in allSubAssets)
                         {
