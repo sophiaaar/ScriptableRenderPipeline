@@ -4,6 +4,7 @@
 #pragma kernel GTAODenoise
 #pragma kernel GTAODenoise_OLD_BLUR OLD_BLUR
 #pragma kernel GTAODenoise_Temporal TEMPORAL
+#pragma kernel GTAODenoise_Spatial SPATIAL
 
 
 #pragma enable_d3d11_debug_symbols
@@ -13,13 +14,14 @@
 RW_TEXTURE2D_X(float4, _OcclusionTexture);
 RW_TEXTURE2D_X(float3, _BentNormalsTexture);
 
-
 TEXTURE2D_X_UINT(_AOPackedData);
+
 
 void UnpackData(uint data, out float AO, out float depth)
 {
     AO = UnpackUIntToFloat(data, 0, 8);
     depth = UnpackUIntToFloat(data, 8, 24);
+    //depth = LinearEyeDepth(depth, _ZBufferParams);
 }
 
 void UnpackGatheredData(uint4 data, out float4 AOs, out float4 depths)
@@ -31,6 +33,7 @@ void UnpackGatheredData(uint4 data, out float4 AOs, out float4 depths)
 }
 
 #ifndef OLD_BLUR
+
 [numthreads(8,8,1)]
 void GTAODenoise(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
@@ -292,31 +295,19 @@ void GTAODenoise_OLD_BLUR(uint GI : SV_GroupIndex, uint2 GTid : SV_GroupThreadID
 #endif
 
 
-#ifdef TEMPORAL
 
-RW_TEXTURE2D_X(uint, _AOPackedHistory);
+#ifdef SPATIAL
 
-[numthreads(8, 8, 1)]
-void GTAODenoise_Temporal(uint3 dispatchThreadId : SV_DispatchThreadID)
+RW_TEXTURE2D_X(uint, _AOPackedBlurred);
+
+float Blur(float2 centralPos, out float centralDepth)
 {
-    // Get current data.
-    uint currData = _AOPackedData[COORD_TEXTURE2D_X(dispatchThreadId.xy)];
-    uint prevData = _AOPackedHistory[COORD_TEXTURE2D_X(dispatchThreadId.xy)]; 
+    float2 temporalOffset = 0;//  (_FrameCount & 1) == 0 ? float2(-1.0f, 1.0f) : float2(1.0f, -1.0f);
 
-    //uint4 prevData = GATHER_TEXTURE2D_X(_AOPackedHistory, s_linear_clamp_sampler, (positionSS) * _AOBufferSize.zw);
-
-    float currAO, currDepth;
-    UnpackData(currData, currAO, currDepth);
-    float prevAO, prevDepth;
-    UnpackData(prevData, prevAO, prevDepth);
-
-
-
-
-    uint4 data_0_3 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (dispatchThreadId.xy + float2(-2.0f, 2.0f))  * _AOBufferSize.zw);
-    uint4 data_4_7 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (dispatchThreadId.xy + float2(0.0f, 2.0f))  * _AOBufferSize.zw);
-    uint4 data_8_11 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (dispatchThreadId.xy + float2(-2.0f, 0.0f))  * _AOBufferSize.zw);
-    uint4 data_12_15 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (dispatchThreadId.xy + float2(0.0f, 0.0f))  * _AOBufferSize.zw);
+    uint4 data_0_3 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(-2.0f, 2.0f) + temporalOffset)  * _AOBufferSize.zw);
+    uint4 data_4_7 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(0.0f, 2.0f) + temporalOffset)  * _AOBufferSize.zw);
+    uint4 data_8_11 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(-2.0f, 0.0f) + temporalOffset)  * _AOBufferSize.zw);
+    uint4 data_12_15 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(0.0f, 0.0f) + temporalOffset)  * _AOBufferSize.zw);
 
 
     float4 AO_0_3, depths_0_3;
@@ -331,30 +322,147 @@ void GTAODenoise_Temporal(uint3 dispatchThreadId : SV_DispatchThreadID)
     float depths[16] = { depths_0_3.x, depths_0_3.y, depths_0_3.z, depths_0_3.w, depths_4_7.x, depths_4_7.y, depths_4_7.z, depths_4_7.w, depths_8_11.x, depths_8_11.y, depths_8_11.z, depths_8_11.w, depths_12_15.x, depths_12_15.y, depths_12_15.z, depths_12_15.w };
     float AOs[16] = { AO_0_3.x, AO_0_3.y, AO_0_3.z, AO_0_3.w, AO_4_7.x, AO_4_7.y, AO_4_7.z, AO_4_7.w, AO_8_11.x, AO_8_11.y, AO_8_11.z, AO_8_11.w, AO_12_15.x, AO_12_15.y, AO_12_15.z, AO_12_15.w };
 
-    float centralDepth = depths_12_15.y;
+    centralDepth = depths_12_15.y;
+    float centralAO = AO_12_15.y;
 
     float total = 0.0f;
     float weightTotal = 0.0f;
-    //// This is temp, it should really be a pixel shader so we can ddx and ddy. let's try... 
+    //// This is temp, it should be a proper bilateral. 
     for (int i = 0; i < 16; ++i)
     {
         float delta = abs(depths[i] - centralDepth);
-        float localWeight = (delta < centralDepth * 100.1f);
+        float localWeight = delta < centralDepth * 1000.2;// TODO_FCC. actual bilateral weighting here.
         total += AOs[i] * localWeight;
         weightTotal += localWeight;
     }
 
     total /= weightTotal;
+    return total;
+}
 
+[numthreads(8, 8, 1)]
+void GTAODenoise_Spatial(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
 
-    //float4 prevDepth, prevAO;
-    //UnpackGatheredData(prevData, prevAO, prevDepth);
+    uint currData = _AOPackedData[COORD_TEXTURE2D_X(dispatchThreadId.xy)];
 
-    float newAO = (lerp(total, prevAO, 0.9));
+    float centralDepth;
+    float final = Blur(dispatchThreadId.xy, centralDepth);
 
-    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = 1.0f - pow(newAO, _AOIntensity);
-    _AOPackedHistory[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = PackOutputToDenoise(newAO, currDepth);
-    // TODO_FCC: This is for test, NEED REPROJECTION!
+    uint packed = PackOutputToDenoise(final, centralDepth);
+
+    
+    float currDepth, currAO;
+    UnpackData(currData, currAO, currDepth);
+
+    _AOPackedBlurred[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = PackOutputToDenoise(final, currDepth);
+    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = (centralDepth - currDepth);
 
 }
 #endif
+
+
+#ifdef TEMPORAL
+
+RW_TEXTURE2D_X(uint, _AOPackedHistory);
+TEXTURE2D_X_UINT(_AOPackedBlurred);
+
+
+
+float3 FetchAO(float2 coords, float2 offset, float2 scale)
+{
+    float2 uv = (coords + offset * _AOBufferSize.zw) * scale;
+    uint data = LOAD_TEXTURE2D_X(_AOPackedBlurred, uv * _AOBufferSize.xy).x;
+    float AO, depth;
+    UnpackData(data, AO, depth);
+    return AO;
+}
+
+
+#if UNITY_REVERSED_Z
+#define COMPARE_DEPTH(a, b) step(b, a)
+#else
+#define COMPARE_DEPTH(a, b) step(a, b)
+#endif
+
+
+float2 GetClosestFragment(float2 positionSS)
+{
+    float center = LoadCameraDepth(positionSS);
+    float nw = LoadCameraDepth(positionSS + int2(-1, -1));
+    float ne = LoadCameraDepth(positionSS + int2(1, -1));
+    float sw = LoadCameraDepth(positionSS + int2(-1, 1));
+    float se = LoadCameraDepth(positionSS + int2(1, 1));
+
+    float4 neighborhood = float4(nw, ne, sw, se);
+
+    float3 closest = float3(0.0, 0.0, center);
+    closest = lerp(closest, float3(-1.0, -1.0, neighborhood.x), COMPARE_DEPTH(neighborhood.x, closest.z));
+    closest = lerp(closest, float3(1.0, -1.0, neighborhood.y), COMPARE_DEPTH(neighborhood.y, closest.z));
+    closest = lerp(closest, float3(-1.0, 1.0, neighborhood.z), COMPARE_DEPTH(neighborhood.z, closest.z));
+    closest = lerp(closest, float3(1.0, 1.0, neighborhood.w), COMPARE_DEPTH(neighborhood.w, closest.z));
+
+    return positionSS + closest.xy;
+}
+
+float3 ClipToAABB(float color, float minimum, float maximum)
+{
+    // note: only clips towards aabb center (but fast!)
+    float center = 0.5 * (maximum + minimum);
+    float extents = 0.5 * (maximum - minimum);
+
+    // This is actually `distance`, however the keyword is reserved
+    float offset = color - center;
+
+    float ts = abs(extents) / max(abs(offset), 1e-4);
+    return center + offset * saturate(ts);
+}
+
+
+RW_TEXTURE2D_X(float4, _AODebug);
+
+
+[numthreads(8, 8, 1)]
+void GTAODenoise_Temporal(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    float2 uv = (dispatchThreadId.xy + 0.5f) * _AOBufferSize.zw/*- jitter*/;
+
+    uint currFrameData = _AOPackedBlurred[COORD_TEXTURE2D_X((uv)* _AOBufferSize.xy)];
+    float currDepth, currAO;
+    UnpackData(currFrameData, currAO, currDepth);
+
+    PositionInputs posInputs = GetPositionInput(float2(dispatchThreadId.xy), _ScreenSize.zw, uint2(8, 8));
+
+    float2 closest = GetClosestFragment(posInputs.positionSS * (1 + _AOBaseResMip));
+    float2 motionVector;
+    DecodeMotionVector(LOAD_TEXTURE2D_X(_CameraMotionVectorsTexture, closest), motionVector);
+    float motionVecLength = length(motionVector);
+
+    float2 prevFrameNDC = uv - motionVector;
+
+    uint prevData = _AOPackedHistory[COORD_TEXTURE2D_X((prevFrameNDC)* _AOBufferSize.xy)]; //SAMPLE_TEXTURE2D_X_LOD(_AOPackedHistory, s_linear_clamp_sampler, prevFrameNDC, 0).x;
+    float prevAO, prevdepth;
+    UnpackData(prevData, prevAO, prevdepth);
+
+    float topLeft = FetchAO( uv, -0.25 * 2, _RTHandleScale.xy);
+    float bottomRight = FetchAO( uv, 0.25 * 2, _RTHandleScale.xy);
+
+    float corners = 4.0 * (topLeft + bottomRight) - 2.0 * currAO;
+    float average = ((corners + currAO) / 7.0);
+
+   prevAO = clamp(prevAO, min(topLeft, bottomRight) - 0.2, max(topLeft, bottomRight) + 0.2);
+
+
+    float newAO = (lerp(currAO, prevAO, 0.9));
+
+    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = 1.0f - pow(newAO, _AOIntensity);
+    _AOPackedHistory[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = PackOutputToDenoise(newAO, currDepth);
+
+    float depth_similarity = saturate(pow(prevdepth / currDepth, 8) + 0.00001);
+
+    _AODebug[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = float4(prevdepth, currDepth, depth_similarity, abs(prevdepth - currDepth));// float4() * float4(1, 1, _ScreenSize.xy);
+
+}
+#endif
+
+

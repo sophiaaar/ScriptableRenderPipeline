@@ -714,6 +714,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public static readonly int _AOPackedData                   = Shader.PropertyToID("_AOPackedData");
         public static readonly int _AOPackedHistory                 = Shader.PropertyToID("_AOPackedHistory");
         public static readonly int _AODepthToViewParams             = Shader.PropertyToID("_AODepthToViewParams");
+        public static readonly int _AOPackedBlurred                = Shader.PropertyToID("_AOPackedBlurred");
+        public static readonly int _AOOutputHistory = Shader.PropertyToID("_AOOutputHistory");
+
+        public static readonly int _AODebug                         = Shader.PropertyToID("_AODebug");
 
     }
 }

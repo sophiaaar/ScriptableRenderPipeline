@@ -221,5 +221,5 @@ void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
 
     // This will be the only output at some point
     float linearDepth = LinearEyeDepth(currDepth, _ZBufferParams);;
-    _AOPackedData[COORD_TEXTURE2D_X(dispatchThreadId.xy)] =  PackOutputToDenoise(saturate(integral), linearDepth);
+    _AOPackedData[COORD_TEXTURE2D_X(dispatchThreadId.xy)] =  PackOutputToDenoise(saturate(integral), currDepth);
 } 
