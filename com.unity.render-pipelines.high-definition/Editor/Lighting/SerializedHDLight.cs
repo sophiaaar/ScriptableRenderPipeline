@@ -42,9 +42,6 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             public SerializedProperty areaLightShadowCone;
 #if ENABLE_RAYTRACING
             public SerializedProperty useRayTracedShadows;
-            public SerializedProperty numRayTracingSamples;
-            public SerializedProperty filterTracedShadow;
-            public SerializedProperty filterSizeTraced;
 #endif
             public SerializedProperty evsmExponent;
             public SerializedProperty evsmLightLeakBias;
@@ -61,6 +58,10 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             public SerializedProperty showFeatures;
             public SerializedProperty showAdditionalSettings;
             public SerializedProperty useVolumetric;
+
+            // Layers
+            public SerializedProperty linkLightLayers;
+            public SerializedProperty lightLayerMask;
         }
 
         public sealed class SerializedShadowData
@@ -138,9 +139,6 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                     areaLightShadowCone = o.Find(x => x.areaLightShadowCone),
 #if ENABLE_RAYTRACING
                     useRayTracedShadows = o.Find(x => x.useRayTracedShadows),
-                    numRayTracingSamples = o.Find(x => x.numRayTracingSamples),
-                    filterTracedShadow = o.Find(x => x.filterTracedShadow),
-                    filterSizeTraced = o.Find(x => x.filterSizeTraced),
 #endif
                     evsmExponent = o.Find(x => x.evsmExponent),
                     evsmVarianceBias = o.Find(x => x.evsmVarianceBias),
@@ -157,7 +155,11 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                     showFeatures = o.Find(x => x.featuresFoldout),
                     showAdditionalSettings = o.Find(x => x.showAdditionalSettings),
                     useVolumetric = o.Find(x => x.useVolumetric),
-                    renderingLayerMask = settings.renderingLayerMask
+                    renderingLayerMask = settings.renderingLayerMask,
+
+                    // Layers
+                    linkLightLayers = o.Find(x => x.decoupleShadowLayers),
+                    lightLayerMask = o.Find(x => x.lightLayerMask)
                 };
 
             // TODO: Review this once AdditionalShadowData is refactored
