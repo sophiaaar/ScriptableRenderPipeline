@@ -27,8 +27,8 @@ namespace UnityEditor.Experimental.Rendering.LWRP
             public static readonly GUIContent blendFactorMultiplicative = EditorGUIUtility.TrTextContent("Multiplicative");
             public static readonly GUIContent blendFactorAdditive = EditorGUIUtility.TrTextContent("Additive");
         }
-        struct LightBlendStyleProps
 
+        struct LightBlendStyleProps
         {
             public SerializedProperty enabled;
             public SerializedProperty name;
