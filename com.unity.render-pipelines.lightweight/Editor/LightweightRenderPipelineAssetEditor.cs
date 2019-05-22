@@ -69,10 +69,6 @@ namespace UnityEditor.Rendering.LWRP
         SavedBool m_AdvancedSettingsFoldout;
         SavedBool m_RendererSettingsFoldout;
 
-        bool m_RelatedSettingsOnly;
-        bool m_RecreateRendererDataEditor;
-        ScriptableRendererDataEditor m_RendererDataEditor;
-
         SerializedProperty m_RendererTypeProp;
         SerializedProperty m_RendererDataProp;
 
@@ -110,13 +106,19 @@ namespace UnityEditor.Rendering.LWRP
 
         internal static LightRenderingMode selectedLightRenderingMode;
 
+        bool m_OverriddenByRendererDataEditor;
+        bool m_RecreateRendererDataEditor;
+        bool m_IsRendererDataASubAsset;
+        ScriptableRendererDataEditor m_RendererDataEditor;
+
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
 
             DrawRendererSettings();
 
-            if (m_RelatedSettingsOnly && m_RendererDataEditor != null && m_RendererDataEditor.overridePipelineAssetEditor)
+            // The renderer data editor can choose to completely change the appearance of the pipeline asset editor. 
+            if (m_OverriddenByRendererDataEditor && m_RendererDataEditor != null)
                 m_RendererDataEditor.OnPipelineAssetEditorGUI(this);
             else
             {
@@ -127,7 +129,9 @@ namespace UnityEditor.Rendering.LWRP
                 DrawAdvancedSettings();
             }
 
-            if (m_RendererDataEditor != null)
+            // If the renderer data is a sub-asset of the pipeline asset,
+            // Draw the the renderer data editor at the bottom.
+            if (m_IsRendererDataASubAsset && m_RendererDataEditor != null)
             {
                 string rendererName = m_RendererTypeProp.enumDisplayNames[m_RendererTypeProp.enumValueIndex];
                 m_RendererSettingsFoldout.value = EditorGUILayout.BeginFoldoutHeaderGroup(m_RendererSettingsFoldout.value, rendererName);
@@ -194,26 +198,35 @@ namespace UnityEditor.Rendering.LWRP
 
         void OnDisable()
         {
-            DestroyRendererDataEditor();
-        }
-
-        bool IsRendererDataASubAsset()
-        {
-            ScriptableRendererData rendererData = m_RendererDataProp.objectReferenceValue as ScriptableRendererData;
-
-            if (rendererData == null)
-                return false;
-            else
-                return AssetDatabase.GetAssetPath(rendererData) == AssetDatabase.GetAssetPath(target);
-        }
-
-        void DestroyRendererDataEditor()
-        {
             if (m_RendererDataEditor != null)
             {
                 DestroyImmediate(m_RendererDataEditor);
                 m_RendererDataEditor = null;
             }
+        }
+
+        void CreateRendererDataEditor()
+        {
+            var rendererData = m_RendererDataProp.objectReferenceValue;
+            m_IsRendererDataASubAsset = rendererData != null && AssetDatabase.GetAssetPath(rendererData) == AssetDatabase.GetAssetPath(target);
+
+            Editor editor = m_RendererDataEditor;
+            CreateCachedEditor(rendererData, null, ref editor);
+
+            // In order to be shown in the pipeline asset editor,
+            // the renderer data editor must derive from ScriptableRendererDataEditor.
+            if (editor != null && (editor as ScriptableRendererDataEditor) == null)
+            {
+                DestroyImmediate(editor);
+                m_RendererDataEditor = null;
+            }
+            else
+                m_RendererDataEditor = editor as ScriptableRendererDataEditor;
+
+            if (m_RendererDataEditor != null)
+                m_OverriddenByRendererDataEditor = m_RendererDataEditor.overridePipelineAssetEditor;
+            else
+                m_OverriddenByRendererDataEditor = false;
         }
 
         void DrawRendererSettings()
@@ -245,35 +258,16 @@ namespace UnityEditor.Rendering.LWRP
             if (m_RendererDataEditor != null && m_RendererDataEditor.target != m_RendererDataProp.objectReferenceValue)
                 m_RecreateRendererDataEditor = true;
 
+            // The recreation of renderer data editor should happen only once,
+            // and it should happen during the Layout phase.
             if (m_RecreateRendererDataEditor && Event.current.type == EventType.Layout)
             {
-                if (!IsRendererDataASubAsset())
-                    DestroyRendererDataEditor();
-                else
-                {
-                    Editor editor = m_RendererDataEditor;
-                    CreateCachedEditor(m_RendererDataProp.objectReferenceValue, null, ref editor);
-
-                    if (editor != null && (editor as ScriptableRendererDataEditor) == null)
-                    {
-                        DestroyImmediate(editor);
-                        m_RendererDataEditor = null;
-                    }
-                    else
-                        m_RendererDataEditor = editor as ScriptableRendererDataEditor;
-
-                    if (m_RendererDataEditor != null)
-                    {
-                        m_RendererDataEditor.OnCreatedFromPipelineAssetEditor(this);
-                        m_RelatedSettingsOnly = m_RendererDataEditor.overridePipelineAssetEditor;
-                    }
-                }
-
+                CreateRendererDataEditor();
                 m_RecreateRendererDataEditor = false;
             }
 
             if (m_RendererDataEditor != null && m_RendererDataEditor.overridePipelineAssetEditor)
-                m_RelatedSettingsOnly = GUILayout.Toggle(m_RelatedSettingsOnly, Styles.relatedSettingsOnly, EditorStyles.miniButton, GUILayout.Width(150.0f));
+                m_OverriddenByRendererDataEditor = GUILayout.Toggle(m_OverriddenByRendererDataEditor, Styles.relatedSettingsOnly, EditorStyles.miniButton, GUILayout.Width(150.0f));
 
             EditorGUI.indentLevel--;
         }

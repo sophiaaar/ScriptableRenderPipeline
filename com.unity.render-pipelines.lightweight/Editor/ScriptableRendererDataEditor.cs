@@ -36,10 +36,7 @@ namespace UnityEditor.Rendering.LWRP
 
         internal virtual bool overridePipelineAssetEditor => false;
 
-        internal virtual void OnCreatedFromPipelineAssetEditor(LightweightRenderPipelineAssetEditor pipelineAssetEditor)
-        {
-        }
-
+        // If overridePipelineAssetEditor returns true, this method will be called to override the pipeline asset editor.
         internal virtual void OnPipelineAssetEditorGUI(LightweightRenderPipelineAssetEditor pipelineAssetEditor)
         {
         }

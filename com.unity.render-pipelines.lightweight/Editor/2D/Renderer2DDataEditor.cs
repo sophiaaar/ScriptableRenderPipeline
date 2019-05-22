@@ -7,14 +7,6 @@ namespace UnityEditor.Experimental.Rendering.LWRP
     [CustomEditor(typeof(Renderer2DData), true)]
     internal class Renderer2DDataEditor : ScriptableRendererDataEditor
     {
-        internal override bool overridePipelineAssetEditor => true;
-
-        internal override void OnPipelineAssetEditorGUI(LightweightRenderPipelineAssetEditor pipelineAssetEditor)
-        {
-            pipelineAssetEditor.DrawQualitySettings();
-            pipelineAssetEditor.DrawAdvancedSettings();
-        }
-
         class Styles
         {
             public static readonly GUIContent hdrEmulationScale = EditorGUIUtility.TrTextContent("HDR Emulation Scale", "Describes the scaling used by lighting to remap dynamic range between LDR and HDR");
@@ -46,6 +38,14 @@ namespace UnityEditor.Experimental.Rendering.LWRP
         Analytics.Renderer2DAnalytics m_Analytics = Analytics.Renderer2DAnalytics.instance;
         Renderer2DData m_Renderer2DData;
         bool m_WasModified;
+
+        internal override bool overridePipelineAssetEditor => true;
+
+        internal override void OnPipelineAssetEditorGUI(LightweightRenderPipelineAssetEditor pipelineAssetEditor)
+        {
+            pipelineAssetEditor.DrawQualitySettings();
+            pipelineAssetEditor.DrawAdvancedSettings();
+        }
 
         int GetNumberOfUsedBlendingLayers(Renderer2DData rendererData)
         {

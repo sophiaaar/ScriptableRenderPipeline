@@ -210,11 +210,12 @@ namespace UnityEngine.Rendering.LWRP
 
         void Reset()
         {
-            var allSubAssets = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(this));
-            foreach (var subAsset in allSubAssets)
+            // Remove all sub-assets on reset.
+            var allAssets = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(this));
+            foreach (var asset in allAssets)
             {
-                if (!AssetDatabase.IsMainAsset(subAsset))
-                    AssetDatabase.RemoveObjectFromAsset(subAsset);
+                if (!AssetDatabase.IsMainAsset(asset))
+                    AssetDatabase.RemoveObjectFromAsset(asset);
             }
         }
 #endif
@@ -224,15 +225,22 @@ namespace UnityEngine.Rendering.LWRP
 #if UNITY_EDITOR
             switch (m_RendererType)
             {
+                case RendererType.ForwardRenderer:
+                    m_RendererData = LoadResourceFile<ForwardRendererData>();
+                    break;
+
                 case RendererType._2DRenderer:
                     {
-                        var allSubAssets = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(this));
+                        // First search for an existing Renderer2DData among sub-assets.
+                        // If we couldn't find one, create a new Renderer2DData and save it as a hidden sub-asset of the pipeline asset.
+                        var allAssets = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GetAssetPath(this));
                         bool foundExisting = false;
-                        foreach (var subAsset in allSubAssets)
+
+                        foreach (var asset in allAssets)
                         {
-                            if (subAsset is Renderer2DData)
+                            if (asset is Renderer2DData)
                             {
-                                m_RendererData = subAsset as Renderer2DData;
+                                m_RendererData = asset as Renderer2DData;
                                 foundExisting = true;
                                 break;
                             }
