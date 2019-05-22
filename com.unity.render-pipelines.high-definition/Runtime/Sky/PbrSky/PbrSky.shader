@@ -14,11 +14,14 @@ Shader "Hidden/HDRP/Sky/PbrSky"
     #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/SkyUtils.hlsl"
 
     float4x4 _PixelCoordToViewDirWS;     // Actually just 3x3, but Unity can only set 4x4
-    float3   _SunDirection;
-    float3   _SunRadiance;
-    float    _HasGroundAlbedoTexture;    // bool...
-    float    _HasGroundEmissionTexture;  // bool...
-    float    _HasSpaceEmissionTexture;   // bool...
+
+    int _HasGroundAlbedoTexture;    // bool...
+    int _HasGroundEmissionTexture;  // bool...
+    int _HasSpaceEmissionTexture;   // bool...
+    int _NumLights;
+
+    float4 _LightDirections[2];
+    float4 _LightRadianceValues[2];
 
     TEXTURECUBE(_GroundAlbedoTexture);
     TEXTURECUBE(_GroundEmissionTexture);
@@ -49,7 +52,6 @@ Shader "Hidden/HDRP/Sky/PbrSky"
     {
         const float  A = _AtmosphericRadius;
         const float  R = _PlanetaryRadius;
-        const float3 L = _SunDirection;
         const float3 C = _PlanetCenterPosition;
         const float3 O = _WorldSpaceCameraPos * 0.001; // Convert m to km
 
@@ -87,23 +89,14 @@ Shader "Hidden/HDRP/Sky/PbrSky"
             }
         }
 
-        // TODO: solve in spherical coords?
-        float  NdotL  = dot(N, L);
-        float  NdotV  = dot(N, V);
-        float3 projL  = L - N * NdotL;
-        float3 projV  = V - N * NdotV;
-        float  phiL   = acos(clamp(dot(projL, projV) * rsqrt(max(dot(projL, projL) * dot(projV, projV), FLT_EPS)), -1, 1));
-        float  cosChi = -NdotV;
-        float  height = r - R;
-
-        TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(height, NdotV, NdotL, phiL);
-
+        float NdotV  = dot(N, V);
+        float cosChi = -NdotV;
+        float height = r - R;
         float cosHor = GetCosineOfHorizonZenithAngle(height);
 
         bool lookAboveHorizon = (cosChi > cosHor);
 
-        float3 radiance = 0;
-        float3 transm   = 1;
+        float3 gN = 0, gBrdf = 0, transm = 1;
 
         if (rayIntersectsAtmosphere)
         {
@@ -114,7 +107,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
             {
                 float  t  = IntersectSphere(R, cosChi, r).x;
                 float3 gP = P + t * -V;
-                float3 gN = normalize(gP);
+                       gN = normalize(gP);
 
                 float3 albedo;
 
@@ -127,34 +120,59 @@ Shader "Hidden/HDRP/Sky/PbrSky"
                     albedo = _GroundAlbedo;
                 }
 
-                // Shade the ground.
-                float3 gBrdf = INV_PI * albedo;
-
-                float3 irradiance = SampleGroundIrradianceTexture(dot(gN, L));
-                radiance += gBrdf * transm * irradiance;
+                gBrdf = INV_PI * albedo;
             }
+        }
 
-            // Single scattering does not contain the phase function.
-            float LdotV = dot(L, V);
+        float3 totalRadiance = 0;
 
-            // Air.
-            radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                             SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                             tc.a) * AirPhase(LdotV);
+        for (int i = 0; i < min(_NumLights, 2); i++)
+        {
+            float3 L             = _LightDirections[i].xyz;
+            float3 lightRadiance = _LightRadianceValues[i].rgb;
 
-            // Aerosols.
-            // TODO: since aerosols are in a separate texture,
-            // they could use a different max height value for improved precision.
-            radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                             SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                             tc.a) * AerosolPhase(LdotV);
+            // TODO: solve in spherical coords?
+            float  NdotL = dot(N, L);
+            float3 projL = L - N * NdotL;
+            float3 projV = V - N * NdotV;
+            float  phiL  = acos(clamp(dot(projL, projV) * rsqrt(max(dot(projL, projL) * dot(projV, projV), FLT_EPS)), -1, 1));
 
-            // MS.
-            radiance += lerp(SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                             SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                             tc.a);
+            TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(height, NdotV, NdotL, phiL);
 
-            radiance *= _SunRadiance; // Globally scale the intensity
+            if (rayIntersectsAtmosphere)
+            {
+                float3 radiance = 0;
+
+                if (!lookAboveHorizon) // See the ground?
+                {
+                    float3 irradiance = SampleGroundIrradianceTexture(dot(gN, L));
+                    radiance += gBrdf * transm * irradiance;
+                }
+
+                // Single scattering does not contain the phase function.
+                float LdotV = dot(L, V);
+
+                // Air.
+                radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                                 SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                                 tc.a) * AirPhase(LdotV);
+
+                // Aerosols.
+                // TODO: since aerosols are in a separate texture,
+                // they could use a different max height value for improved precision.
+                radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                                 SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                                 tc.a) * AerosolPhase(LdotV);
+
+                // MS.
+                radiance += lerp(SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                                 SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                                 tc.a);
+
+                radiance *= lightRadiance; // Globally scale the intensity
+
+                totalRadiance += radiance;
+            }
         }
 
         float3 emission = 0;
@@ -174,9 +192,9 @@ Shader "Hidden/HDRP/Sky/PbrSky"
             }
         }
 
-        radiance += transm * emission;
+        totalRadiance += transm * emission;
 
-        return float4(radiance, 1.0);
+        return float4(totalRadiance, 1.0);
     }
 
     float4 FragBaking(Varyings input) : SV_Target

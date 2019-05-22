@@ -290,19 +290,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             CommandBuffer cmd = builtinParams.commandBuffer;
             UpdateSharedConstantBuffer(cmd);
 
-            Light sun = builtinParams.sunLight;
-
-            Vector3 L;
-
-            if (sun != null)
-            {
-                L = -builtinParams.sunLight.transform.forward;
-            }
-            else
-            {
-                L = Vector3.zero;
-            }
-
             int currentParamHash = m_Settings.GetHashCode();
 
             if (currentParamHash != m_LastPrecomputationParamHash)
@@ -336,51 +323,85 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // Update the hash for the current bounce.
             m_LastPrecomputationParamHash = currentParamHash;
 
-            Color sunRadiance = sun.color.linear * sun.intensity;
+            // Precomputation is done, shading is next.
+            int numLights = 0;
 
-            var sunData = sun.GetComponent<HDAdditionalLightData>();
+            Vector4[] lightDirs = new Vector4[2];
+            Vector4[] lightRads = new Vector4[2];
 
-            if (sunData != null && sunData.useColorTemperature)
+            // Sun.
+            if (builtinParams.sunLight != null)
             {
-               sunRadiance *= Mathf.CorrelatedColorTemperatureToRGB(sun.colorTemperature);
+                Light light = builtinParams.sunLight;
+
+                lightDirs[numLights] = -light.transform.forward;
+                lightRads[numLights] = light.color.linear * light.intensity;
+
+                var lightData = light.GetComponent<HDAdditionalLightData>();
+
+                if (lightData != null && lightData.useColorTemperature)
+                {
+                    lightRads[numLights] *= Mathf.CorrelatedColorTemperatureToRGB(light.colorTemperature);
+                }
+
+                numLights++;
             }
 
-            // This matrix needs to be updated at the draw call frequency.
-            s_PbrSkyMaterialProperties.SetMatrix( HDShaderIDs._PixelCoordToViewDirWS, builtinParams.pixelCoordToViewDirMatrix);
-            s_PbrSkyMaterialProperties.SetVector( "_SunDirection",                    L);
-            s_PbrSkyMaterialProperties.SetVector( "_SunRadiance",                     sunRadiance);
-            s_PbrSkyMaterialProperties.SetTexture("_OpticalDepthTexture",             m_OpticalDepthTable);
-            s_PbrSkyMaterialProperties.SetTexture("_GroundIrradianceTexture",         m_GroundIrradianceTables[0]);
-            s_PbrSkyMaterialProperties.SetTexture("_AirSingleScatteringTexture",      m_InScatteredRadianceTables[0]);
-            s_PbrSkyMaterialProperties.SetTexture("_AerosolSingleScatteringTexture",  m_InScatteredRadianceTables[1]);
-            s_PbrSkyMaterialProperties.SetTexture("_MultipleScatteringTexture",       m_InScatteredRadianceTables[2]);
+            // Moon.
+            //if (builtinParams.moonLight != null)
+            //{
+            //    Light light = builtinParams.moonLight;
 
-            float hasGroundAlbedoTexture = 0;
+            //    lightDirs[numLights] = -light.transform.forward;
+            //    lightRads[numLights] = light.color.linear * light.intensity;
+
+            //    var lightData = light.GetComponent<HDAdditionalLightData>();
+
+            //    if (lightData != null && lightData.useColorTemperature)
+            //    {
+            //        lightRads[numLights] *= Mathf.CorrelatedColorTemperatureToRGB(light.colorTemperature);
+            //    }
+
+            //    numLights++;
+            //}
+
+            // This matrix needs to be updated at the draw call frequency.
+            s_PbrSkyMaterialProperties.SetMatrix(     HDShaderIDs._PixelCoordToViewDirWS, builtinParams.pixelCoordToViewDirMatrix);
+            s_PbrSkyMaterialProperties.SetInt(        "_NumLights",                       numLights);
+            s_PbrSkyMaterialProperties.SetVectorArray("_LightDirections",                 lightDirs);
+            s_PbrSkyMaterialProperties.SetVectorArray("_LightRadianceValues",             lightRads);
+            s_PbrSkyMaterialProperties.SetTexture(    "_OpticalDepthTexture",             m_OpticalDepthTable);
+            s_PbrSkyMaterialProperties.SetTexture(    "_GroundIrradianceTexture",         m_GroundIrradianceTables[0]);
+            s_PbrSkyMaterialProperties.SetTexture(    "_AirSingleScatteringTexture",      m_InScatteredRadianceTables[0]);
+            s_PbrSkyMaterialProperties.SetTexture(    "_AerosolSingleScatteringTexture",  m_InScatteredRadianceTables[1]);
+            s_PbrSkyMaterialProperties.SetTexture(    "_MultipleScatteringTexture",       m_InScatteredRadianceTables[2]);
+
+            int hasGroundAlbedoTexture = 0;
 
             if (m_Settings.groundAlbedoTexture.value != null)
             {
                 hasGroundAlbedoTexture = 1;
                 s_PbrSkyMaterialProperties.SetTexture("_GroundAlbedoTexture", m_Settings.groundAlbedoTexture.value);
             }
-            s_PbrSkyMaterialProperties.SetFloat("_HasGroundAlbedoTexture", hasGroundAlbedoTexture);
+            s_PbrSkyMaterialProperties.SetInt("_HasGroundAlbedoTexture", hasGroundAlbedoTexture);
 
-            float hasGroundEmissionTexture = 0;
+            int hasGroundEmissionTexture = 0;
 
             if (m_Settings.groundEmissionTexture.value != null)
             {
                 hasGroundEmissionTexture = 1;
                 s_PbrSkyMaterialProperties.SetTexture("_GroundEmissionTexture", m_Settings.groundEmissionTexture.value);
             }
-            s_PbrSkyMaterialProperties.SetFloat("_HasGroundEmissionTexture", hasGroundEmissionTexture);
+            s_PbrSkyMaterialProperties.SetInt("_HasGroundEmissionTexture", hasGroundEmissionTexture);
 
-            float hasSpaceEmissionTexture = 0;
+            int hasSpaceEmissionTexture = 0;
 
             if (m_Settings.spaceEmissionTexture.value != null)
             {
                 hasSpaceEmissionTexture = 1;
                 s_PbrSkyMaterialProperties.SetTexture("_SpaceEmissionTexture", m_Settings.spaceEmissionTexture.value);
             }
-            s_PbrSkyMaterialProperties.SetFloat("_HasSpaceEmissionTexture", hasSpaceEmissionTexture);
+            s_PbrSkyMaterialProperties.SetInt("_HasSpaceEmissionTexture", hasSpaceEmissionTexture);
 
             CoreUtils.DrawFullScreen(builtinParams.commandBuffer, s_PbrSkyMaterial, s_PbrSkyMaterialProperties, renderForCubemap ? 0 : 1);
         }
