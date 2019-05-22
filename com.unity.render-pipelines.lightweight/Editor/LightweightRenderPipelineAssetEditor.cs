@@ -20,7 +20,6 @@ namespace UnityEditor.Rendering.LWRP
             public static GUIContent lightingSettingsText = EditorGUIUtility.TrTextContent("Lighting");
             public static GUIContent shadowSettingsText = EditorGUIUtility.TrTextContent("Shadows");
             public static GUIContent advancedSettingsText = EditorGUIUtility.TrTextContent("Advanced");
-            public static GUIContent rendererSettingsText = EditorGUIUtility.TrTextContent("Renderer Data");
 
             // General
             public static GUIContent requireDepthTextureText = EditorGUIUtility.TrTextContent("Depth Texture", "If enabled the pipeline will generate camera's depth that can be bound in shaders as _CameraDepthTexture.");
@@ -68,6 +67,7 @@ namespace UnityEditor.Rendering.LWRP
         SavedBool m_LightingSettingsFoldout;
         SavedBool m_ShadowSettingsFoldout;
         SavedBool m_AdvancedSettingsFoldout;
+        SavedBool m_RendererSettingsFoldout;
 
         bool m_RelatedSettingsOnly;
         bool m_RecreateRendererDataEditor;
@@ -127,11 +127,18 @@ namespace UnityEditor.Rendering.LWRP
                 DrawAdvancedSettings();
             }
 
-            // TODO: Only show renderer data editor when the renderer data asset is a sub-asset of the pipeline asset.
             if (m_RendererDataEditor != null)
             {
-                EditorGUILayout.BeginFoldoutHeaderGroup(true, Styles.rendererSettingsText);
-                m_RendererDataEditor.OnInspectorGUI();
+                string rendererName = m_RendererTypeProp.enumDisplayNames[m_RendererTypeProp.enumValueIndex];
+                m_RendererSettingsFoldout.value = EditorGUILayout.BeginFoldoutHeaderGroup(m_RendererSettingsFoldout.value, rendererName);
+
+                if (m_RendererSettingsFoldout.value)
+                {
+                    EditorGUI.indentLevel++;
+                    m_RendererDataEditor.OnInspectorGUI();
+                    EditorGUI.indentLevel--;
+                }
+
                 EditorGUILayout.EndFoldoutHeaderGroup();
             }
 
@@ -145,6 +152,7 @@ namespace UnityEditor.Rendering.LWRP
             m_LightingSettingsFoldout = new SavedBool($"{target.GetType()}.LightingSettingsFoldout", false);
             m_ShadowSettingsFoldout = new SavedBool($"{target.GetType()}.ShadowSettingsFoldout", false);
             m_AdvancedSettingsFoldout = new SavedBool($"{target.GetType()}.AdvancedSettingsFoldout", false);
+            m_RendererSettingsFoldout = new SavedBool($"{target.GetType()}.RendererSettingsFoldout", false);
 
             m_RendererTypeProp = serializedObject.FindProperty("m_RendererType");
             m_RendererDataProp = serializedObject.FindProperty("m_RendererData");
@@ -214,7 +222,7 @@ namespace UnityEditor.Rendering.LWRP
             EditorGUILayout.PropertyField(m_RendererTypeProp, Styles.rendererTypeText);
             if (EditorGUI.EndChangeCheck())
             {
-                if (m_RendererTypeProp.intValue != (int)RendererType.Custom)
+                if (m_RendererTypeProp.intValue != (int)RendererType.CustomRenderer)
                 {
                     // LoadBuiltinRendererData() below requires the up-to-date version of the asset.
                     serializedObject.ApplyModifiedProperties();
@@ -226,7 +234,7 @@ namespace UnityEditor.Rendering.LWRP
 
             EditorGUI.indentLevel++;
 
-            if (m_RendererTypeProp.intValue == (int)RendererType.Custom)
+            if (m_RendererTypeProp.intValue == (int)RendererType.CustomRenderer)
             {
                 EditorGUI.BeginChangeCheck();
                 EditorGUILayout.PropertyField(m_RendererDataProp, Styles.rendererDataText);

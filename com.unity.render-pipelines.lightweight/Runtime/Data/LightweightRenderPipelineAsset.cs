@@ -71,7 +71,7 @@ namespace UnityEngine.Rendering.LWRP
 
     public enum RendererType
     {
-        Custom,
+        CustomRenderer,
         ForwardRenderer,
         _2DRenderer
     }
