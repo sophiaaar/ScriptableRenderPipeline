@@ -298,7 +298,7 @@ namespace UnityEditor.Rendering.LWRP
             EditorGUILayout.EndFoldoutHeaderGroup();
         }
 
-        public void DrawQualitySettings()
+        internal void DrawQualitySettings()
         {
             m_QualitySettingsFoldout.value = EditorGUILayout.BeginFoldoutHeaderGroup(m_QualitySettingsFoldout.value, Styles.qualitySettingsText);
             if (m_QualitySettingsFoldout.value)
@@ -398,7 +398,7 @@ namespace UnityEditor.Rendering.LWRP
             EditorGUILayout.EndFoldoutHeaderGroup();
         }
 
-        void DrawAdvancedSettings()
+        internal void DrawAdvancedSettings()
         {
             m_AdvancedSettingsFoldout.value = EditorGUILayout.BeginFoldoutHeaderGroup(m_AdvancedSettingsFoldout.value, Styles.advancedSettingsText);
             if (m_AdvancedSettingsFoldout.value)

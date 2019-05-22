@@ -12,6 +12,7 @@ namespace UnityEditor.Experimental.Rendering.LWRP
         internal override void OnPipelineAssetEditorGUI(LightweightRenderPipelineAssetEditor pipelineAssetEditor)
         {
             pipelineAssetEditor.DrawQualitySettings();
+            pipelineAssetEditor.DrawAdvancedSettings();
         }
 
         class Styles
