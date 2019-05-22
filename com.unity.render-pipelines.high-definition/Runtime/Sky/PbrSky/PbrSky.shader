@@ -23,6 +23,10 @@ Shader "Hidden/HDRP/Sky/PbrSky"
     float4 _LightDirections[2];
     float4 _LightRadianceValues[2];
 
+    // 3x3, but Unity can only set 4x4...
+    float4x4 _PlanetRotation;
+    float4x4 _SpaceRotation;
+
     TEXTURECUBE(_GroundAlbedoTexture);
     TEXTURECUBE(_GroundEmissionTexture);
     TEXTURECUBE(_SpaceEmissionTexture);
@@ -113,7 +117,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
                 if (_HasGroundAlbedoTexture)
                 {
-                    albedo = SAMPLE_TEXTURECUBE(_GroundAlbedoTexture, s_trilinear_clamp_sampler, N);
+                    albedo = SAMPLE_TEXTURECUBE(_GroundAlbedoTexture, s_trilinear_clamp_sampler, mul(N, (float3x3)_PlanetRotation));
                 }
                 else
                 {
@@ -181,14 +185,15 @@ Shader "Hidden/HDRP/Sky/PbrSky"
         {
             if (_HasGroundEmissionTexture)
             {
-                emission = SAMPLE_TEXTURECUBE(_GroundEmissionTexture, s_trilinear_clamp_sampler, N);
+                emission = SAMPLE_TEXTURECUBE(_GroundEmissionTexture, s_trilinear_clamp_sampler, mul(N, (float3x3)_PlanetRotation));
             }
         }
         else // See the space?
         {
             if (_HasSpaceEmissionTexture)
             {
-                emission = SAMPLE_TEXTURECUBE(_SpaceEmissionTexture, s_trilinear_clamp_sampler, -V); // V points towards the camera
+                // V points towards the camera.
+                emission = SAMPLE_TEXTURECUBE(_SpaceEmissionTexture, s_trilinear_clamp_sampler, mul(-V, (float3x3)_SpaceRotation));
             }
         }
 

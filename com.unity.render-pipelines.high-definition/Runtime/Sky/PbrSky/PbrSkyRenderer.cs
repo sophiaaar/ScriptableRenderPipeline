@@ -365,6 +365,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             //    numLights++;
             //}
 
+            Quaternion planetRotation = Quaternion.Euler(m_Settings.planetRotation.value.x,
+                                                         m_Settings.planetRotation.value.y,
+                                                         m_Settings.planetRotation.value.z);
+
+            Quaternion spaceRotation  = Quaternion.Euler(m_Settings.spaceRotation.value.x,
+                                                         m_Settings.spaceRotation.value.y,
+                                                         m_Settings.spaceRotation.value.z);
+
             // This matrix needs to be updated at the draw call frequency.
             s_PbrSkyMaterialProperties.SetMatrix(     HDShaderIDs._PixelCoordToViewDirWS, builtinParams.pixelCoordToViewDirMatrix);
             s_PbrSkyMaterialProperties.SetInt(        "_NumLights",                       numLights);
@@ -375,6 +383,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             s_PbrSkyMaterialProperties.SetTexture(    "_AirSingleScatteringTexture",      m_InScatteredRadianceTables[0]);
             s_PbrSkyMaterialProperties.SetTexture(    "_AerosolSingleScatteringTexture",  m_InScatteredRadianceTables[1]);
             s_PbrSkyMaterialProperties.SetTexture(    "_MultipleScatteringTexture",       m_InScatteredRadianceTables[2]);
+            s_PbrSkyMaterialProperties.SetMatrix(     "_PlanetRotation",                  Matrix4x4.Rotate(planetRotation));
+            s_PbrSkyMaterialProperties.SetMatrix(     "_SpaceRotation",                   Matrix4x4.Rotate(spaceRotation));
 
             int hasGroundAlbedoTexture = 0;
 
