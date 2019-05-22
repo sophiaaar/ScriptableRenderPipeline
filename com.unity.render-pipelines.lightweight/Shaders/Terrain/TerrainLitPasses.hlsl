@@ -289,10 +289,19 @@ half4 SplatmapFragment(Varyings IN) : SV_TARGET
     half4 masks[4];
     splatControl = SAMPLE_TEXTURE2D(_Control, sampler_Control, IN.uvMainAndLM.xy);
     
-    masks[0] = 1.0h;    masks[0].b = _MaskMapRemapScale0.b + _MaskMapRemapOffset0.b;
-    masks[1] = 1.0h;    masks[1].b = _MaskMapRemapScale1.b + _MaskMapRemapOffset1.b;
-    masks[2] = 1.0h;    masks[2].b = _MaskMapRemapScale2.b + _MaskMapRemapOffset2.b;
-    masks[3] = 1.0h;    masks[3].b = _MaskMapRemapScale3.b + _MaskMapRemapOffset3.b;
+    masks[0] = 1.0h;
+    masks[1] = 1.0h;
+    masks[2] = 1.0h;
+    masks[3] = 1.0h;
+    
+#ifdef _TERRAIN_BLEND_HEIGHT
+    // The Blue channel is used for height, and we need a default height in the channel
+    // before actually going through the height-based weight modification.
+    masks[0].b = _MaskMapRemapScale0.b + _MaskMapRemapOffset0.b;
+    masks[1].b = _MaskMapRemapScale1.b + _MaskMapRemapOffset1.b;
+    masks[2].b = _MaskMapRemapScale2.b + _MaskMapRemapOffset2.b;
+    masks[3].b = _MaskMapRemapScale3.b + _MaskMapRemapOffset3.b;
+#endif
     
 #ifdef _MASKMAP
     masks[0] = SAMPLE_TEXTURE2D(_Mask0, sampler_Mask0, IN.uvSplat01.xy);

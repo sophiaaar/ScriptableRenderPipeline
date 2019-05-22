@@ -298,6 +298,11 @@ namespace UnityEditor.Rendering.LWRP
                         maskMapRemapMax.z = EditorGUILayout.FloatField(s_Styles.heightCm, maskMapRemapMax.z * 100) / 100;
                     }
 
+                    // There's a possibility that someone could slide max below the existing min value
+                    // so we'll just protect against that by locking the min value down a little bit.
+                    maskMapRemapMin.y = Mathf.Min(maskMapRemapMin.y, maskMapRemapMax.y);
+                    maskMapRemapMin.z = Mathf.Min(maskMapRemapMin.z, maskMapRemapMax.z);
+
                     if (TextureHasAlpha(terrainLayer.diffuseTexture))
                     {
                         GUIStyle warnStyle = new GUIStyle(GUI.skin.label);
