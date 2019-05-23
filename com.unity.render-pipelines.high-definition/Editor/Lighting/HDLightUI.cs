@@ -679,7 +679,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                 // Shadow Layers
                 using (new EditorGUI.DisabledScope(!HDUtils.hdrpSettings.supportLightLayers))
                 {
-                    EditorGUILayout.PropertyField(serialized.serializedLightData.linkLightLayers, s_Styles.decoupleLightAndShadowLayersText);
+                    EditorGUILayout.PropertyField(serialized.serializedLightData.linkLightLayers, s_Styles.linkLightAndShadowLayersText);
                     if (!serialized.serializedLightData.linkLightLayers.hasMultipleDifferentValues)
                     {
                         using (new EditorGUI.DisabledGroupScope(serialized.serializedLightData.linkLightLayers.boolValue))

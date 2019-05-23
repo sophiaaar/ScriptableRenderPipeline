@@ -120,7 +120,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             public readonly GUIContent maxDepthBias = new GUIContent("Max Depth Bias");
 
             // Layers
-            public readonly GUIContent decoupleLightAndShadowLayersText = new GUIContent("Link Light Layer", "Allow you to use two masks for shadows and light layers");
+            public readonly GUIContent linkLightAndShadowLayersText = new GUIContent("Link Light Layer", "Allow you to use two masks for shadows and light layers");
             public readonly GUIContent shadowLayerMaskText = new GUIContent("Light Layer");
 
             // Settings
