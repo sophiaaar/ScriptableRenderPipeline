@@ -204,7 +204,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             {
                 using (var change = new EditorGUI.ChangeCheckScope())
                 {
-                    HDEditorUtils.LightLayerMaskPropertyDrawer(s_Styles.lightLayer, serialized.serializedLightData.lightLayerMask);
+                    HDEditorUtils.LightLayerMaskPropertyDrawer(s_Styles.lightLayer, serialized.serializedLightData.lightlayersMask);
 
                     // If we're not in decoupled mode for light layers, we sync light with shadow layers:
                     if (serialized.serializedLightData.linkLightLayers.boolValue && change.changed)
@@ -592,7 +592,12 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 #if ENABLE_RAYTRACING
                 if(LightShape.Rectangle == serialized.editorLightShape)
                 {
-                    EditorGUILayout.PropertyField(serialized.serializedLightData.useRayTracedShadows, s_Styles.useRayTracedShadows);
+                    if(serialized.serializedLightData.useRayTracedShadows.boolValue)
+                    {
+                        EditorGUILayout.PropertyField(serialized.serializedLightData.numRayTracingSamples, s_Styles.numRayTracingSamples);
+                        EditorGUILayout.PropertyField(serialized.serializedLightData.filterTracedShadow, s_Styles.filterTracedShadow);
+                        EditorGUILayout.PropertyField(serialized.serializedLightData.filterSizeTraced, s_Styles.filterSizeTraced);
+                    }
                 }
                 if (!serialized.serializedLightData.useRayTracedShadows.boolValue || LightShape.Rectangle != serialized.editorLightShape)
 #endif
@@ -697,7 +702,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
         {
             // If we're not in decoupled mode for light layers, we sync light with shadow layers:
             foreach (Light target in owner.targets)
-                target.renderingLayerMask = serialized.serializedLightData.lightLayerMask.intValue;
+                target.renderingLayerMask = serialized.serializedLightData.lightlayersMask.intValue;
         }
 
         static void DrawContactShadowsContent(SerializedHDLight serialized, Editor owner)

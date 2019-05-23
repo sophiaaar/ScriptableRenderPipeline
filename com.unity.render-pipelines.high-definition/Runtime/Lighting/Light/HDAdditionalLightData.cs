@@ -203,15 +203,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         [Obsolete("Use Light.renderingLayerMask instead")]
         public LightLayerEnum lightLayers = LightLayerEnum.LightLayerDefault;
 
-        // TODO: another enum name ?
         // Now the renderingLayerMask is used for shadow layers and not light layers
-        public LightLayerEnum lightLayerMask = LightLayerEnum.LightLayerDefault;
+        public LightLayerEnum lightlayersMask = LightLayerEnum.LightLayerDefault;
         public bool decoupleShadowLayers = true;
 
         // This function return a mask of light layers as uint and handle the case of Everything as being 0xFF and not -1
         public uint GetLightLayers()
         {
-            int value = (int)lightLayerMask;
+            int value = (int)lightlayersMask;
             return value < 0 ? (uint)LightLayerEnum.Everything : (uint)value;
         }
 
@@ -1046,7 +1045,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             {
                 // When we upgrade the option to decouple light and shadow layers will be disabled
                 // so we can sync the shadow layer mask (from the legacyLight) and the new light layer mask
-                lightLayerMask = (LightLayerEnum)RenderingLayerMaskToLightLayer(legacyLight.renderingLayerMask);
+                lightlayersMask = (LightLayerEnum)RenderingLayerMaskToLightLayer(legacyLight.renderingLayerMask);
             }
 
             m_Version = currentVersion;
