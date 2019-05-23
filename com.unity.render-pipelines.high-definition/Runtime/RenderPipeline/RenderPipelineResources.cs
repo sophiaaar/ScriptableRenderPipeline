@@ -117,9 +117,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public Shader gradientSkyPS;
             [Reload("Runtime/Sky/AmbientProbeConvolution.compute")]
             public ComputeShader ambientProbeConvolutionCS;
+            [Reload("Runtime/Sky/PbrSky/OpticalDepthPrecomputation.compute")]
             public ComputeShader opticalDepthPrecomputationCS;
+            [Reload("Runtime/Sky/PbrSky/GroundIrradiancePrecomputation.compute")]
             public ComputeShader groundIrradiancePrecomputationCS;
+            [Reload("Runtime/Sky/PbrSky/InScatteredRadiancePrecomputation.compute")]
             public ComputeShader inScatteredRadiancePrecomputationCS;
+            [Reload("Runtime/Sky/brSky/PbrSky.shader")]
             public Shader        pbrSkyPS;
 
             // Material
