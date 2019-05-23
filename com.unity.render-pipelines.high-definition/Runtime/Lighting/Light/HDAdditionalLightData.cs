@@ -205,7 +205,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         // Now the renderingLayerMask is used for shadow layers and not light layers
         public LightLayerEnum lightlayersMask = LightLayerEnum.LightLayerDefault;
-        public bool decoupleShadowLayers = true;
+        public bool linkShadowLayers = true;
 
         // This function return a mask of light layers as uint and handle the case of Everything as being 0xFF and not -1
         public uint GetLightLayers()

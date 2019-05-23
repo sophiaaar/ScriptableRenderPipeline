@@ -164,7 +164,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                     renderingLayerMask = settings.renderingLayerMask,
 
                     // Layers
-                    linkLightLayers = o.Find(x => x.decoupleShadowLayers),
+                    linkLightLayers = o.Find(x => x.linkShadowLayers),
                     lightlayersMask = o.Find(x => x.lightlayersMask)
                 };
 
