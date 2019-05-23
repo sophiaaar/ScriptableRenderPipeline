@@ -183,6 +183,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         [Range(0.0f, 179.0f)]
         public float areaLightShadowCone = 120.0f;
 
+        // Directional lights only.
+        public bool illuminatesSky = true;
+
 #if ENABLE_RAYTRACING
         public bool useRayTracedShadows = false;
         [Range(1, 32)]
@@ -855,6 +858,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             data.displayLightIntensity = displayLightIntensity;
             data.displayAreaLightEmissiveMesh = displayAreaLightEmissiveMesh;
             data.needsIntensityUpdate_1_0 = needsIntensityUpdate_1_0;
+            data.illuminatesSky = illuminatesSky;
 
 #if UNITY_EDITOR
             data.timelineWorkaround = timelineWorkaround;

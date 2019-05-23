@@ -417,6 +417,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         Light m_CurrentSunLight;
         int m_CurrentShadowSortedSunLightIndex = -1;
 
+        List<Light> m_DirLightsIlluminatingSky = new List<Light>();
+
+        public List<Light> GetDirLightsIlluminatingSky() { return m_DirLightsIlluminatingSky; }
+
         // Contact shadow index reseted at the beginning of each frame, used to generate the contact shadow mask
         int m_ContactShadowIndex;
 
@@ -1757,6 +1761,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 m_enableBakeShadowMask = false;
 
                 m_lightList.Clear();
+                m_DirLightsIlluminatingSky.Clear();
 
                 // We need to properly reset this here otherwise if we go from 1 light to no visible light we would keep the old reference active.
                 m_CurrentSunLight = null;
@@ -1972,6 +1977,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                             if (GetDirectionalLightData(cmd, gpuLightType, light, lightComponent, additionalLightData, additionalShadowData, lightIndex, shadowIndex, debugDisplaySettings, directionalLightcount))
                             {
                                 directionalLightcount++;
+
+                                if (additionalLightData.illuminatesSky)
+                                {
+                                    m_DirLightsIlluminatingSky.Add(lightComponent);
+                                }
 
                                 // We make the light position camera-relative as late as possible in order
                                 // to allow the preceding code to work with the absolute world space coordinates.

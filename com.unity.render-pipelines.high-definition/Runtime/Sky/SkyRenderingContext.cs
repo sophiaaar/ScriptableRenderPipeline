@@ -1,5 +1,6 @@
-using UnityEngine.Rendering;
 using System;
+using System.Collections.Generic;
+using UnityEngine.Rendering;
 
 namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
@@ -213,7 +214,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         // GC.Alloc
         // VolumeParameter`.op_Equality()
-        public bool UpdateEnvironment(SkyUpdateContext skyContext, HDCamera camera, Light sunLight, bool updateRequired, bool updateAmbientProbe, CommandBuffer cmd)
+        public bool UpdateEnvironment(SkyUpdateContext skyContext, HDCamera camera, Light sunLight, List<Light> dirLightsIlluminatingSky, bool updateRequired, bool updateAmbientProbe, CommandBuffer cmd)
         {
             bool result = false;
             if (skyContext.IsValid())
@@ -222,6 +223,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 m_BuiltinParameters.commandBuffer = cmd;
                 m_BuiltinParameters.sunLight = sunLight;
+                m_BuiltinParameters.dirLightsIlluminatingSky = dirLightsIlluminatingSky;
                 m_BuiltinParameters.screenSize = m_CubemapScreenSize;
                 m_BuiltinParameters.hdCamera = null;
                 m_BuiltinParameters.debugSettings = null; // We don't want any debug when updating the environment.
@@ -230,6 +232,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 if (sunLight != null)
                     sunHash = GetSunLightHashCode(sunLight);
                 int skyHash = sunHash * 23 + skyContext.skySettings.GetHashCode();
+
+                for (int i = 0, n = dirLightsIlluminatingSky.Count; i < n; i++)
+                {
+                    int lightHash = GetSunLightHashCode(dirLightsIlluminatingSky[i]);
+                    skyHash += lightHash * 23;
+                }
 
                 bool forceUpdate = (updateRequired || skyContext.updatedFramesRequired > 0 || m_NeedUpdate);
                 if (forceUpdate ||

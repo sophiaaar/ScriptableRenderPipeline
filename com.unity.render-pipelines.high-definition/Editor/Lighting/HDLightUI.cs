@@ -62,6 +62,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             ShadowQuality = 1 << 8
         }
 
+        // That's not a real English word...
         enum Advanceable
         {
             General = 1 << 0,
@@ -203,6 +204,11 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             using (new EditorGUI.DisabledScope(!HDUtils.hdrpSettings.supportLightLayers))
             {
                 HDEditorUtils.LightLayerMaskPropertyDrawer(s_Styles.lightLayer, serialized.serializedLightData.renderingLayerMask);
+            }
+
+            if (serialized.editorLightShape == LightShape.Directional)
+            {
+                serialized.serializedLightData.illuminatesSky.boolValue = EditorGUILayout.Toggle(s_Styles.illuminatesSky, serialized.serializedLightData.illuminatesSky.boolValue);
             }
         }
 

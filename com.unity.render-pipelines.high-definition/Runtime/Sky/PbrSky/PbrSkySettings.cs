@@ -57,14 +57,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             // Using this thickness threshold, we can automatically determine the atmospheric range
             // for user-provided values.
-            float R          = planetaryRadius;
-            float airN       = airDensityFalloff;
+            float R          = planetaryRadius.value;
+            float airN       = airDensityFalloff.value;
             float airH       = 1.0f / airN;
             float airRho     = Mathf.Max(airThickness.value.r, airThickness.value.g, airThickness.value.b);
             float airLim     = -airH * Mathf.Log(outerThickness / airRho, 2.71828183f);
-            float aerosolN   = aerosolDensityFalloff;
+            float aerosolN   = aerosolDensityFalloff.value;
             float aerosolH   = 1.0f / aerosolN;
-            float aerosolRho = aerosolThickness;
+            float aerosolRho = aerosolThickness.value;
             float aerosolLim = -aerosolH * Mathf.Log(outerThickness / aerosolRho, 2.71828183f);
 
             // Both are stored in the same texture, so we have to fit both density profiles.

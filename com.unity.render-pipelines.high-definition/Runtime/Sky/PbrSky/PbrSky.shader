@@ -13,8 +13,6 @@ Shader "Hidden/HDRP/Sky/PbrSky"
     #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyCommon.hlsl"
     #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/SkyUtils.hlsl"
 
-    float4x4 _PixelCoordToViewDirWS;     // Actually just 3x3, but Unity can only set 4x4
-
     int _HasGroundAlbedoTexture;    // bool...
     int _HasGroundEmissionTexture;  // bool...
     int _HasSpaceEmissionTexture;   // bool...
@@ -64,7 +62,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
         // The normal vector N points upwards (local Z).
         // The view vector V and the normal vector N span the local X-Z plane.
         // The light vector is represented as {phiL, cosThataL}.
-        float3 V = GetSkyViewDirWS(input.positionCS.xy, (float3x3)_PixelCoordToViewDirWS);
+        float3 V = GetSkyViewDirWS(input.positionCS.xy);
         float3 P = O - C;
         float3 N = normalize(P);
         float  r = max(length(P), R); // Must not be inside the planet
@@ -130,7 +128,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
         float3 totalRadiance = 0;
 
-        for (int i = 0; i < min(_NumLights, 2); i++)
+        for (int i = 0; i < _NumLights; i++)
         {
             float3 L             = _LightDirections[i].xyz;
             float3 lightRadiance = _LightRadianceValues[i].rgb;

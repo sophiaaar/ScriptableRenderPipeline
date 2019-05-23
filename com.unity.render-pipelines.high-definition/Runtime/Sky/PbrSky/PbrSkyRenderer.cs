@@ -139,11 +139,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             if (builtinParams.depthBuffer == BuiltinSkyParameters.nullRT)
             {
-                HDUtils.SetRenderTarget(builtinParams.commandBuffer, builtinParams.hdCamera, builtinParams.colorBuffer);
+                HDUtils.SetRenderTarget(builtinParams.commandBuffer, builtinParams.colorBuffer);
             }
             else
             {
-                HDUtils.SetRenderTarget(builtinParams.commandBuffer, builtinParams.hdCamera, builtinParams.colorBuffer, builtinParams.depthBuffer);
+                HDUtils.SetRenderTarget(builtinParams.commandBuffer, builtinParams.colorBuffer, builtinParams.depthBuffer);
             }
         }
 
@@ -156,7 +156,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         void UpdateSharedConstantBuffer(CommandBuffer cmd)
         {
-            float R = m_Settings.planetaryRadius;
+            float R = m_Settings.planetaryRadius.value;
             float H = m_Settings.ComputeAtmosphericDepth();
 
             cmd.SetGlobalFloat( "_PlanetaryRadius",           R);
@@ -165,13 +165,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.SetGlobalFloat( "_RcpAtmosphericDepth",       1.0f / H);
 
             cmd.SetGlobalFloat( "_AtmosphericRadius",         R + H);
-            cmd.SetGlobalFloat( "_AerosolAnisotropy",         m_Settings.aerosolAnisotropy);
-            cmd.SetGlobalFloat( "_AerosolPhasePartConstant",  CornetteShanksPhasePartConstant(m_Settings.aerosolAnisotropy));
+            cmd.SetGlobalFloat( "_AerosolAnisotropy",         m_Settings.aerosolAnisotropy.value);
+            cmd.SetGlobalFloat( "_AerosolPhasePartConstant",  CornetteShanksPhasePartConstant(m_Settings.aerosolAnisotropy.value));
 
-            cmd.SetGlobalFloat( "_AirDensityFalloff",         m_Settings.airDensityFalloff);
-            cmd.SetGlobalFloat( "_AirScaleHeight",            1.0f / m_Settings.airDensityFalloff);
-            cmd.SetGlobalFloat( "_AerosolDensityFalloff",     m_Settings.aerosolDensityFalloff);
-            cmd.SetGlobalFloat( "_AerosolScaleHeight",        1.0f / m_Settings.airDensityFalloff);
+            cmd.SetGlobalFloat( "_AirDensityFalloff",         m_Settings.airDensityFalloff.value);
+            cmd.SetGlobalFloat( "_AirScaleHeight",            1.0f / m_Settings.airDensityFalloff.value);
+            cmd.SetGlobalFloat( "_AerosolDensityFalloff",     m_Settings.aerosolDensityFalloff.value);
+            cmd.SetGlobalFloat( "_AerosolScaleHeight",        1.0f / m_Settings.airDensityFalloff.value);
 
             cmd.SetGlobalVector("_AirSeaLevelExtinction",     m_Settings.airThickness.value     * 0.001f); // Convert to 1/km
             cmd.SetGlobalFloat( "_AerosolSeaLevelExtinction", m_Settings.aerosolThickness.value * 0.001f); // Convert to 1/km
@@ -306,13 +306,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 m_InScatteredRadianceTables[4] = AllocateInScatteredRadianceTable(4);
             }
 
-            if (m_LastPrecomputedBounce < m_Settings.numBounces)
+            if (m_LastPrecomputedBounce < m_Settings.numBounces.value)
             {
                 PrecomputeTables(cmd);
                 m_LastPrecomputedBounce++;
             }
 
-            if (m_LastPrecomputedBounce == m_Settings.numBounces)
+            if (m_LastPrecomputedBounce == m_Settings.numBounces.value)
             {
                 // Free temp tables.
                 m_GroundIrradianceTables[1]    = null;
@@ -329,10 +329,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             Vector4[] lightDirs = new Vector4[2];
             Vector4[] lightRads = new Vector4[2];
 
-            // Sun.
-            if (builtinParams.sunLight != null)
+            for (int i = 0, n = builtinParams.dirLightsIlluminatingSky.Count; i < n; i++)
             {
-                Light light = builtinParams.sunLight;
+                Light light = builtinParams.dirLightsIlluminatingSky[i];
 
                 lightDirs[numLights] = -light.transform.forward;
                 lightRads[numLights] = light.color.linear * light.intensity;
@@ -346,24 +345,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 numLights++;
             }
-
-            // Moon.
-            //if (builtinParams.moonLight != null)
-            //{
-            //    Light light = builtinParams.moonLight;
-
-            //    lightDirs[numLights] = -light.transform.forward;
-            //    lightRads[numLights] = light.color.linear * light.intensity;
-
-            //    var lightData = light.GetComponent<HDAdditionalLightData>();
-
-            //    if (lightData != null && lightData.useColorTemperature)
-            //    {
-            //        lightRads[numLights] *= Mathf.CorrelatedColorTemperatureToRGB(light.colorTemperature);
-            //    }
-
-            //    numLights++;
-            //}
 
             Quaternion planetRotation = Quaternion.Euler(m_Settings.planetRotation.value.x,
                                                          m_Settings.planetRotation.value.y,

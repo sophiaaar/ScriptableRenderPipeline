@@ -65,6 +65,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             public readonly GUIContent displayAreaLightEmissiveMesh = new GUIContent("Display Emissive Mesh", "Generate an emissive mesh using the size, Color and Intensity of the Area Light.");
             public readonly GUIContent lightLayer = new GUIContent("Light Layer", "Specifies the current Light Layers that the Light affects. This Light illuminates corresponding Renderers with the same Light Layer flags.");
 
+            public readonly GUIContent illuminatesSky = new GUIContent("Illuminates the sky", "Used by the PBR sky.");
+
             public readonly GUIContent sunDiskSize = new GUIContent("Sun Highlight Disk Size", "Controls the size of the highlight of the sun disk which is the angle of the sun cone in degrees.");
             public readonly GUIContent sunHaloSize = new GUIContent("Sun Highlight Halo Size", "Controls the size of the halo around the highlight of the sun disk.");
 

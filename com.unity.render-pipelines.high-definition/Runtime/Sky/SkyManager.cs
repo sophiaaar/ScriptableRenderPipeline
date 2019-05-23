@@ -31,6 +31,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Vector4                  screenSize;
         public CommandBuffer            commandBuffer;
         public Light                    sunLight;
+        public List<Light>              dirLightsIlluminatingSky;
         public RTHandleSystem.RTHandle  colorBuffer;
         public RTHandleSystem.RTHandle  depthBuffer;
         public HDCamera                 hdCamera;
@@ -320,7 +321,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_UpdateRequired = true;
         }
 
-        public void UpdateEnvironment(HDCamera hdCamera, Light sunLight, CommandBuffer cmd)
+        public void UpdateEnvironment(HDCamera hdCamera, Light sunLight, List<Light> dirLightsIlluminatingSky, CommandBuffer cmd)
         {
             // WORKAROUND for building the player.
             // When building the player, for some reason we end up in a state where frameCount is not updated but all currently setup shader texture are reset to null
@@ -337,14 +338,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             if (isRegularPreview)
                 ambientMode = SkyAmbientMode.Static;
 
-            m_CurrentSkyRenderingContext.UpdateEnvironment(m_CurrentSky, hdCamera, sunLight, m_UpdateRequired, ambientMode == SkyAmbientMode.Dynamic, cmd);
+            m_CurrentSkyRenderingContext.UpdateEnvironment(m_CurrentSky, hdCamera, sunLight, dirLightsIlluminatingSky, m_UpdateRequired, ambientMode == SkyAmbientMode.Dynamic, cmd);
             StaticLightingSky staticLightingSky = GetStaticLightingSky();
             // We don't want to update the static sky during preview because it contains custom lights that may change the result.
             // The consequence is that previews will use main scene static lighting but we consider this to be acceptable.
             if (staticLightingSky != null && !isRegularPreview)
             {
                 m_StaticLightingSky.skySettings = staticLightingSky.skySettings;
-                m_StaticLightingSkyRenderingContext.UpdateEnvironment(m_StaticLightingSky, hdCamera, sunLight, false, true, cmd);
+                m_StaticLightingSkyRenderingContext.UpdateEnvironment(m_StaticLightingSky, hdCamera, sunLight, dirLightsIlluminatingSky, false, true, cmd);
             }
 
             bool useRealtimeGI = true;
