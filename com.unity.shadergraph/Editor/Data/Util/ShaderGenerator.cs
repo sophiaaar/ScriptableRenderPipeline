@@ -688,6 +688,13 @@ namespace UnityEditor.ShaderGraph
             foreach (var channel in pixelRequirements.requiresMeshUVs.Distinct())
                 pixelShaderSurfaceInputs.AppendLine("surfaceInput.{0} = {0};", ShaderGeneratorNames.GetUVName(channel));
 
+            if (pixelRequirements.requiresTime)
+            {
+                pixelShaderSurfaceInputs.AppendLine("surfaceInput.{0} = _Time.y;", ShaderGeneratorNames.Time);
+                pixelShaderSurfaceInputs.AppendLine("surfaceInput.{0} = _SinTime.w;", ShaderGeneratorNames.SinTime);
+                pixelShaderSurfaceInputs.AppendLine("surfaceInput.{0} = _CosTime.w;", ShaderGeneratorNames.CosTime);
+            }
+
             // ----------------------------------------------------- //
             //                START VERTEX DESCRIPTION               //
             // ----------------------------------------------------- //
@@ -715,6 +722,13 @@ namespace UnityEditor.ShaderGraph
 
             foreach (var channel in vertexRequirements.requiresMeshUVs.Distinct())
                 vertexShaderDescriptionInputs.AppendLine("vdi.{0} = {0};", channel.GetUVName(), (int)channel);
+
+            if (vertexRequirements.requiresTime)
+            {
+                vertexShaderDescriptionInputs.AppendLine("vdi.{0} = _Time.y;", ShaderGeneratorNames.Time);
+                vertexShaderDescriptionInputs.AppendLine("vdi.{0} = _SinTime.w;", ShaderGeneratorNames.SinTime);
+                vertexShaderDescriptionInputs.AppendLine("vdi.{0} = _CosTime.w;", ShaderGeneratorNames.CosTime);
+            }
         }
 
         public enum Dimension

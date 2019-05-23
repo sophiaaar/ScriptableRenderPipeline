@@ -1141,6 +1141,13 @@ namespace UnityEditor.ShaderGraph
 
                 foreach (var channel in requirements.requiresMeshUVs.Distinct())
                     sb.AppendLine("half4 {0};", channel.GetUVName());
+
+                if (requirements.requiresTime)
+                {
+                    sb.AppendLine("float {0};", ShaderGeneratorNames.Time);
+                    sb.AppendLine("float {0};", ShaderGeneratorNames.SinTime);
+                    sb.AppendLine("float {0};", ShaderGeneratorNames.CosTime);
+                }
             }
         }
 
@@ -1165,6 +1172,13 @@ namespace UnityEditor.ShaderGraph
 
             foreach (var channel in requirements.requiresMeshUVs.Distinct())
                 sb.AppendLine($"{variableName}.{channel.GetUVName()} = IN.{channel.GetUVName()};");
+
+            if (requirements.requiresTime)
+            {
+                sb.AppendLine($"{variableName}.{ShaderGeneratorNames.Time} = {ShaderGeneratorNames.Time};");
+                sb.AppendLine($"{variableName}.{ShaderGeneratorNames.SinTime} = {ShaderGeneratorNames.SinTime};");
+                sb.AppendLine($"{variableName}.{ShaderGeneratorNames.CosTime} = {ShaderGeneratorNames.CosTime};");
+            }
         }
 
         public static void GenerateSurfaceDescriptionStruct(ShaderStringBuilder surfaceDescriptionStruct, List<MaterialSlot> slots, string structName = "SurfaceDescription", HashSet<string> activeFields = null, bool useIdsInNames = false)

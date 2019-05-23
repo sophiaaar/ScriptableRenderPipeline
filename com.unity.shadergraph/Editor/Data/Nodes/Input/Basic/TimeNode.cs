@@ -45,15 +45,15 @@ namespace UnityEditor.ShaderGraph
             switch (slotId)
             {
                 case OutputSlot1Id:
-                    return "_SinTime.w";
+                    return "IN.SinTime";
                 case OutputSlot2Id:
-                    return "_CosTime.w";
+                    return "IN.CosTime";
                 case OutputSlot3Id:
                     return "unity_DeltaTime.x";
                 case OutputSlot4Id:
                     return "unity_DeltaTime.z";
                 default:
-                    return "_Time.y";
+                    return "IN.Time";
             }
         }
 
