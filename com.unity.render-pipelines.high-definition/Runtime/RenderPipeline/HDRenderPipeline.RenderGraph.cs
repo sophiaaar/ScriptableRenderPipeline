@@ -11,6 +11,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             var hdCamera = renderRequest.hdCamera;
             var camera = hdCamera.camera;
             var cullingResults = renderRequest.cullingResults.cullingResults;
+            bool msaa = hdCamera.frameSettings.IsEnabled(FrameSettingsField.MSAA);
             //var target = renderRequest.target;
 
             CreateSharedResources(m_RenderGraph, hdCamera, m_CurrentDebugDisplaySettings);
@@ -24,10 +25,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             if (m_CurrentDebugDisplaySettings.IsDebugMaterialDisplayEnabled() || m_CurrentDebugDisplaySettings.IsMaterialValidationEnabled())
             {
-                StartStereoRendering(m_RenderGraph, hdCamera.camera);
+                StartLegacyStereo(m_RenderGraph, hdCamera);
                 RenderDebugViewMaterial(m_RenderGraph, cullingResults, hdCamera, colorBuffer);
                 colorBuffer = ResolveMSAAColor(m_RenderGraph, hdCamera, colorBuffer);
-                StopStereoRendering(m_RenderGraph, hdCamera.camera);
+                StopLegacyStereo(m_RenderGraph, hdCamera);
             }
             else
             {
@@ -37,7 +38,59 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 //// TODO: Try to arrange code so we can trigger this call earlier and use async compute here to run sky convolution during other passes (once we move convolution shader to compute).
                 //UpdateSkyEnvironment(hdCamera, cmd);
 
-                //RenderLighting();
+                StartLegacyStereo(m_RenderGraph, hdCamera);
+
+#if ENABLE_RAYTRACING
+                bool raytracedIndirectDiffuse = m_RaytracingIndirectDiffuse.RenderIndirectDiffuse(hdCamera, cmd, renderContext, m_FrameCount);
+                if(raytracedIndirectDiffuse)
+                {
+                    PushFullScreenDebugTexture(hdCamera, cmd, m_RaytracingIndirectDiffuse.GetIndirectDiffuseTexture(), FullScreenDebugMode.IndirectDiffuse);
+                }
+#endif
+
+                //if (!hdCamera.frameSettings.SSAORunsAsync())
+                //    m_AmbientOcclusionSystem.Render(cmd, hdCamera, m_SharedRTManager, renderContext, m_FrameCount);
+
+                var stencilBufferCopy = CopyStencilBufferIfNeeded(m_RenderGraph, hdCamera, GetDepthStencilBuffer(), m_CopyStencil, m_CopyStencilForSSR);
+
+                //// When debug is enabled we need to clear otherwise we may see non-shadows areas with stale values.
+                //if (hdCamera.frameSettings.IsEnabled(FrameSettingsField.ContactShadows) && m_CurrentDebugDisplaySettings.data.fullScreenDebugMode == FullScreenDebugMode.ContactShadows)
+                //{
+                //    HDUtils.SetRenderTarget(cmd, m_ContactShadowBuffer, ClearFlag.Color, Color.clear);
+                //}
+
+//#if ENABLE_RAYTRACING
+//                // Update the light clusters that we need to update
+//                m_RayTracingManager.UpdateCameraData(cmd, hdCamera);
+
+//                // We only request the light cluster if we are gonna use it for debug mode
+//                if (FullScreenDebugMode.LightCluster == m_CurrentDebugDisplaySettings.data.fullScreenDebugMode)
+//                {
+//                    var settings = VolumeManager.instance.stack.GetComponent<ScreenSpaceReflection>();
+//                    HDRaytracingEnvironment rtEnv = m_RayTracingManager.CurrentEnvironment();
+//                    if(settings.enableRaytracing.value && rtEnv != null)
+//                    {
+//                        HDRaytracingLightCluster lightCluster = m_RayTracingManager.RequestLightCluster(rtEnv.reflLayerMask);
+//                        PushFullScreenDebugTexture(hdCamera, cmd, lightCluster.m_DebugLightClusterTexture, FullScreenDebugMode.LightCluster);
+//                    }
+//                    else if(rtEnv != null && rtEnv.raytracedObjects)
+//                    {
+//                        HDRaytracingLightCluster lightCluster = m_RayTracingManager.RequestLightCluster(rtEnv.raytracedLayerMask);
+//                        PushFullScreenDebugTexture(hdCamera, cmd, lightCluster.m_DebugLightClusterTexture, FullScreenDebugMode.LightCluster);
+//                    }
+//                }
+//#endif
+
+//                // Evaluate raytraced area shadows if required
+//                bool areaShadowsRendered = false;
+//#if ENABLE_RAYTRACING
+//                areaShadowsRendered = m_RaytracingShadows.RenderAreaShadows(hdCamera, cmd, renderContext, m_FrameCount);
+//#endif
+//                cmd.SetGlobalInt(HDShaderIDs._RaytracedAreaShadow, areaShadowsRendered ? 1 : 0);
+
+                hdCamera.xr.StopLegacyStereo(camera, cmd, renderContext);
+
+                BuildGPULightList(m_RenderGraph, hdCamera, GetDepthStencilBuffer(msaa), stencilBufferCopy);
             }
 
             ExecuteRenderGraph(m_RenderGraph, hdCamera, m_MSAASamples, renderContext, cmd);
@@ -55,7 +108,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             renderGraph.Execute(renderContext, cmd, renderGraphParams);
         }
 
-        virtual protected RenderGraphMutableResource CreateColorBuffer(HDCamera hdCamera, bool allowMSAA)
+        RenderGraphMutableResource CreateColorBuffer(HDCamera hdCamera, bool allowMSAA)
         {
             bool msaa = hdCamera.frameSettings.IsEnabled(FrameSettingsField.MSAA) && allowMSAA;
             return m_RenderGraph.CreateTexture(
@@ -82,7 +135,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public FrameSettings                frameSettings;
         }
 
-        virtual protected void RenderDebugViewMaterial(RenderGraph renderGraph, CullingResults cull, HDCamera hdCamera, RenderGraphMutableResource output)
+        void RenderDebugViewMaterial(RenderGraph renderGraph, CullingResults cull, HDCamera hdCamera, RenderGraphMutableResource output)
         {
             if (m_CurrentDebugDisplaySettings.data.materialDebugSettings.IsDebugGBufferEnabled() && hdCamera.frameSettings.litShaderMode == LitShaderMode.Deferred)
             {
@@ -145,7 +198,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public int                          passIndex;
         }
 
-        virtual protected RenderGraphMutableResource ResolveMSAAColor(RenderGraph renderGraph, HDCamera hdCamera, RenderGraphMutableResource input)
+        RenderGraphMutableResource ResolveMSAAColor(RenderGraph renderGraph, HDCamera hdCamera, RenderGraphMutableResource input)
         {
             if (hdCamera.frameSettings.IsEnabled(FrameSettingsField.MSAA))
             {
@@ -174,17 +227,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
         }
 
-        protected static void DrawOpaqueRendererList(in RenderGraphContext context, in FrameSettings frameSettings, in RendererList rendererList)
+        static void DrawOpaqueRendererList(in RenderGraphContext context, in FrameSettings frameSettings, in RendererList rendererList)
         {
             DrawOpaqueRendererList(context.renderContext, context.cmd, frameSettings, rendererList);
         }
 
-        protected static void DrawTransparentRendererList(in FrameSettings frameSettings, RendererList rendererList, RenderGraphContext context)
+        static void DrawTransparentRendererList(in FrameSettings frameSettings, RendererList rendererList, RenderGraphContext context)
         {
             DrawTransparentRendererList(context.renderContext, context.cmd, frameSettings, rendererList);
         }
 
-        protected static int SampleCountToPassIndex(MSAASamples samples)
+        static int SampleCountToPassIndex(MSAASamples samples)
         {
             switch (samples)
             {
@@ -200,7 +253,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return 0;
         }
 
-        protected bool NeedClearColorBuffer(HDCamera hdCamera)
+        bool NeedClearColorBuffer(HDCamera hdCamera)
         {
             if (hdCamera.clearColorMode == HDAdditionalCameraData.ClearColorMode.Color ||
                 // If the luxmeter is enabled, the sky isn't rendered so we clear the background color
@@ -218,7 +271,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return false;
         }
 
-        protected Color GetColorBufferClearColor(HDCamera hdCamera)
+        Color GetColorBufferClearColor(HDCamera hdCamera)
         {
             Color clearColor = hdCamera.backgroundColorHDR;
             // We set the background color to black when the luxmeter is enabled to avoid picking the sky color
@@ -229,45 +282,43 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         }
 
         // XR Specific
-        protected class StereoRenderingPassData
+        class StereoRenderingPassData
         {
             public Camera camera;
+            public XRPass xr;
         }
 
-        protected void StartStereoRendering(RenderGraph renderGraph, Camera camera)
+        void StartLegacyStereo(RenderGraph renderGraph, HDCamera hdCamera)
         {
-            if (camera.stereoEnabled)
+            if (hdCamera.xr.enabled)
             {
                 using (var builder = renderGraph.AddRenderPass<StereoRenderingPassData>("StartStereoRendering", out var passData))
                 {
-                    passData.camera = camera;
+                    passData.camera = hdCamera.camera;
+                    passData.xr = hdCamera.xr;
+
                     builder.SetRenderFunc(
                     (StereoRenderingPassData data, RenderGraphContext context) =>
                     {
-                        // Reset scissor and viewport for C++ stereo code
-                        context.cmd.DisableScissorRect();
-                        context.cmd.SetViewport(data.camera.pixelRect);
-                        context.renderContext.ExecuteCommandBuffer(context.cmd);
-                        context.cmd.Clear();
-                        context.renderContext.StartMultiEye(data.camera);
+                        data.xr.StartLegacyStereo(data.camera, context.cmd, context.renderContext);
                     });
                 }
             }
         }
 
-        protected void StopStereoRendering(RenderGraph renderGraph, Camera camera)
+        void StopLegacyStereo(RenderGraph renderGraph, HDCamera hdCamera)
         {
-            if (camera.stereoEnabled)
+            if (hdCamera.xr.enabled && hdCamera.camera.stereoEnabled)
             {
                 using (var builder = renderGraph.AddRenderPass<StereoRenderingPassData>("StopStereoRendering", out var passData))
                 {
-                    passData.camera = camera;
+                    passData.camera = hdCamera.camera;
+                    passData.xr = hdCamera.xr;
+
                     builder.SetRenderFunc(
                     (StereoRenderingPassData data, RenderGraphContext context) =>
                     {
-                        context.renderContext.ExecuteCommandBuffer(context.cmd);
-                        context.cmd.Clear();
-                        context.renderContext.StopMultiEye(data.camera);
+                        data.xr.StopLegacyStereo(data.camera, context.cmd, context.renderContext);
                     });
                 }
             }

@@ -136,6 +136,11 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
             return m_Resources.CreateTexture(desc, shaderProperty);
         }
 
+        public RenderGraphBuilder AddRenderPass<PassData>(out PassData passData, CustomSampler customSampler = null) where PassData : class, new()
+        {
+            return AddRenderPass<PassData>("", out passData, customSampler);
+        }
+
         public RenderGraphBuilder AddRenderPass<PassData>(string passName, out PassData passData, CustomSampler customSampler = null) where PassData : class, new()
         {
             var renderPass = m_RenderGraphPool.Get<RenderPass<PassData>>();

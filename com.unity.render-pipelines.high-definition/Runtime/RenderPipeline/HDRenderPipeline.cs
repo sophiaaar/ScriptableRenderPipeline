@@ -2532,7 +2532,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public string              passName;
             public RendererListDesc    depthOnlyRendererListDesc;
             public RendererListDesc    mrtRendererListDesc;
-            public bool                hasPureDepthPass;
             public bool                hasDepthOnlyPass;
             public bool                shouldRenderMotionVectorAfterGBuffer;
 #if ENABLE_RAYTRACING
