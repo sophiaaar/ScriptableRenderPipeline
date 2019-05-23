@@ -54,8 +54,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Vector4   screenParams;
         public int       volumeLayerMask;
         public Transform volumeAnchor;
-        // This is the viewport size scaled by dynamic resolution
-        public Vector2Int  renderingViewportSize;
         // This will have the correct viewport position and the size will be full resolution (ie : not taking dynamic rez into account)
         public Rect      finalViewport;
 

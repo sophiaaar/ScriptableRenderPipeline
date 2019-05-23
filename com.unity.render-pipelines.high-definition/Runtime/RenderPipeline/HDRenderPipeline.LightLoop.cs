@@ -51,6 +51,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             using (var builder = renderGraph.AddRenderPass<BuildGPULightListPassData>("Build Light List", out var passData))
             {
+                builder.EnableAsyncCompute(hdCamera.frameSettings.BuildLightListRunsAsync());
+
+                // TODO: Implement compute buffer read/write
                 passData.buildGPULightListparameters = PrepareBuildGPULightListParameters(hdCamera);
                 passData.depthBuffer = builder.ReadTexture(depthStencilBuffer);
                 passData.stencilTexture = builder.ReadTexture(stencilBufferCopy);

@@ -163,28 +163,20 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     // When rendering debug material we shouldn't rely on a depth prepass for optimizing the alpha clip test. As it is control on the material inspector side
                     // we must override the state here.
                     passData.opaqueRendererList = builder.UseRendererList(
-                        builder.CreateRendererList(new RendererListDesc(m_AllForwardOpaquePassNames, cull, hdCamera.camera)
-                        {
-                            renderQueueRange = HDRenderQueue.k_RenderQueue_AllOpaque,
-                            sortingCriteria = SortingCriteria.CommonOpaque,
-                            rendererConfiguration = m_currentRendererConfigurationBakedLighting,
-                            stateBlock = m_DepthStateOpaque
-                        }));
+                        builder.CreateRendererList(CreateOpaqueRendererListDesc(cull, hdCamera.camera, m_AllForwardOpaquePassNames,
+                            rendererConfiguration : m_currentRendererConfigurationBakedLighting,
+                            stateBlock : m_DepthStateOpaque)));
                     passData.transparentRendererList= builder.UseRendererList(
-                        builder.CreateRendererList(new RendererListDesc(m_AllTransparentPassNames, cull, hdCamera.camera)
-                        {
-                            renderQueueRange = HDRenderQueue.k_RenderQueue_AllOpaque,
-                            sortingCriteria = SortingCriteria.CommonTransparent | SortingCriteria.RendererPriority,
-                            rendererConfiguration = m_currentRendererConfigurationBakedLighting,
-                            stateBlock = m_DepthStateOpaque
-                        }));
+                        builder.CreateRendererList(CreateTransparentRendererListDesc(cull, hdCamera.camera, m_AllTransparentPassNames,
+                            rendererConfiguration : m_currentRendererConfigurationBakedLighting,
+                            stateBlock : m_DepthStateOpaque)));
 
                     builder.SetRenderFunc(
                     (DebugViewMaterialData data, RenderGraphContext context) =>
                     {
                         var res = context.resources;
                         DrawOpaqueRendererList(context, data.frameSettings, res.GetRendererList(data.opaqueRendererList));
-                        DrawOpaqueRendererList(context, data.frameSettings, res.GetRendererList(data.transparentRendererList));
+                        DrawTransparentRendererList(context, data.frameSettings, res.GetRendererList(data.transparentRendererList));
                     });
                 }
             }
@@ -232,7 +224,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             DrawOpaqueRendererList(context.renderContext, context.cmd, frameSettings, rendererList);
         }
 
-        static void DrawTransparentRendererList(in FrameSettings frameSettings, RendererList rendererList, RenderGraphContext context)
+        static void DrawTransparentRendererList(in RenderGraphContext context, in FrameSettings frameSettings, RendererList rendererList)
         {
             DrawTransparentRendererList(context.renderContext, context.cmd, frameSettings, rendererList);
         }
