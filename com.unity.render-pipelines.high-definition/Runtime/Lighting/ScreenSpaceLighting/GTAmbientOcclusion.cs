@@ -161,6 +161,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 1.0f / invHalfTanFOV
                 );
 
+
+            HDUtils.PackedMipChainInfo info = sharedRTManager.GetDepthBufferMipChainInfo();
+            Vector4 aoParams2 = new Vector4(
+                info.mipLevelOffsets[m_RunningFullRes ? 0 : 1].x,
+                info.mipLevelOffsets[m_RunningFullRes ? 0 : 1].y,
+                1.0f / ((float)settings.stepCount.value + 1.0f),
+                0
+            );
+
+
+
             var cs = m_Resources.shaders.GTAOCS;
             var kernel = cs.FindKernel("GTAOMain");
 
@@ -168,9 +179,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AODepthToViewParams, toViewSpaceProj);
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AOParams0, aoParams0);
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AOParams1, aoParams1);
+            cmd.SetComputeVectorParam(cs, HDShaderIDs._AOParams2, aoParams2);
 
 
-            HDUtils.PackedMipChainInfo info = sharedRTManager.GetDepthBufferMipChainInfo();
             cmd.SetComputeBufferParam(cs, kernel, HDShaderIDs._DepthPyramidMipLevelOffsets, info.GetOffsetBufferData(depthPyramidOffsets));
 
             cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._OcclusionTexture, m_AmbientOcclusionTex);
@@ -227,8 +238,18 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 0
             );
 
+            HDUtils.PackedMipChainInfo info = sharedRTManager.GetDepthBufferMipChainInfo();
+            Vector4 aoParams2 = new Vector4(
+                info.mipLevelOffsets[m_RunningFullRes ? 0 : 1].x,
+                info.mipLevelOffsets[m_RunningFullRes ? 0 : 1].y,
+                1.0f / ((float)settings.stepCount.value + 1.0f),
+                0
+            );
+
+
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AOParams0, aoParams0);
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AOParams1, aoParams1);
+            cmd.SetComputeVectorParam(cs, HDShaderIDs._AOParams2, aoParams2);
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AOBufferSize, aoBufferInfo);
 
             // Spatial
@@ -236,7 +257,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             {
                 var kernel = cs.FindKernel("GTAODenoise_Spatial");
 
-                HDUtils.PackedMipChainInfo info = sharedRTManager.GetDepthBufferMipChainInfo();
                 cmd.SetComputeBufferParam(cs, kernel, HDShaderIDs._DepthPyramidMipLevelOffsets, info.GetOffsetBufferData(depthPyramidOffsets));
 
                 cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._AOPackedData, m_PackedDataTex);
@@ -271,7 +291,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     kernel = cs.FindKernel("GTAODenoise_Temporal");
                 }
 
-                HDUtils.PackedMipChainInfo info = sharedRTManager.GetDepthBufferMipChainInfo();
                 cmd.SetComputeBufferParam(cs, kernel, HDShaderIDs._DepthPyramidMipLevelOffsets, info.GetOffsetBufferData(depthPyramidOffsets));
 
                 cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._AOPackedData, m_PackedDataTex);

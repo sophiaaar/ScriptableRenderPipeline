@@ -16,8 +16,9 @@ StructuredBuffer<int2>  _DepthPyramidMipLevelOffsets;
 
 CBUFFER_START(GTAOUniformBuffer)
 float4 _AOBufferSize;  // xy: buffer size, zw: texel size       // X: Contains pow at the upsampling stage.
-float4 _AOParams0;     // x: mip level of the base AO (0 if full res, 1 if half res).  y: Half proj scale
-float4 _AOParams1;     // x: mip level of the base AO (0 if full res, 1 if half res).  y: Half proj scale
+float4 _AOParams0;     
+float4 _AOParams1;     
+float4 _AOParams2;
 float4 _AODepthToViewParams;
 CBUFFER_END
 
@@ -29,12 +30,12 @@ CBUFFER_END
 #define _AOInvRadiusSq _AOParams1.y
 #define _AOTemporalOffsetIdx _AOParams1.z
 #define _AOTemporalRotationIdx _AOParams1.w
+#define _AOMipOffset _AOParams2.xy
+#define _AOInvStepCountPlusOne _AOParams2.z
 
 float GetDepth(float2 positionSS, int offset)
 {
-    uint finalMip = _AOBaseResMip + offset;
-    int2 mipOffset = _DepthPyramidMipLevelOffsets[finalMip];
-    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, mipOffset + ((uint2)positionSS.xy << offset)).r;
+    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, (_AOMipOffset) + ((uint2)positionSS.xy << offset)).r;
 }
 
 

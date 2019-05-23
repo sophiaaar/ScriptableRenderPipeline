@@ -709,6 +709,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public static readonly int _AOBufferSize                   = Shader.PropertyToID("_AOBufferSize");
         public static readonly int _AOParams0                      = Shader.PropertyToID("_AOParams0");
         public static readonly int _AOParams1                      = Shader.PropertyToID("_AOParams1");
+        public static readonly int _AOParams2                      = Shader.PropertyToID("_AOParams2");
         public static readonly int _OcclusionTexture               = Shader.PropertyToID("_OcclusionTexture");
         public static readonly int _BentNormalsTexture             = Shader.PropertyToID("_BentNormalsTexture");
         public static readonly int _AOPackedData                   = Shader.PropertyToID("_AOPackedData");

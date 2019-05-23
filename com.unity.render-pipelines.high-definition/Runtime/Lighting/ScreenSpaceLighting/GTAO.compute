@@ -104,18 +104,17 @@ float3 GetPositionVS(float2 positionSS, uint mipOffset, out float depth)
     return float3((positionSS * _AODepthToViewParams.xy - _AODepthToViewParams.zw) * linearDepth, linearDepth);
 }
 
-float3 GetNormalVS(uint2 positionSS)
+float3 GetNormalVS(float4 normalBufferData)
 {
 #if NORMAL_COMPUTATION == NORMAL_FROM_GBUFFER
     NormalData normalData;
-    DecodeFromNormalBuffer(positionSS, normalData);
+    DecodeFromNormalBuffer(normalBufferData, 0, normalData);
     float3 normalVS = normalize(mul((float3x3)UNITY_MATRIX_V, normalData.normalWS));
     return float3(normalVS.xy, -normalVS.z);
 #elif NORMAL_COMPUTATION == NORMAL_FROM_DEPTH
     // TODO_FCC: Implement.
 #endif
 }
-
 //float3 NormalFromDepth(uint2 positionSS, float3 P)
 //{
 //    float d;
@@ -173,7 +172,8 @@ void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
     // Read buffers as early as possible.
     float currDepth;
     float3 positionVS = GetPositionVS(dispatchThreadId.xy, 0, currDepth);
-    float3 normalVS = GetNormalVS(dispatchThreadId.xy * (_AOBaseResMip + 1));
+   // float3 normalVS = GetNormalVS(dispatchThreadId.xy * (_AOBaseResMip + 1));
+    float4 normalBufferData = LOAD_TEXTURE2D_X(_NormalBufferTexture, dispatchThreadId.xy * (_AOBaseResMip + 1));
 
 
     float2 dir = GetDirection(dispatchThreadId.xy);
@@ -183,7 +183,7 @@ void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
 
     float3 V = normalize(-positionVS);
     float fovCorrectedradiusSS =  clamp(_AORadius * _AOFOVCorrection * rcp(positionVS.z), _AOStepCount, 128);
-    float step = fovCorrectedradiusSS / (_AOStepCount + 1); // TODO_FCC: Verify this +1
+    float step = fovCorrectedradiusSS * _AOInvStepCountPlusOne;
 
 
     //int mipModifier = (1 + _AOBaseResMip);
@@ -192,6 +192,8 @@ void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
     maxHorizons.y = HorizonLoop(positionVS, V, rayStart, -dir, offset, step, 0);
     maxHorizons.x = HorizonLoop(positionVS, V, rayStart, dir, offset, step, 0);
 
+    // We now can transform normal data into normal in view space (latency from read should have been hidden as much as possible)
+    float3 normalVS = GetNormalVS(normalBufferData);
 
     // Integrate horizons 
     float3 sliceN =  normalize(cross(float3(dir.xy, 0.0f), V.xyz));   // Can we skip normalize?? 
@@ -217,7 +219,7 @@ void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
 
     //// Bent normals stuff
     //float bentNormalAngle = (maxHorizons.x + maxHorizons.y) * 0.5f;
-    //_BentNormalsTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = V * cos(bentNormalAngle) - T * sin(bentNormalAngle);
+    //_BentNormalsTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = abs(_AOMipOffset - mipOffset).xyxy;
 
     // This will be the only output at some point
     float linearDepth = LinearEyeDepth(currDepth, _ZBufferParams);;
