@@ -1,300 +1,18 @@
 #include "GTAOCommon.hlsl"
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/NormalBuffer.hlsl"
 
-#pragma kernel GTAODenoise
-#pragma kernel GTAODenoise_OLD_BLUR OLD_BLUR
-#pragma kernel GTAODenoise_Temporal TEMPORAL
 #pragma kernel GTAODenoise_Spatial SPATIAL
+#pragma kernel GTAODenoise_Temporal                     TEMPORAL_DENOISE_KERNEL_NAME=GTAODenoise_Temporal         TEMPORAL  HALF_RES
+#pragma kernel GTAODenoise_Temporal_FullRes             TEMPORAL_DENOISE_KERNEL_NAME=GTAODenoise_Temporal_FullRes TEMPORAL  FULL_RES
 
 
 #pragma enable_d3d11_debug_symbols
 
 #define BLUR_TYPE 0 // this is for testing, no bilateral
 
-RW_TEXTURE2D_X(float4, _OcclusionTexture);
 RW_TEXTURE2D_X(float3, _BentNormalsTexture);
 
 TEXTURE2D_X_UINT(_AOPackedData);
-
-
-void UnpackData(uint data, out float AO, out float depth)
-{
-    AO = UnpackUIntToFloat(data, 0, 8);
-    depth = UnpackUIntToFloat(data, 8, 24);
-    //depth = LinearEyeDepth(depth, _ZBufferParams);
-}
-
-void UnpackGatheredData(uint4 data, out float4 AOs, out float4 depths)
-{
-    UnpackData(data.x, AOs.x, depths.x);
-    UnpackData(data.y, AOs.y, depths.y);
-    UnpackData(data.z, AOs.z, depths.z);
-    UnpackData(data.w, AOs.w, depths.w);
-}
-
-#ifndef OLD_BLUR
-
-[numthreads(8,8,1)]
-void GTAODenoise(uint3 dispatchThreadId : SV_DispatchThreadID)
-{
-    PositionInputs posInput = GetPositionInput(dispatchThreadId.xy, _AOBufferSize.zw, uint2(8, 8));
-
-    float AO;
-    float depth;
-
-    // We use gather to get data in a 4x4 region
-    //uint4 data_0_3    = GATHER_TEXTURE2D_X(_AOPackedData, s_point_clamp_sampler, posInput.positionNDC + float2(-2.0f,  2.0f)  * _AOBufferSize.zw);
-    //uint4 data_4_7    = GATHER_TEXTURE2D_X(_AOPackedData, s_point_clamp_sampler, posInput.positionNDC + float2( 0.0f,  2.0f)  * _AOBufferSize.zw);
-    //uint4 data_8_11   = GATHER_TEXTURE2D_X(_AOPackedData, s_point_clamp_sampler, posInput.positionNDC + float2(-2.0f,  0.0f)  * _AOBufferSize.zw);
-    //uint4 data_12_15  = GATHER_TEXTURE2D_X(_AOPackedData, s_point_clamp_sampler, posInput.positionNDC + float2( 0.0f,  0.0f)  * _AOBufferSize.zw);
-
-    uint4 data_0_3 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler,   (dispatchThreadId.xy + float2(-2.0f, 2.0f))  * _AOBufferSize.zw);
-    uint4 data_4_7 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler,   (dispatchThreadId.xy + float2(0.0f, 2.0f))  * _AOBufferSize.zw);
-    uint4 data_8_11 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler,  (dispatchThreadId.xy + float2(-2.0f, 0.0f))  * _AOBufferSize.zw);
-    uint4 data_12_15 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (dispatchThreadId.xy + float2(0.0f, 0.0f))  * _AOBufferSize.zw);
-
-
-    float4 AO_0_3, depths_0_3;
-    UnpackGatheredData(data_0_3,    AO_0_3,     depths_0_3);
-    float4 AO_4_7, depths_4_7;
-    UnpackGatheredData(data_4_7,    AO_4_7,     depths_4_7);
-    float4 AO_8_11, depths_8_11;
-    UnpackGatheredData(data_8_11,   AO_8_11,    depths_8_11);
-    float4 AO_12_15, depths_12_15;
-    UnpackGatheredData(data_12_15,  AO_12_15,   depths_12_15);
-
-    float depths[16] = { depths_0_3.x, depths_0_3.y, depths_0_3.z, depths_0_3.w, depths_4_7.x, depths_4_7.y, depths_4_7.z, depths_4_7.w, depths_8_11.x, depths_8_11.y, depths_8_11.z, depths_8_11.w, depths_12_15.x, depths_12_15.y, depths_12_15.z, depths_12_15.w };
-    float AOs[16] = { AO_0_3.x, AO_0_3.y, AO_0_3.z, AO_0_3.w, AO_4_7.x, AO_4_7.y, AO_4_7.z, AO_4_7.w, AO_8_11.x, AO_8_11.y, AO_8_11.z, AO_8_11.w, AO_12_15.x, AO_12_15.y, AO_12_15.z, AO_12_15.w };
-
-    float centralDepth = depths_12_15.y;
-
-    float total = 0.0f;
-    float weightTotal = 0.0f;
-    //// This is temp, it should really be a pixel shader so we can ddx and ddy. let's try... 
-    for (int i = 0; i < 16; ++i)
-    {
-        float delta = abs(depths[i] - centralDepth);
-        float localWeight = (delta < centralDepth * 0.1f);
-        total += AOs[i] * localWeight;
-        weightTotal += localWeight;
-    }
-
-    total /= weightTotal;
-
-    UnpackData(_AOPackedData[COORD_TEXTURE2D_X(dispatchThreadId.xy)].x, AO, depth);
-
-
-
-    // TODO: Find which one is the center (in data_12_15 ! << 
-
-    // NAIVE BLUR
-#if BLUR_TYPE == 0
-    AO = (dot(AO_0_3, 0.25f) + dot(AO_4_7, 0.25) + dot(AO_8_11, 0.25) + dot(AO_12_15, 0.25)) * 0.25f;
-#elif BLUR_TYPE == 1
-    AO = total;
-#endif
-    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] =  1.0f - pow(AO, 2);
-}
-
-#else
-
-#define StepSize 0.5f
-#define kUpsampleTolerance 0.5f
-#define NoiseFilterStrength 0.0f
-
-groupshared float DepthCache[256];
-groupshared float AOCache1[256];
-groupshared float AOCache2[256];
-
-void PrefetchData(uint index, uint2 positionSS)
-{
-    uint4 data = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (positionSS)  * _AOBufferSize.zw);
-    float4 AO1;
-    float4 ID; 
-    UnpackGatheredData(data, AO1, ID);
-
-    AOCache1[index] = AO1.w;
-    AOCache1[index + 1] = AO1.z;
-    AOCache1[index + 16] = AO1.x;
-    AOCache1[index + 17] = AO1.y;
-
-    ID = 1.0f / ID;
-    DepthCache[index] = ID.w;
-    DepthCache[index + 1] = ID.z;
-    DepthCache[index + 16] = ID.x;
-    DepthCache[index + 17] = ID.y;
-}
-
-float SmartBlur(float a, float b, float c, float d, float e, bool Left, bool Middle, bool Right)
-{
-    b = Left | Middle ? b : c;
-    a = Left ? a : b;
-    d = Right | Middle ? d : c;
-    e = Right ? e : d;
-    return ((a + e) / 2.0 + b + c + d) / 4.0;
-}
-
-bool CompareDeltas(float d1, float d2, float l1, float l2)
-{
-    float temp = d1 * d2 + 0.5f;
-    return temp * temp > l1 * l2 * 0.1f;
-}
-
-
-void BlurHorizontally(uint leftMostIndex)
-{
-    float a0 = AOCache1[leftMostIndex];
-    float a1 = AOCache1[leftMostIndex + 1];
-    float a2 = AOCache1[leftMostIndex + 2];
-    float a3 = AOCache1[leftMostIndex + 3];
-    float a4 = AOCache1[leftMostIndex + 4];
-    float a5 = AOCache1[leftMostIndex + 5];
-    float a6 = AOCache1[leftMostIndex + 6];
-
-    float d0 = DepthCache[leftMostIndex];
-    float d1 = DepthCache[leftMostIndex + 1];
-    float d2 = DepthCache[leftMostIndex + 2];
-    float d3 = DepthCache[leftMostIndex + 3];
-    float d4 = DepthCache[leftMostIndex + 4];
-    float d5 = DepthCache[leftMostIndex + 5];
-    float d6 = DepthCache[leftMostIndex + 6];
-
-    float d01 = d1 - d0;
-    float d12 = d2 - d1;
-    float d23 = d3 - d2;
-    float d34 = d4 - d3;
-    float d45 = d5 - d4;
-    float d56 = d6 - d5;
-
-    float l01 = d01 * d01 + StepSize;
-    float l12 = d12 * d12 + StepSize;
-    float l23 = d23 * d23 + StepSize;
-    float l34 = d34 * d34 + StepSize;
-    float l45 = d45 * d45 + StepSize;
-    float l56 = d56 * d56 + StepSize;
-
-    bool c02 = CompareDeltas(d01, d12, l01, l12);
-    bool c13 = CompareDeltas(d12, d23, l12, l23);
-    bool c24 = CompareDeltas(d23, d34, l23, l34);
-    bool c35 = CompareDeltas(d34, d45, l34, l45);
-    bool c46 = CompareDeltas(d45, d56, l45, l56);
-
-    AOCache2[leftMostIndex] = SmartBlur(a0, a1, a2, a3, a4, c02, c13, c24);
-    AOCache2[leftMostIndex + 1] = SmartBlur(a1, a2, a3, a4, a5, c13, c24, c35);
-    AOCache2[leftMostIndex + 2] = SmartBlur(a2, a3, a4, a5, a6, c24, c35, c46);
-}
-
-void BlurVertically(uint topMostIndex)
-{
-    float a0 = AOCache2[topMostIndex];
-    float a1 = AOCache2[topMostIndex + 16];
-    float a2 = AOCache2[topMostIndex + 32];
-    float a3 = AOCache2[topMostIndex + 48];
-    float a4 = AOCache2[topMostIndex + 64];
-    float a5 = AOCache2[topMostIndex + 80];
-
-    float d0 = DepthCache[topMostIndex + 2];
-    float d1 = DepthCache[topMostIndex + 18];
-    float d2 = DepthCache[topMostIndex + 34];
-    float d3 = DepthCache[topMostIndex + 50];
-    float d4 = DepthCache[topMostIndex + 66];
-    float d5 = DepthCache[topMostIndex + 82];
-
-    float d01 = d1 - d0;
-    float d12 = d2 - d1;
-    float d23 = d3 - d2;
-    float d34 = d4 - d3;
-    float d45 = d5 - d4;
-
-    float l01 = d01 * d01 + StepSize;
-    float l12 = d12 * d12 + StepSize;
-    float l23 = d23 * d23 + StepSize;
-    float l34 = d34 * d34 + StepSize;
-    float l45 = d45 * d45 + StepSize;
-
-    bool c02 = CompareDeltas(d01, d12, l01, l12);
-    bool c13 = CompareDeltas(d12, d23, l12, l23);
-    bool c24 = CompareDeltas(d23, d34, l23, l34);
-    bool c35 = CompareDeltas(d34, d45, l34, l45);
-
-    float aoResult1 = SmartBlur(a0, a1, a2, a3, a4, c02, c13, c24);
-    float aoResult2 = SmartBlur(a1, a2, a3, a4, a5, c13, c24, c35);
-
-    AOCache1[topMostIndex] = aoResult1;
-    AOCache1[topMostIndex + 16] = aoResult2;
-}
-
-// We essentially want 5 weights:  4 for each low-res pixel and 1 to blend in when none of the 4 really
-// match.  The filter strength is 1 / DeltaZTolerance.  So a tolerance of 0.01 would yield a strength of 100.
-// Note that a perfect match of low to high depths would yield a weight of 10^6, completely superceding any
-// noise filtering.  The noise filter is intended to soften the effects of shimmering when the high-res depth
-// buffer has a lot of small holes in it causing the low-res depth buffer to inaccurately represent it.
-float BilateralUpsample(float HiDepth, float HiAO, float4 LowDepths, float4 LowAO)
-{
-    float4 weights = float4(9, 3, 1, 3) / (abs(HiDepth - LowDepths) + kUpsampleTolerance);
-    float TotalWeight = dot(weights, 1) + NoiseFilterStrength;
-    float WeightedSum = dot(LowAO, weights) + NoiseFilterStrength;// * HiAO;
-    return HiAO * WeightedSum / TotalWeight;
-}
-
-
-[numthreads(8, 8, 1)]
-void GTAODenoise_OLD_BLUR(uint GI : SV_GroupIndex, uint2 GTid : SV_GroupThreadID, uint3 DTid : SV_DispatchThreadID)
-{
-
-    //
-    // Load 4 pixels per thread into LDS to fill the 16x16 LDS cache with depth and AO
-    //
-    PrefetchData(GTid.x << 1 | GTid.y << 5, int2(DTid.xy + GTid.xy - 2));
-    GroupMemoryBarrierWithGroupSync();
-
-    // Goal:  End up with a 9x9 patch that is blurred so we can upsample.  Blur radius is 2 pixels, so start with 13x13 area.
-
-    //
-    // Horizontally blur the pixels.    13x13 -> 9x13
-    //
-    if (GI < 39)
-        BlurHorizontally((GI / 3) * 16 + (GI % 3) * 3);
-    GroupMemoryBarrierWithGroupSync();
-
-    //
-    // Vertically blur the pixels.        9x13 -> 9x9
-    //
-    if (GI < 45)
-        BlurVertically((GI / 9) * 32 + GI % 9);
-    GroupMemoryBarrierWithGroupSync();
-
-    //
-    // Bilateral upsample
-    //
-    uint Idx0 = GTid.x + GTid.y * 16;
-    float4 LoSSAOs = float4(AOCache1[Idx0 + 16], AOCache1[Idx0 + 17], AOCache1[Idx0 + 1], AOCache1[Idx0]);
-
-    // We work on a quad of pixels at once because then we can gather 4 each of high and low-res depth values
-    float2 UV0 = DTid.xy * _AOBufferSize.zw;
-    float2 UV1 = DTid.xy * 2 * (_AOBufferSize.zw * 0.5f);
-
-    float4 HiSSAOs = 1.0;
-    float4 LoDepths;
-    float4 AO1;
-
-    uint4 data = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, UV0);
-    UnpackGatheredData(data, AO1, LoDepths);
-
-
-    float4 HiDepths = GATHER_TEXTURE2D_X(_DepthPyramidTexture, s_linear_clamp_sampler, UV1);
-    // (-, +), (+, +), (+, -), (-, -)
-
-    int2 OutST = DTid.xy << 1;
-    _OcclusionTexture[COORD_TEXTURE2D_X(OutST + int2(-1, 0))] = 1.0f - pow(BilateralUpsample(HiDepths.x, HiSSAOs.x, LoDepths.xyzw, LoSSAOs.xyzw), _AOIntensity);
-    _OcclusionTexture[COORD_TEXTURE2D_X(OutST + int2(0, 0))] = 1.0f - pow(BilateralUpsample(HiDepths.y, HiSSAOs.y, LoDepths.yzwx, LoSSAOs.yzwx), _AOIntensity);
-    _OcclusionTexture[COORD_TEXTURE2D_X(OutST + int2(0, -1))] = 1.0f - pow(BilateralUpsample(HiDepths.z, HiSSAOs.z, LoDepths.zwxy, LoSSAOs.zwxy), _AOIntensity);
-    _OcclusionTexture[COORD_TEXTURE2D_X(OutST + int2(-1, -1))] = 1.0f - pow(BilateralUpsample(HiDepths.w, HiSSAOs.w, LoDepths.wxyz, LoSSAOs.wxyz), _AOIntensity);
-
-}
-#endif
-
-
 
 #ifdef SPATIAL
 
@@ -351,15 +69,7 @@ void GTAODenoise_Spatial(uint3 dispatchThreadId : SV_DispatchThreadID)
     float centralDepth;
     float final = Blur(dispatchThreadId.xy, centralDepth);
 
-    uint packed = PackOutputToDenoise(final, centralDepth);
-
-    
-    float currDepth, currAO;
-    UnpackData(currData, currAO, currDepth);
-
-    _AOPackedBlurred[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = PackOutputToDenoise(final, currDepth);
-    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = (centralDepth - currDepth);
-
+    _AOPackedBlurred[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = PackAOOutput(final, centralDepth);
 }
 #endif
 
@@ -425,13 +135,20 @@ float3 ClipToAABB(float color, float minimum, float maximum)
 
 RW_TEXTURE2D_X(float4, _AODebug);
 
+
+#if HALF_RES
+RW_TEXTURE2D_X(uint, _OcclusionTexture);
+#else
+RW_TEXTURE2D_X(float, _OcclusionTexture);
+#endif
+
 float4 GetBilinearWeights(float2 uv)
 {
     return 0.25f;
 }
 
 [numthreads(8, 8, 1)]
-void GTAODenoise_Temporal(uint3 dispatchThreadId : SV_DispatchThreadID)
+void TEMPORAL_DENOISE_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
     float2 uv = (dispatchThreadId.xy + 0.5f) * _AOBufferSize.zw/*- jitter*/;
 
@@ -482,13 +199,15 @@ void GTAODenoise_Temporal(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     float newAO = (lerp(currAO, prevAO, 0.9f));
 
-    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = 1.0f - pow(newAO, _AOIntensity);
+
     _AOOutputHistory[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = newAO;
 
-    //float depth_similarity = saturate(pow(prevdepth / currDepth, 8) + 0.00001);
-
-    //_AODebug[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = depth_similarity;
-
+#ifdef HALF_RES
+    // The conversion and the pow happens in upsample phase.
+    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = PackAOOutput(newAO, currDepths.y);
+#else
+    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = 1.0f - pow(newAO, _AOIntensity);
+#endif
 }
 #endif
 

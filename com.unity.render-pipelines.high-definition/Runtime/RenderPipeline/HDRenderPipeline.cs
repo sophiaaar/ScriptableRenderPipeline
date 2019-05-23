@@ -1691,8 +1691,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 if (!hdCamera.frameSettings.SSAORunsAsync())
                     m_AmbientOcclusionSystem.Render(cmd, hdCamera, m_SharedRTManager, renderContext, m_FrameCount);
 
-                    m_GTAOSystem.Render(cmd, hdCamera, m_SharedRTManager, m_DepthPyramidMipLevelOffsetsBuffer, m_FrameCount);
-                    m_GTAOSystem.Denoise(cmd, hdCamera, m_SharedRTManager, m_DepthPyramidMipLevelOffsetsBuffer);
+                    using (new ProfilingSample(cmd, "GTAO", CustomSamplerId.ResolveSSAO.GetSampler()))
+                    {
+                        m_GTAOSystem.Render(cmd, hdCamera, m_SharedRTManager, m_DepthPyramidMipLevelOffsetsBuffer, m_FrameCount);
+                        m_GTAOSystem.Denoise(cmd, hdCamera, m_SharedRTManager, m_DepthPyramidMipLevelOffsetsBuffer);
+                    }
                     var aosett = VolumeManager.instance.stack.GetComponent<GTAO>();
 
                     if (aosett.intensity.value > 0)

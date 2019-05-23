@@ -54,7 +54,7 @@ float GTAOFastAcos(float x)
 // --------------------------------------------
 // Output functions
 // --------------------------------------------
-uint PackOutputToDenoise(float AO, float depth)
+uint PackAOOutput(float AO, float depth)
 {
     // BitFieldInsert(uint mask, uint src, uint dst)
      // 24 depth,  8 bit AO
@@ -62,4 +62,19 @@ uint PackOutputToDenoise(float AO, float depth)
     packedVal = BitFieldInsert(0x000000ff, UnpackInt(AO, 8), packedVal);
     packedVal = BitFieldInsert(0xffffff00, UnpackInt(depth, 24) << 8, packedVal);
     return packedVal;
+}
+
+void UnpackData(uint data, out float AO, out float depth)
+{
+    AO = UnpackUIntToFloat(data, 0, 8);
+    depth = UnpackUIntToFloat(data, 8, 24);
+    //depth = LinearEyeDepth(depth, _ZBufferParams);
+}
+
+void UnpackGatheredData(uint4 data, out float4 AOs, out float4 depths)
+{
+    UnpackData(data.x, AOs.x, depths.x);
+    UnpackData(data.y, AOs.y, depths.y);
+    UnpackData(data.z, AOs.z, depths.z);
+    UnpackData(data.w, AOs.w, depths.w);
 }

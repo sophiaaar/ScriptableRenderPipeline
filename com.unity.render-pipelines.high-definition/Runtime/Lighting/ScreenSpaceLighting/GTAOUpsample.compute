@@ -1,0 +1,47 @@
+#include "GTAOCommon.hlsl"
+
+
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel AOUpsample
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RW_TEXTURE2D_X(float, _OcclusionTexture);
+TEXTURE2D_X_UINT(_AOPackedData);
+
+#define EPSILON 0.01
+#define BOH 10
+
+#define BILATERAL 1
+
+[numthreads(8,8,1)]
+void AOUpsample(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    // This will need to be a gather soon.
+    // Gather half res samples + depths.
+    float2 uv = (dispatchThreadId.xy + 0.5f) * _ScreenSize.zw;
+    uint4 currDatas = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, uv);
+    float4 currAOs, currDepths;
+    UnpackGatheredData(currDatas, currAOs, currDepths);
+
+    // Get full res texture.
+    float fullResDepth = LoadCameraDepth(dispatchThreadId.xy);
+    float linearFullResDepth = LinearEyeDepth(fullResDepth, _ZBufferParams);
+
+    float final = 0;
+    float totalWeight = 0;
+    for (int i = 0; i < 4; ++i)
+    {
+        float w = 1.0f / (0.01 + BOH * abs(linearFullResDepth - LinearEyeDepth(currDepths[i], _ZBufferParams)));
+        totalWeight += w;
+        final += w * currAOs[i];
+    }
+    final /= totalWeight;
+
+#if BILATERAL == 0
+    final = dot(currAOs, 0.25f);
+#endif
+
+    // Unpack
+    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] =  1.0f - pow(final, _AOIntensity);
+}

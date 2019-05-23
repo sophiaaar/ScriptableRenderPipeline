@@ -167,6 +167,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public ComputeShader GTAOCS;
             [Reload("Runtime/Lighting/ScreenSpaceLighting/GTAODenoise.compute")]
             public ComputeShader GTAODenoiseCS;
+            [Reload("Runtime/Lighting/ScreenSpaceLighting/GTAOUpsample.compute")]
+            public ComputeShader GTAOUpsampleCS;
 
             // MSAA Shaders
             [Reload("Runtime/RenderPipeline/RenderPass/MSAA/DepthValues.shader")]
