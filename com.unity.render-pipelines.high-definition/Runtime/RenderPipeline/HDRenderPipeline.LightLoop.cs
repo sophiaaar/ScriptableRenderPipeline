@@ -1,6 +1,7 @@
 //using System;
 //using UnityEngine.Rendering;
 //using UnityEngine.Experimental.Rendering.RenderGraphModule;
+using UnityEngine.Rendering;
 using UnityEngine.Experimental.Rendering.RenderGraphModule;
 
 namespace UnityEngine.Experimental.Rendering.HDPipeline
@@ -75,6 +76,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 });
 
             }
+        }
+
+        void RenderShadows(RenderGraph renderGraph, HDCamera hdCamera, CullingResults cullResults)
+        {
+            m_ShadowManager.RenderShadows(m_RenderGraph, hdCamera, cullResults);
         }
     }
 }

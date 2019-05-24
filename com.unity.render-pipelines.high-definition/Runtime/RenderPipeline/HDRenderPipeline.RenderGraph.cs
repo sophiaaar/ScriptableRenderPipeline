@@ -91,6 +91,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 hdCamera.xr.StopLegacyStereo(camera, cmd, renderContext);
 
                 BuildGPULightList(m_RenderGraph, hdCamera, GetDepthStencilBuffer(msaa), stencilBufferCopy);
+
+                RenderShadows(m_RenderGraph, hdCamera, cullingResults);
             }
 
             ExecuteRenderGraph(m_RenderGraph, hdCamera, m_MSAASamples, renderContext, cmd);
