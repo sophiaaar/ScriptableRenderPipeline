@@ -33,9 +33,29 @@ CBUFFER_END
 #define _AOMipOffset _AOParams2.xy
 #define _AOInvStepCountPlusOne _AOParams2.z
 
+// If this is set to 0 best quality is achieved when full res, but performance is significantly lower.
+// If set to 1, when full res, it may lead to extra aliasing and loss of detail, but still significant higher quality than half res.
+#define HALF_RES_DEPTH 1
+
 float GetDepth(float2 positionSS, int offset)
 {
-    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, (_AOMipOffset) + ((uint2)positionSS.xy << offset)).r;
+    //return LOAD_TEXTURE2D_X(_DepthPyramidTexture, (_AOMipOffset)+((uint2)positionSS.xy / 2)).r;
+
+    int2 samplePos;
+#if HALF_RES_DEPTH
+    uint fullRes = (_AOBaseResMip == 0);
+    if (fullRes)
+    {
+        samplePos = _AOMipOffset + positionSS.xy / 2;
+    }
+    else
+    {
+        samplePos = _AOMipOffset + positionSS.xy;
+    }
+    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, samplePos).r;
+#else
+    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, (_AOMipOffset * _AOBaseResMip) + ((uint2)positionSS.xy)).r;
+#endif
 }
 
 

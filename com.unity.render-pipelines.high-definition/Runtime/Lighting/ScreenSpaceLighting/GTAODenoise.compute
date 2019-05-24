@@ -18,45 +18,105 @@ TEXTURE2D_X_UINT(_AOPackedData);
 
 RW_TEXTURE2D_X(uint, _AOPackedBlurred);
 
+float BilateralWeight(float sampleDepth, float centralDepth)
+{
+    float delta = abs(sampleDepth - centralDepth);
+    return delta < centralDepth * 0.31;// TODO_FCC. actual bilateral weighting here.
+}
+
 float Blur(float2 centralPos, out float centralDepth)
 {
     float2 temporalOffset = 0;// (_FrameCount & 1) == 0 ? float2(-1.0f, 1.0f) : float2(1.0f, -1.0f);
 
-    uint4 data_0_3 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(-2.0f, 2.0f) + temporalOffset)  * _AOBufferSize.zw);
-    uint4 data_4_7 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(0.0f, 2.0f) + temporalOffset)  * _AOBufferSize.zw);
-    uint4 data_8_11 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(-2.0f, 0.0f) + temporalOffset)  * _AOBufferSize.zw);
     uint4 data_12_15 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(0.0f, 0.0f) + temporalOffset)  * _AOBufferSize.zw);
 
 
-    float4 AO_0_3, depths_0_3;
-    UnpackGatheredData(data_0_3, AO_0_3, depths_0_3);
-    float4 AO_4_7, depths_4_7;
-    UnpackGatheredData(data_4_7, AO_4_7, depths_4_7);
-    float4 AO_8_11, depths_8_11;
-    UnpackGatheredData(data_8_11, AO_8_11, depths_8_11);
-    float4 AO_12_15, depths_12_15;
-    UnpackGatheredData(data_12_15, AO_12_15, depths_12_15);
+    float4 UnpackedAOs, UnpackedDepths;
+    UnpackGatheredData(data_12_15, UnpackedAOs, UnpackedDepths);
+    centralDepth = UnpackedDepths.y;
 
-    float depths[16] = { depths_0_3.x, depths_0_3.y, depths_0_3.z, depths_0_3.w, depths_4_7.x, depths_4_7.y, depths_4_7.z, depths_4_7.w, depths_8_11.x, depths_8_11.y, depths_8_11.z, depths_8_11.w, depths_12_15.x, depths_12_15.y, depths_12_15.z, depths_12_15.w };
-    float AOs[16] = { AO_0_3.x, AO_0_3.y, AO_0_3.z, AO_0_3.w, AO_4_7.x, AO_4_7.y, AO_4_7.z, AO_4_7.w, AO_8_11.x, AO_8_11.y, AO_8_11.z, AO_8_11.w, AO_12_15.x, AO_12_15.y, AO_12_15.z, AO_12_15.w };
 
-    centralDepth = depths_12_15.y;
-    float centralAO = AO_12_15.y;
+    float total = UnpackedAOs.y;
+    float totalWeight = 1;
 
-    float total = 0.0f;
-    float weightTotal = 0.0f;
-    //// This is temp, it should be a proper bilateral.
+    // This manual unrolling is horrible looking, but I found it hard to please the PS4 compiler otherwise. TODO: Make this nicer. 
 
-    //  TODO_FCC: Make this a gaussian! 
-    for (int i = 0; i < 16; ++i)
-    {
-        float delta = abs(depths[i] - centralDepth);
-        float localWeight = delta < centralDepth * 0.31;// TODO_FCC. actual bilateral weighting here.
-        total += AOs[i] * localWeight;
-        weightTotal += localWeight;
-    }
+    // First set of gathered data.
+    float weight = BilateralWeight(UnpackedDepths.x, centralDepth);
+    total += weight * UnpackedAOs.x;
+    totalWeight += weight;
 
-    total /= weightTotal;
+    weight = BilateralWeight(UnpackedDepths.z, centralDepth);
+    total += weight * UnpackedAOs.z;
+    totalWeight += weight;
+
+    weight = BilateralWeight(UnpackedDepths.w, centralDepth);
+    total += weight * UnpackedAOs.w;
+    totalWeight += weight;
+
+    // Second set of gathered data.
+    uint4 data_8_11 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(-2.0f, 0.0f) + temporalOffset)  * _AOBufferSize.zw);
+    UnpackGatheredData(data_8_11, UnpackedAOs, UnpackedDepths);
+
+    weight = BilateralWeight(UnpackedDepths.x, centralDepth);
+    total += weight * UnpackedAOs.x;
+    totalWeight += weight;
+
+    weight = BilateralWeight(UnpackedDepths.y, centralDepth);
+    total += weight * UnpackedAOs.z;
+    totalWeight += weight;
+
+    weight = BilateralWeight(UnpackedDepths.z, centralDepth);
+    total += weight * UnpackedAOs.z;
+    totalWeight += weight;
+
+    weight = BilateralWeight(UnpackedDepths.w, centralDepth);
+    total += weight * UnpackedAOs.w;
+    totalWeight += weight;
+
+
+    // Third set of gathered data.
+    uint4 data_4_7 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(0.0f, 2.0f) + temporalOffset)  * _AOBufferSize.zw);
+    UnpackGatheredData(data_4_7, UnpackedAOs, UnpackedDepths);
+
+    weight = BilateralWeight(UnpackedDepths.x, centralDepth);
+    total += weight * UnpackedAOs.x;
+    totalWeight += weight;
+
+    weight = BilateralWeight(UnpackedDepths.y, centralDepth);
+    total += weight * UnpackedAOs.z;
+    totalWeight += weight;
+
+    weight = BilateralWeight(UnpackedDepths.z, centralDepth);
+    total += weight * UnpackedAOs.z;
+    totalWeight += weight;
+
+    weight = BilateralWeight(UnpackedDepths.w, centralDepth);
+    total += weight * UnpackedAOs.w;
+    totalWeight += weight;
+
+    // Fourth set of gathered data.
+    uint4 data_0_3 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(-2.0f, 2.0f) + temporalOffset)  * _AOBufferSize.zw);
+    UnpackGatheredData(data_0_3, UnpackedAOs, UnpackedDepths);
+
+    weight = BilateralWeight(UnpackedDepths.x, centralDepth);
+    total += weight * UnpackedAOs.x;
+    totalWeight += weight;
+
+    weight = BilateralWeight(UnpackedDepths.y, centralDepth);
+    total += weight * UnpackedAOs.z;
+    totalWeight += weight;
+
+    weight = BilateralWeight(UnpackedDepths.z, centralDepth);
+    total += weight * UnpackedAOs.z;
+    totalWeight += weight;
+
+    weight = BilateralWeight(UnpackedDepths.w, centralDepth);
+    total += weight * UnpackedAOs.w;
+    totalWeight += weight;
+
+
+    total /= totalWeight;
     return total;
 }
 
@@ -192,10 +252,12 @@ void TEMPORAL_DENOISE_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
     //}
 
     float nudgy = 0.05;
+  //  float nudge = lerp(4.0, 0.25, saturate(motionVecLength * 100.0)) * abs(averageLuma - colorLuma);
+
     float minAO = min(Min3(currAOs.x, currAOs.y, currAOs.z), currAOs.w) - nudgy;
     float maxAO = max(Max3(currAOs.x, currAOs.y, currAOs.z), currAOs.w) + nudgy;
 
-    prevAO = clamp(prevAO, minAO, maxAO);
+    prevAO = ClipToAABB(prevAO, minAO, maxAO);
 
     float newAO = (lerp(currAO, prevAO, 0.9f));
 

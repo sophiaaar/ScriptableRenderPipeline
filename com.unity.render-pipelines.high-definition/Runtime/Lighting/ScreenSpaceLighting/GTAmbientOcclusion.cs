@@ -19,7 +19,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public ClampedFloatParameter radius = new ClampedFloatParameter(1.5f, 0.25f, 5.0f);
 
         [Tooltip("Runs at full resolution.")]
-        public BoolParameter fullRes = new BoolParameter(false);
+        public BoolParameter fullRes = new BoolParameter(true);
     }
 
     public class GTAOSystem
@@ -164,8 +164,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             HDUtils.PackedMipChainInfo info = sharedRTManager.GetDepthBufferMipChainInfo();
             Vector4 aoParams2 = new Vector4(
-                info.mipLevelOffsets[m_RunningFullRes ? 0 : 1].x,
-                info.mipLevelOffsets[m_RunningFullRes ? 0 : 1].y,
+                info.mipLevelOffsets[/*m_RunningFullRes ? 0 :*/ 1].x,
+                info.mipLevelOffsets[/*m_RunningFullRes ? 0 : */1].y,
                 1.0f / ((float)settings.stepCount.value + 1.0f),
                 0
             );
