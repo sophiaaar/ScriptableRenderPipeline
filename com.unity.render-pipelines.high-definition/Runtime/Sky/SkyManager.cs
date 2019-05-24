@@ -212,6 +212,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.SetGlobalFloat(HDShaderIDs._SkyTextureMipCount, mipCount);
         }
 
+        public void SetTexturesForLightingPass(CommandBuffer cmd)
+        {
+            var renderer = m_CurrentSky.renderer;
+            if (renderer != null)
+            {
+                renderer.SetTexturesForLightingPass(cmd);
+            }
+        }
+
 #if UNITY_EDITOR
         ProceduralSky GetDefaultPreviewSkyInstance()
         {

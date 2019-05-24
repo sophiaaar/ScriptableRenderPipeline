@@ -184,7 +184,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public float areaLightShadowCone = 120.0f;
 
         // Directional lights only.
-        public bool illuminatesSky = true;
+        public bool interactsWithSky = true;
 
 #if ENABLE_RAYTRACING
         public bool useRayTracedShadows = false;
@@ -351,7 +351,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         }
 
         // This offset shift the position of the spotlight used to approximate the area light shadows. The offset is the minimum such that the full
-        // area light shape is included in the cone spanned by the spot light. 
+        // area light shape is included in the cone spanned by the spot light.
         public static float GetAreaLightOffsetForShadows(Vector2 shapeSize, float coneAngle)
         {
             float rectangleDiagonal = shapeSize.magnitude;
@@ -659,7 +659,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 return useColorTemperatureProperty.boolValue;
             }
         }
-        
+
         public static bool IsAreaLight(SerializedProperty lightType)
         {
             return IsAreaLight((LightTypeExtent)lightType.enumValueIndex);
@@ -858,7 +858,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             data.displayLightIntensity = displayLightIntensity;
             data.displayAreaLightEmissiveMesh = displayAreaLightEmissiveMesh;
             data.needsIntensityUpdate_1_0 = needsIntensityUpdate_1_0;
-            data.illuminatesSky = illuminatesSky;
+            data.interactsWithSky = interactsWithSky;
 
 #if UNITY_EDITOR
             data.timelineWorkaround = timelineWorkaround;

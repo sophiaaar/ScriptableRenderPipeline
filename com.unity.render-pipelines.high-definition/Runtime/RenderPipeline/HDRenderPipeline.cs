@@ -826,6 +826,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Off screen rendering is disabled for most of the frame by default.
                 cmd.SetGlobalInt(HDShaderIDs._OffScreenRendering, 0);
                 cmd.SetGlobalInt(HDShaderIDs._EnableSpecularLighting, hdCamera.frameSettings.IsEnabled(FrameSettingsField.SpecularLighting) ? 1 : 0);
+
+                // The opaque lighting pass needs the optical depth texture if the PBR sky is used.
+                // Additionally, the transparent lighting pass needs a bunch of textures to compute
+                // atmospheric scattering.
+                m_SkyManager.SetTexturesForLightingPass(cmd);
             }
         }
 
@@ -1801,7 +1806,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     {
                         BuildGPULightLists(hdCamera, cmd, m_SharedRTManager.GetDepthStencilBuffer(hdCamera.frameSettings.IsEnabled(FrameSettingsField.MSAA)), m_SharedRTManager.GetStencilBufferCopy(), m_SkyManager.IsLightingSkyValid());
                     }
-                    
+
                     DispatchContactShadows();
                 }
 

@@ -133,13 +133,44 @@ void EvaluateLight_Directional(LightLoopContext lightLoopContext, PositionInputs
     color       = light.color;
     attenuation = 1.0;
 
+    float3 oDepth = 0;
+
     // Height fog attenuation.
     {
+        // TODO: should probably unify height attenuation somehow...
         float cosZenithAngle = L.y;
         float fragmentHeight = posInput.positionWS.y;
-        attenuation *= TransmittanceHeightFog(_HeightFogBaseExtinction, _HeightFogBaseHeight,
-                                              _HeightFogExponents, cosZenithAngle, fragmentHeight);
+        oDepth += OpticalDepthHeightFog(_HeightFogBaseExtinction, _HeightFogBaseHeight,
+                                        _HeightFogExponents, cosZenithAngle, fragmentHeight);
     }
+
+    if (light.interactsWithSky)
+    {
+        // TODO: should probably unify height attenuation somehow...
+        // TODO: Not sure it's possible to precompute cam rel pos since variables
+        // in the two constant buffers may be set at a different frequency?
+        const float3 C = _PlanetCenterPosition - _WorldSpaceCameraPos * 0.001; // Convert m to km
+        float3 planetP = posInput.positionWS * 0.001 - C;                      // Convert m to km
+        float3 planetN = normalize(planetP);
+
+        float planetNdotL  = dot(planetN, L);
+        float planetHeight = max(length(planetP) - _PlanetaryRadius, 0); // Must not be inside the planet
+        float planetCosHor = GetCosineOfHorizonZenithAngle(planetHeight);
+        bool  aboveHorizon = (planetNdotL > planetCosHor);
+
+        if (aboveHorizon)
+        {
+            oDepth += SampleOpticalDepthTexture(planetNdotL, planetHeight, true);
+        }
+        else
+        {
+            // Kill the light.
+            color = attenuation = 0;
+            return;
+        }
+    }
+
+    color *= TransmittanceFromOpticalDepth(oDepth);
 
     if (light.cookieIndex >= 0)
     {

@@ -54,6 +54,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             Debug.Assert(table != null);
 
+            // Must not contain garbage.
+            RenderTexture lastActive = RenderTexture.active;
+            RenderTexture.active = table;
+            GL.Clear(false, true, Color.clear);
+            RenderTexture.active = lastActive;
+
             return table;
         }
 
@@ -120,6 +126,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_InScatteredRadianceTables[0] = AllocateInScatteredRadianceTable(0);
             m_InScatteredRadianceTables[1] = AllocateInScatteredRadianceTable(1);
             m_InScatteredRadianceTables[2] = AllocateInScatteredRadianceTable(2);
+        }
+
+        public override void SetTexturesForLightingPass(CommandBuffer cmd)
+        {
+            cmd.SetGlobalTexture("_OpticalDepthTexture", m_OpticalDepthTable);
         }
 
         public override bool IsValid()

@@ -43,6 +43,12 @@ TEXTURE3D(_MultipleScatteringTexture);
     SAMPLER(s_linear_clamp_sampler);
 #endif
 
+// Computes (a^2 - b^2) in a numerically stable way.
+float DifferenceOfSquares(float a, float b)
+{
+    return (a - b) * (a + b);
+}
+
 float3 AirScatter(float height)
 {
     return _AirSeaLevelScattering * exp(-height * _AirDensityFalloff);
@@ -73,12 +79,6 @@ float AerosolToAirPhaseRatio(float LdotV)
 float3 AtmospherePhaseScatter(float LdotV, float height)
 {
     return AirPhase(LdotV) * AirScatter(height) + AerosolPhase(LdotV) * AerosolScatter(height);
-}
-
-// Computes (a^2 - b^2) in a numerically stable way.
-float DifferenceOfSquares(float a, float b)
-{
-    return (a - b) * (a + b);
 }
 
 // Returns the closest hit in X and the farthest hit in Y.

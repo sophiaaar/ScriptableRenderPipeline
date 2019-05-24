@@ -20,5 +20,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
             return ColorUtils.ConvertEV100ToExposure(-(skySettings.exposure.value + debugExposure));
         }
+
+        public virtual void SetTexturesForLightingPass(CommandBuffer cmd)
+        {
+            // Does nothing by default.
+        }
     }
 }

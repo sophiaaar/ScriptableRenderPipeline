@@ -208,7 +208,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             if (serialized.editorLightShape == LightShape.Directional)
             {
-                serialized.serializedLightData.illuminatesSky.boolValue = EditorGUILayout.Toggle(s_Styles.illuminatesSky, serialized.serializedLightData.illuminatesSky.boolValue);
+                serialized.serializedLightData.interactsWithSky.boolValue = EditorGUILayout.Toggle(s_Styles.InteractsWithSky, serialized.serializedLightData.interactsWithSky.boolValue);
             }
         }
 
@@ -412,7 +412,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                     intensity = LightUtils.ConvertEvToLux(intensity, serialized.serializedLightData.luxAtDistance.floatValue);
             }
             else  // For area lights
-            {               
+            {
                 if (oldLightUnit == LightUnit.Lumen && newLightUnit == LightUnit.Luminance)
                     intensity = LightUtils.ConvertAreaLightLumenToLuminance((LightTypeExtent)serialized.serializedLightData.lightTypeExtent.enumValueIndex, intensity, serialized.serializedLightData.shapeWidth.floatValue, serialized.serializedLightData.shapeHeight.floatValue);
                 if (oldLightUnit == LightUnit.Luminance && newLightUnit == LightUnit.Lumen)
@@ -449,7 +449,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                 }
                 else
                     EditorGUILayout.PropertyField(serialized.settings.color, s_Styles.color);
-                
+
                 if (changes.changed && HDRenderPipelinePreferences.lightColorNormalization)
                     serialized.settings.color.colorValue = HDUtils.NormalizeColor(serialized.settings.color.colorValue);
             }
@@ -529,7 +529,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             {
                 EditorGUILayout.ObjectField( serialized.serializedLightData.areaLightCookie, s_Styles.areaLightCookie );
             }
-            
+
             if (EditorGUI.EndChangeCheck())
             {
                 serialized.needUpdateAreaLightEmissiveMeshComponents = true;

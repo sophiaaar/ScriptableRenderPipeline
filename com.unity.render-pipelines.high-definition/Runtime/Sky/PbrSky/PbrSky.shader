@@ -54,8 +54,9 @@ Shader "Hidden/HDRP/Sky/PbrSky"
     {
         const float  A = _AtmosphericRadius;
         const float  R = _PlanetaryRadius;
-        const float3 C = _PlanetCenterPosition;
-        const float3 O = _WorldSpaceCameraPos * 0.001; // Convert m to km
+        // TODO: Not sure it's possible to precompute cam rel pos since variables
+        // in the two constant buffers may be set at a different frequency?
+        const float3 C = _PlanetCenterPosition - _WorldSpaceCameraPos * 0.001; // Convert m to km
 
         // Convention:
         // V points towards the camera.
@@ -63,7 +64,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
         // The view vector V and the normal vector N span the local X-Z plane.
         // The light vector is represented as {phiL, cosThataL}.
         float3 V = GetSkyViewDirWS(input.positionCS.xy);
-        float3 P = O - C;
+        float3 P = -C;
         float3 N = normalize(P);
         float  r = max(length(P), R); // Must not be inside the planet
 
