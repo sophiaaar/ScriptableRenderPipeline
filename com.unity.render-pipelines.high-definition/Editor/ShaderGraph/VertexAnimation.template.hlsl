@@ -35,10 +35,13 @@ VertexDescriptionInputs AttributesMeshToVertexDescriptionInputs(AttributesMesh i
     return output;
 }
 
-AttributesMesh ApplyMeshModification(AttributesMesh input)
+AttributesMesh ApplyMeshModification(AttributesMesh input, float time, float sinTime, float cosTime)
 {
     // build graph inputs
     VertexDescriptionInputs vertexDescriptionInputs = AttributesMeshToVertexDescriptionInputs(input);
+    $VertexDescriptionInputs.Time:      vertexDescriptionInputs.Time = time;
+    $VertexDescriptionInputs.SinTime:   vertexDescriptionInputs.SinTime = sinTime;
+    $VertexDescriptionInputs.CosTime:   vertexDescriptionInputs.CosTime = cosTime;
 
     // evaluate vertex graph
     VertexDescription vertexDescription = VertexDescriptionFunction(vertexDescriptionInputs);

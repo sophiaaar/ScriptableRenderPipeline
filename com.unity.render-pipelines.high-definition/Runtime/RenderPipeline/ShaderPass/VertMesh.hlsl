@@ -108,7 +108,7 @@ VaryingsMeshType VertMesh(AttributesMesh input)
     UNITY_TRANSFER_INSTANCE_ID(input, output);
 
 #if defined(HAVE_MESH_MODIFICATION)
-    input = ApplyMeshModification(input);
+    input = ApplyMeshModification(input, _Time.y, _SinTime.w, _CosTime.w);
 #endif
 
     // This return the camera relative position (if enable)

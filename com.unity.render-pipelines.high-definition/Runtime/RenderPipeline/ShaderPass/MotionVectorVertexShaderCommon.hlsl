@@ -127,7 +127,7 @@ PackedVaryingsType MotionVectorVS(inout VaryingsType varyingsType, AttributesMes
         AttributesMesh previousMesh = inputMesh;
         if (hasDeformation)
             previousMesh.positionOS = inputPass.previousPositionOS;
-        previousMesh = ApplyMeshModification(previousMesh);
+        previousMesh = ApplyMeshModification(previousMesh, _LastTime.y, sin(_LastTime.y), cos(_LastTime.y));
         float3 previousPositionRWS = TransformPreviousObjectToWorld(previousMesh.positionOS);
 #else
         float3 previousPositionRWS = TransformPreviousObjectToWorld(hasDeformation ? inputPass.previousPositionOS : inputMesh.positionOS);
