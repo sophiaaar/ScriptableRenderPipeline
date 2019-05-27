@@ -3,19 +3,10 @@
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Builtin/BuiltinData.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
 
-// TODOs:
-// - Consider interleaving. 
-// - Ask chris:
-//      - Kept at half res or upsampled?
-//      -
-// - Can we have a filter minimum sampler?
-// - Have 2 modes: half res and full res.
-
-
 StructuredBuffer<int2>  _DepthPyramidMipLevelOffsets;
 
 CBUFFER_START(GTAOUniformBuffer)
-float4 _AOBufferSize;  // xy: buffer size, zw: texel size       // X: Contains pow at the upsampling stage.
+float4 _AOBufferSize;
 float4 _AOParams0;     
 float4 _AOParams1;     
 float4 _AOParams2;
@@ -35,12 +26,10 @@ CBUFFER_END
 
 // If this is set to 0 best quality is achieved when full res, but performance is significantly lower.
 // If set to 1, when full res, it may lead to extra aliasing and loss of detail, but still significant higher quality than half res.
-#define HALF_RES_DEPTH 1
+#define HALF_RES_DEPTH 0 // Make this an option.
 
-float GetDepth(float2 positionSS, int offset)
+float GetDepth(float2 positionSS)
 {
-    //return LOAD_TEXTURE2D_X(_DepthPyramidTexture, (_AOMipOffset)+((uint2)positionSS.xy / 2)).r;
-
     int2 samplePos;
 #if HALF_RES_DEPTH
     uint fullRes = (_AOBaseResMip == 0);
@@ -58,8 +47,6 @@ float GetDepth(float2 positionSS, int offset)
 #endif
 }
 
-
-// TODO_FCC: Use ours?
 float GTAOFastSqrt(float x)
 {
     return asfloat(0x1FBD1DF5) + (asint(x) >> 1);
@@ -77,7 +64,6 @@ float GTAOFastAcos(float x)
 // --------------------------------------------
 uint PackAOOutput(float AO, float depth)
 {
-    // BitFieldInsert(uint mask, uint src, uint dst)
      // 24 depth,  8 bit AO
     uint packedVal = 0;
     packedVal = BitFieldInsert(0x000000ff, UnpackInt(AO, 8), packedVal);
@@ -89,7 +75,6 @@ void UnpackData(uint data, out float AO, out float depth)
 {
     AO = UnpackUIntToFloat(data, 0, 8);
     depth = UnpackUIntToFloat(data, 8, 24);
-    //depth = LinearEyeDepth(depth, _ZBufferParams);
 }
 
 void UnpackGatheredData(uint4 data, out float4 AOs, out float4 depths)

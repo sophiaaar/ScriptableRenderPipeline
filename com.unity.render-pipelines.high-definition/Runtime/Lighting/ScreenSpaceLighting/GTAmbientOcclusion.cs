@@ -9,16 +9,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     public sealed class GTAO : VolumeComponent
     {
         // TODO_FCC: This might not be relevant.
-        [Tooltip("Controls the strength of the ambient occlusion effect. Increase this value to produce darker areas.")]
-        public ClampedFloatParameter intensity = new ClampedFloatParameter(1f, 0f, 8f);
+        [Tooltip("TODO.")]
+        public ClampedFloatParameter intensity = new ClampedFloatParameter(0, 0f, 8f);
 
         [Tooltip("TODO.")]
         public ClampedIntParameter stepCount = new ClampedIntParameter(4, 2, 32);
 
-        [Tooltip("The sampling radius of AO.")]
+        [Tooltip("TODO.")]
         public ClampedFloatParameter radius = new ClampedFloatParameter(1.5f, 0.25f, 5.0f);
 
-        [Tooltip("Runs at full resolution.")]
+        [Tooltip("TODO.")]
         public BoolParameter fullRes = new BoolParameter(true);
     }
 
@@ -113,13 +113,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // Grab current settings
             var settings = VolumeManager.instance.stack.GetComponent<GTAO>();
 
-            //if (!IsActive(camera, settings))
-            //    return;
+            if (!IsActive(camera, settings))
+                return;
 
             EnsureRTSize(settings);
-
-            // TODO: tmp remove me
-          //  HDUtils.SetRenderTarget(cmd, m_AmbientOcclusionTex, sharedRTManager.GetDepthStencilBuffer(false), ClearFlag.Color, Color.black);
 
             Vector4 aoBufferInfo;
             Vector2 runningRes;
@@ -135,12 +132,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 aoBufferInfo = new Vector4(camera.actualWidth * 0.5f, camera.actualHeight * 0.5f, 2.0f / camera.actualWidth, 2.0f / camera.actualHeight);
             }
 
-
             float invHalfTanFOV = -camera.mainViewConstants.projMatrix[1, 1];
             float aspectRatio = runningRes.y / runningRes.x;
-            //Vector2 focalLen = new Vector2(invHalfTanFov * ((float)RenderResolution.y / (float)RenderResolution.x), invHalfTanFov);
-            //Vector2 invFocalLen = new Vector2(1 / focalLen.x, 1 / focalLen.y);
-            //new Vector4(2 * invFocalLen.x, 2 * invFocalLen.y, -1 * invFocalLen.x, -1 * invFocalLen.y)
 
             Vector4 aoParams0 = new Vector4(
                 settings.fullRes.value ? 0.0f : 1.0f,
@@ -169,13 +162,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             HDUtils.PackedMipChainInfo info = sharedRTManager.GetDepthBufferMipChainInfo();
             Vector4 aoParams2 = new Vector4(
-                info.mipLevelOffsets[/*m_RunningFullRes ? 0 :*/ 1].x,
-                info.mipLevelOffsets[/*m_RunningFullRes ? 0 : */1].y,
+                info.mipLevelOffsets[1].x,
+                info.mipLevelOffsets[1].y,
                 1.0f / ((float)settings.stepCount.value + 1.0f),
                 0
             );
-
-
 
             var cs = m_Resources.shaders.GTAOCS;
             var kernel = cs.FindKernel("GTAOMain");
@@ -186,9 +177,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AOParams1, aoParams1);
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AOParams2, aoParams2);
 
-
-            cmd.SetComputeBufferParam(cs, kernel, HDShaderIDs._DepthPyramidMipLevelOffsets, info.GetOffsetBufferData(depthPyramidOffsets));
-
             cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._OcclusionTexture, m_AmbientOcclusionTex);
             cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._BentNormalsTexture, m_BentNormalTex);
             cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._AOPackedData, m_PackedDataTex);
@@ -197,12 +185,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             const int groupSizeY = 8;
             int threadGroupX = ((int)runningRes.x + (groupSizeX - 1)) / groupSizeX;
             int threadGroupY = ((int)runningRes.y + (groupSizeY - 1)) / groupSizeY;
-            using (new ProfilingSample(cmd, "TEST_GTAO", CustomSamplerId.MotionBlurKernel.GetSampler()))
+            using (new ProfilingSample(cmd, "GTAO Tracing", CustomSamplerId.MotionBlurKernel.GetSampler()))
             {
                 cmd.DispatchCompute(cs, kernel, threadGroupX, threadGroupY, camera.computePassCount);
-
             }
-
         }
 
         public void Denoise(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, ComputeBuffer depthPyramidOffsets)
@@ -210,9 +196,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // Grab current settings
             var settings = VolumeManager.instance.stack.GetComponent<GTAO>();
 
-
             var cs = m_Resources.shaders.GTAODenoiseCS;
-
 
             Vector4 aoBufferInfo;
             Vector2 runningRes;
@@ -251,7 +235,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 0
             );
 
-
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AOParams0, aoParams0);
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AOParams1, aoParams1);
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AOParams2, aoParams2);
@@ -261,8 +244,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             using (new ProfilingSample(cmd, "Spatial Denoise GTAO", CustomSamplerId.ResolveSSAO.GetSampler()))
             {
                 var kernel = cs.FindKernel("GTAODenoise_Spatial");
-
-                cmd.SetComputeBufferParam(cs, kernel, HDShaderIDs._DepthPyramidMipLevelOffsets, info.GetOffsetBufferData(depthPyramidOffsets));
 
                 cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._AOPackedData, m_PackedDataTex);
                 cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._AOPackedBlurred, m_PackedDataBlurred);
@@ -295,8 +276,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 {
                     kernel = cs.FindKernel("GTAODenoise_Temporal");
                 }
-
-                cmd.SetComputeBufferParam(cs, kernel, HDShaderIDs._DepthPyramidMipLevelOffsets, info.GetOffsetBufferData(depthPyramidOffsets));
 
                 cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._AOPackedData, m_PackedDataTex);
                 cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._AOPackedBlurred, m_PackedDataBlurred);
