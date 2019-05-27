@@ -6,7 +6,6 @@ using UnityEngine;
 using UnityEditor.Graphing;
 using UnityEditor.Graphing.Util;
 using UnityEditor.Rendering;
-using UnityEditor.ShaderGraph.Drawing;
 using Edge = UnityEditor.Graphing.Edge;
 
 namespace UnityEditor.ShaderGraph
@@ -227,6 +226,15 @@ namespace UnityEditor.ShaderGraph
 
         public MessageManager messageManager { get; set; }
         public bool isSubGraph { get; set; }
+
+        [SerializeField]
+        private ConcretePrecision m_ConcretePrecision = ConcretePrecision.Float;
+
+        public ConcretePrecision concretePrecision
+        {
+            get => m_ConcretePrecision;
+            set => m_ConcretePrecision = value;
+        }
 
         [NonSerialized]
         Guid m_ActiveOutputNodeGuid;
