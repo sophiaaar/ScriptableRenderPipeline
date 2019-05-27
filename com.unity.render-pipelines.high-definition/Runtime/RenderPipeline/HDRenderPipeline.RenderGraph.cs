@@ -88,11 +88,18 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 //#endif
 //                cmd.SetGlobalInt(HDShaderIDs._RaytracedAreaShadow, areaShadowsRendered ? 1 : 0);
 
-                hdCamera.xr.StopLegacyStereo(camera, cmd, renderContext);
+                StopLegacyStereo(m_RenderGraph, hdCamera);
 
                 BuildGPULightList(m_RenderGraph, hdCamera, GetDepthStencilBuffer(msaa), stencilBufferCopy);
 
                 RenderShadows(m_RenderGraph, hdCamera, cullingResults);
+
+                StartLegacyStereo(m_RenderGraph, hdCamera);
+
+                RenderDeferredLighting(m_RenderGraph, hdCamera, colorBuffer, prepassOutput.gbuffer);
+
+                StopLegacyStereo(m_RenderGraph, hdCamera);
+
             }
 
             ExecuteRenderGraph(m_RenderGraph, hdCamera, m_MSAASamples, renderContext, cmd);
