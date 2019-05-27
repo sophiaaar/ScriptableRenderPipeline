@@ -1696,7 +1696,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         m_GTAOSystem.Render(cmd, hdCamera, m_SharedRTManager, m_DepthPyramidMipLevelOffsetsBuffer, m_FrameCount);
                         m_GTAOSystem.Denoise(cmd, hdCamera, m_SharedRTManager, m_DepthPyramidMipLevelOffsetsBuffer);
                     }
-                    var aosett = VolumeManager.instance.stack.GetComponent<GTAO>();
+                    var aosett = VolumeManager.instance.stack.GetComponent<GTAmbientOcclusion>();
 
                     if (aosett.intensity.value > 0)
                     {

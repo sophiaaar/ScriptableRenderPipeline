@@ -5,8 +5,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     using RTHandle = RTHandleSystem.RTHandle;
 
-    [Serializable, VolumeComponentMenu("Lighting/GTAO")]
-    public sealed class GTAO : VolumeComponent
+    [Serializable, VolumeComponentMenu("Lighting/GTAmbientOcclusion")]
+    public sealed class GTAmbientOcclusion : VolumeComponent
     {
         // TODO_FCC: This might not be relevant.
         [Tooltip("TODO.")]
@@ -39,7 +39,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         private bool m_RunningFullRes = false;
         private int m_HistoryIndex = 0;
 
-        public bool IsActive(HDCamera camera, GTAO settings) => camera.frameSettings.IsEnabled(FrameSettingsField.SSAO) && settings.intensity.value > 0f;
+        public bool IsActive(HDCamera camera, GTAmbientOcclusion settings) => camera.frameSettings.IsEnabled(FrameSettingsField.SSAO) && settings.intensity.value > 0f;
 
         private void ReleaseRT()
         {
@@ -77,7 +77,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_FinalHalfRes = RTHandles.Alloc(Vector2.one * 0.5f, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "AO final half res");
         }
 
-        void EnsureRTSize(GTAO settings)
+        void EnsureRTSize(GTAmbientOcclusion settings)
         {
             if(settings.fullRes != m_RunningFullRes)
             {
@@ -111,7 +111,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public void Render(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, ComputeBuffer depthPyramidOffsets, int frameCount)
         {
             // Grab current settings
-            var settings = VolumeManager.instance.stack.GetComponent<GTAO>();
+            var settings = VolumeManager.instance.stack.GetComponent<GTAmbientOcclusion>();
 
             if (!IsActive(camera, settings))
                 return;
@@ -194,7 +194,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public void Denoise(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, ComputeBuffer depthPyramidOffsets)
         {
             // Grab current settings
-            var settings = VolumeManager.instance.stack.GetComponent<GTAO>();
+            var settings = VolumeManager.instance.stack.GetComponent<GTAmbientOcclusion>();
 
             var cs = m_Resources.shaders.GTAODenoiseCS;
 
