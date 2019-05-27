@@ -9,7 +9,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     public partial class HDShadowAtlas
     {
         public enum BlurAlgorithm
-        {
+    {
             None,
             EVSM, // exponential variance shadow maps
             IM // Improved Moment shadow maps
@@ -437,7 +437,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // We patch up the atlas with the requests that, due to different count of blur passes, remained in the copy
                 for (int i = 0; i < parameters.shadowRequests.Count; ++i)
                 {
-                    if (0 != finalAtlasTexture[i])
+                    if (finalAtlasTexture[i] != 0)
                     {
                         using (new ProfilingSample(cmd, "Copy into main atlas.", CustomSamplerId.RenderShadows.GetSampler()))
                         {

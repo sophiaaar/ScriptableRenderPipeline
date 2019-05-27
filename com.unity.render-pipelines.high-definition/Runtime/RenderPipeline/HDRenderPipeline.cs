@@ -1844,7 +1844,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     {
                         BuildGPULightLists(hdCamera, cmd, m_SharedRTManager.GetDepthStencilBuffer(hdCamera.frameSettings.IsEnabled(FrameSettingsField.MSAA)), m_SharedRTManager.GetStencilBufferCopy());
                     }
-                    
+
                     DispatchContactShadows();
                 }
 
@@ -2602,8 +2602,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
 #if ENABLE_RAYTRACING
             HDRaytracingEnvironment currentEnv = m_RayTracingManager.CurrentEnvironment();
-            if (currentEnv != null && currentEnv.raytracedObjects)
-            {
+            RecursiveRendering recursiveRendering = VolumeManager.instance.stack.GetComponent<RecursiveRendering>();
+
+            if (currentEnv != null && recursiveRendering.enable.value)
+                    {
                 result.rayTracingOpaqueRLDesc = CreateOpaqueRendererListDesc(cull, hdCamera.camera, m_DepthOnlyAndDepthForwardOnlyPassNames, renderQueueRange: HDRenderQueue.k_RenderQueue_AllOpaqueRaytracing);
                 result.rayTracingTransparentRLDesc = CreateOpaqueRendererListDesc(cull, hdCamera.camera, m_DepthOnlyAndDepthForwardOnlyPassNames, renderQueueRange: HDRenderQueue.k_RenderQueue_AllTransparentRaytracing);
             }
@@ -2626,7 +2628,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                                         in RendererList             rayTracingTransparentRL
 #endif
                                         )
-                    {
+        {
             HDUtils.SetRenderTarget(cmd, depthBuffer);
                         // XRTODO: wait for XR SDK integration and implement custom version in HDUtils with dynamic resolution support
                         //XRUtils.DrawOcclusionMesh(cmd, hdCamera.camera, hdCamera.camera.stereoEnabled);
@@ -2850,31 +2852,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     DrawTransparentRendererList(renderContext, cmd, hdCamera.frameSettings, rendererListTransparent);
                 }
             }
-        }
-
-        void RenderDeferredLighting(HDCamera hdCamera, CommandBuffer cmd)
-        {
-            if (hdCamera.frameSettings.litShaderMode != LitShaderMode.Deferred)
-                return;
-
-            m_MRTCache2[0] = m_CameraColorBuffer;
-            m_MRTCache2[1] = m_CameraSssDiffuseLightingBuffer;
-            var depthTexture = m_SharedRTManager.GetDepthTexture();
-
-            var options = new LightingPassOptions();
-
-            if (hdCamera.frameSettings.IsEnabled(FrameSettingsField.SubsurfaceScattering))
-            {
-                // Output split lighting for materials asking for it (masked in the stencil buffer)
-                options.outputSplitLighting = true;
-
-                RenderDeferredLighting(hdCamera, cmd, m_CurrentDebugDisplaySettings, m_MRTCache2, m_SharedRTManager.GetDepthStencilBuffer(), depthTexture, options);
-            }
-
-            // Output combined lighting for all the other materials.
-            options.outputSplitLighting = false;
-
-            RenderDeferredLighting(hdCamera, cmd, m_CurrentDebugDisplaySettings, m_MRTCache2, m_SharedRTManager.GetDepthStencilBuffer(), depthTexture, options);
         }
 
         void UpdateSkyEnvironment(HDCamera hdCamera, CommandBuffer cmd)
