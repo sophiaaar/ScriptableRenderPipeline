@@ -719,6 +719,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public static readonly int _AOOutputHistory = Shader.PropertyToID("_AOOutputHistory");
 
         public static readonly int _AODebug                         = Shader.PropertyToID("_AODebug");
+        public static readonly int _AODebug2 = Shader.PropertyToID("_AODebug2");
 
     }
 }

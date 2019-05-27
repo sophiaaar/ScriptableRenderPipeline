@@ -34,7 +34,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         private RTHandle m_FinalHalfRes;
 
         private RTHandle m_BentNormalTex;
-        private RTHandle m_DebugTex;
+        private RTHandle[] m_DebugTex;
 
         private bool m_RunningFullRes = false;
         private int m_HistoryIndex = 0;
@@ -50,9 +50,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             for(int i=0; i<m_PackedHistory.Length; ++i)
             {
                 RTHandles.Release(m_PackedHistory[i]);
+                RTHandles.Release(m_DebugTex[i]);
+
             }
 
-            RTHandles.Release(m_DebugTex);
             if(m_FinalHalfRes != null)
                 RTHandles.Release(m_FinalHalfRes);
         }
@@ -67,10 +68,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_BentNormalTex = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R8G8B8A8_SNorm /*GraphicsFormat.R32G32B32A32_SFloat *//*  */, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "Bent normal tex");
             m_PackedDataTex = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed data");
             m_PackedDataBlurred = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed blur");
-            m_PackedHistory[0] = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R8_UNorm, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed history 1");
-            m_PackedHistory[1] = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R8_UNorm, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed history 2");
+            m_PackedHistory[0] = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed history 1");
+            m_PackedHistory[1] = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed history 2");
 
-            m_DebugTex = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R16G16B16A16_SFloat, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "debug");
+            m_DebugTex[0] = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R16G16B16A16_SFloat, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "debug");
+            m_DebugTex[1] = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R16G16B16A16_SFloat, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "debug1");
+
             m_FinalHalfRes = RTHandles.Alloc(Vector2.one * 0.5f, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "AO final half res");
         }
 
@@ -99,6 +102,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             m_Resources = hdAsset.renderPipelineResources;
             m_PackedHistory = new RTHandle[2];
+            m_DebugTex = new RTHandle[2];
+
             AllocRT(0.5f);
         }
 
@@ -305,7 +310,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 {
                     cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._OcclusionTexture, m_FinalHalfRes);
                 }
-                cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._AODebug, m_DebugTex);
+
+                cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._AODebug, m_DebugTex[m_HistoryIndex]);
+                cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._AODebug2, m_DebugTex[outputIndex]);
 
                 const int groupSizeX = 8;
                 const int groupSizeY = 8;
