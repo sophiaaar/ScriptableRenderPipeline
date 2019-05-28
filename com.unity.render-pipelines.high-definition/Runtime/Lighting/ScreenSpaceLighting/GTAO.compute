@@ -42,7 +42,7 @@ float IntegrateArcCosWeighted(float horzion1, float horizon2, float n, float cos
 
 float UpdateHorizon(float maxH, float candidateH, float distSq)
 {
-    float falloff = pow(saturate((1.0f - (distSq * _AOInvRadiusSq))), 1.5f);    // TODO_FCC: Check this, maybe without the pow is enough.
+    float falloff = saturate((1.0f - (distSq * _AOInvRadiusSq)));    // TODO_FCC: Check this, maybe without the pow is enough.
 
     return (candidateH > maxH) ? lerp(maxH, candidateH, falloff) : maxH;        // TODO_FCC: Thickness heuristic here.
 }
@@ -119,7 +119,7 @@ float HorizonLoop(float3 positionVS, float3 V, float2 rayStart, float2 rayDir, f
 
     for (int i = 0; i < _AOStepCount; i++)
     {
-        float2 samplePos = rayStart + t * rayDir;
+        float2 samplePos = min(rayStart + t * rayDir, _AOBufferSize.xy - 1);
 
         // Find horizons at these steps:
         float sampleDepth; 
@@ -156,8 +156,9 @@ void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
     float2 rayStart = dispatchThreadId.xy;
 
     float3 V = normalize(-positionVS);
-    float fovCorrectedradiusSS =  clamp(_AORadius * _AOFOVCorrection * rcp(positionVS.z), _AOStepCount, 64);
+    float fovCorrectedradiusSS =  clamp(_AORadius * saturate(max(1, positionVS.z - 2) * 1) * _AOFOVCorrection * rcp(positionVS.z), _AOStepCount, 128);
     float step = fovCorrectedradiusSS * _AOInvStepCountPlusOne;
+
 
     // Find horizons 
     float2 maxHorizons;
@@ -195,6 +196,11 @@ void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
     //// Bent normals stuff
     //float bentNormalAngle = (maxHorizons.x + maxHorizons.y) * 0.5f;
     //_BentNormalsTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = abs(_AOMipOffset - mipOffset).xyxy;
+
+    if (currDepth == UNITY_RAW_FAR_CLIP_VALUE)
+    {
+        integral = 1;
+    }
 
     _AOPackedData[COORD_TEXTURE2D_X(dispatchThreadId.xy)] =  PackAOOutput(saturate(integral), currDepth);
 } 

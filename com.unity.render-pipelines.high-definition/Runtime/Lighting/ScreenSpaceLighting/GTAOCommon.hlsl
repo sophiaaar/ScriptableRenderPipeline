@@ -3,8 +3,6 @@
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Builtin/BuiltinData.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
 
-StructuredBuffer<int2>  _DepthPyramidMipLevelOffsets;
-
 CBUFFER_START(GTAOUniformBuffer)
 float4 _AOBufferSize;
 float4 _AOParams0;     
