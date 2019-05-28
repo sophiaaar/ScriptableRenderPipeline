@@ -14,6 +14,8 @@ testplatforms:
     args: --suite=playmode --platform=Standalone
   - name: playmode
     args: --suite=playmode
+  - name: playmode XR
+    args: --suite=playmode --extra-editor-arg="-xr-tests"
   - name: editmode
     args: --suite=editor --platform=editmode
 projects:
@@ -45,12 +47,12 @@ projects:
       {% else %}
       - cd TestProjects/{{ project.folder }} && utr/utr {{ testplatform.args }} --testproject=. --editor-location=.Editor --artifacts_path=upm-ci~/test-results || powershell -command "utr/utr {{ testplatform.args }} --testproject=. --editor-location=.Editor --artifacts_path=upm-ci~/test-results"
       {% endif %}
-            
+
   artifacts:
     logs:
       paths:
         - "**/upm-ci~/test-results/**/*"
-        
+
 {% endfor %}
 {% endfor %}
 {% endfor %}
@@ -93,5 +95,5 @@ All_{{ project.name }}:
   {% endfor %}
   {% endfor %}
   {% endfor %}
-  
+
 {% endfor %}
