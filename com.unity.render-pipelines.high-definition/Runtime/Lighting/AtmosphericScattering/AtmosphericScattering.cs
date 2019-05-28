@@ -33,6 +33,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             Debug.Assert(hdCamera.frameSettings.IsEnabled(FrameSettingsField.AtmosphericScattering));
 
+            int pbrSkyAtmosphereFlag = 0;
+
+            var visualEnvironment = VolumeManager.instance.stack.GetComponent<VisualEnvironment>();
+
+            if (visualEnvironment != null)
+            {
+                // The PBR sky contributes to atmospheric scattering.
+                pbrSkyAtmosphereFlag = visualEnvironment.skyType.value == (int)SkyType.PBR ? (int)AtmosphereType.PBR : 0;
+            }
+
             cmd.SetGlobalInt(HDShaderIDs._AtmosphericScatteringType, (int)type);
             cmd.SetGlobalFloat(HDShaderIDs._MaxFogDistance, maxFogDistance.value);
 
@@ -49,7 +59,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         None,
         Linear,
         Exponential,
-        Volumetric
+        Volumetric,
+        MaxValue = 127 // 7 bits max
+    }
+
+    [GenerateHLSL]
+    public enum AtmosphereType
+    {
+        PBR = (((int)FogType.MaxValue + 1) << 0)
     }
 
     [GenerateHLSL]

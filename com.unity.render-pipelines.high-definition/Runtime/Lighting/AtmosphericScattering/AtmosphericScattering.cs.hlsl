@@ -11,6 +11,9 @@
 #define FOGTYPE_LINEAR (1)
 #define FOGTYPE_EXPONENTIAL (2)
 #define FOGTYPE_VOLUMETRIC (3)
+#define FOGTYPE_MAX_VALUE (127)
+
+#define ATMOSPHERETYPE_PBR (128)
 
 //
 // UnityEngine.Experimental.Rendering.HDPipeline.FogColorMode:  static fields

@@ -45,7 +45,9 @@ float4 EvaluateAtmosphericScattering(PositionInputs posInput, float3 V)
         return float4(0, 0, 0, 0);
 #endif
 
-    switch (_AtmosphericScatteringType)
+    int fogType = _AtmosphericScatteringType & FOGTYPE_MAX_VALUE;
+
+    switch (fogType)
     {
         case FOGTYPE_LINEAR:
         {
@@ -108,6 +110,21 @@ float4 EvaluateAtmosphericScattering(PositionInputs posInput, float3 V)
             fogColor  = volFog.rgb; // Pre-multiplied by design
             fogFactor = volFog.a;
             break;
+        }
+    }
+
+    int atmosphereType = _AtmosphericScatteringType & ~FOGTYPE_MAX_VALUE;
+
+    if (atmosphereType == ATMOSPHERETYPE_PBR)
+    {
+        if (posInput.deviceDepth == UNITY_RAW_FAR_CLIP_VALUE)
+        {
+            // Everything's already taken care of by the skybox.
+            return 0;
+        }
+        else
+        {
+            return 1;
         }
     }
 

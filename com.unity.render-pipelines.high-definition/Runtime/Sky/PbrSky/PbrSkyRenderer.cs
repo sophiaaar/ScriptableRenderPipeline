@@ -165,6 +165,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return (3.0f / (8.0f * Mathf.PI)) * (1.0f - g * g) / (2.0f + g * g);
         }
 
+        // For both the compute and the pixel shader passes.
         void UpdateSharedConstantBuffer(CommandBuffer cmd)
         {
             float R = m_Settings.planetaryRadius.value;

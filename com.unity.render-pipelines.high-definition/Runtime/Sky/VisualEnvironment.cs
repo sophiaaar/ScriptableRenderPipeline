@@ -49,11 +49,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 return;
             }
 
+            // The PBR sky contributes to atmospheric scattering.
+            int pbrSkyAtmosphereFlag = skyType.value == (int)SkyType.PBR ? (int)AtmosphereType.PBR : 0;
+
             switch (fogType.value)
             {
                 case FogType.None:
                 {
-                    cmd.SetGlobalInt(HDShaderIDs._AtmosphericScatteringType, (int)FogType.None);
+                    cmd.SetGlobalInt(HDShaderIDs._AtmosphericScatteringType, pbrSkyAtmosphereFlag | (int)FogType.None);
                     break;
                 }
                 case FogType.Linear:
