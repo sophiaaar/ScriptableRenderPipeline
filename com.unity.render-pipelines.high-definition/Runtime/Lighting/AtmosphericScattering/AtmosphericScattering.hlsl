@@ -7,6 +7,7 @@
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Lighting/AtmosphericScattering/AtmosphericScattering.cs.hlsl"
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/ShaderLibrary/ShaderVariables.hlsl"
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Lighting/VolumetricLighting/VBuffer.hlsl"
+#include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyCommon.hlsl"
 
 #ifdef DEBUG_DISPLAY
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Debug/DebugDisplay.hlsl"
@@ -111,7 +112,11 @@ float4 EvaluateAtmosphericScattering(PositionInputs posInput, float3 V)
             fogFactor = volFog.a;
             break;
         }
+        default:
+            break;
     }
+
+    float4 result = float4(fogColor * GetCurrentExposureMultiplier(), fogFactor);
 
     int atmosphereType = _AtmosphericScatteringType & ~FOGTYPE_MAX_VALUE;
 
@@ -119,13 +124,54 @@ float4 EvaluateAtmosphericScattering(PositionInputs posInput, float3 V)
     {
         if (posInput.deviceDepth == UNITY_RAW_FAR_CLIP_VALUE)
         {
-            // Everything's already taken care of by the skybox.
-            return 0;
+            // No geometry along the ray, and the skybox already contains atmospheric scattering.
+            return result;
         }
-        else
+
+        float  R = _PlanetaryRadius;
+        float3 O = _WorldSpaceCameraPos;
+
+        float3 N; float r;
+        float tA = IntersectAtmosphere(O, V, N, r);
+
+        float NdotV  = dot(N, V);
+        float cosChi = -NdotV;
+        float height = r - R;
+        float cosHor = GetCosineOfHorizonZenithAngle(height);
+
+        bool rayIntersectsAtmosphere = (tA >= 0);
+        bool lookAboveHorizon        = (cosChi > cosHor);
+
+        if (!rayIntersectsAtmosphere)
         {
-            return 1;
+            // No geometry along the ray, and the skybox already contains atmospheric scattering.
+            return result;
         }
+
+        // This ignores the hacked value of 'posInput.positionWS', as intended.
+        float fragLinDepth = posInput.linearDepth;
+
+        // Convert it to distance along the ray. Doesn't work with tilt shift, etc.
+        float fragLinDist = fragLinDepth * rcp(dot(-V, GetViewForwardDir()));
+
+        if (fragLinDist < tA)
+        {
+            // The fragment is outside the atmosphere.
+            return result;
+        }
+
+        // Optical depth from the first intersection of the camera ray with the atmosphere
+        // up to the intersection with the planet, or the exit from the atmosphere,
+        // whichever happens first.
+        float3 oDepth = SampleOpticalDepthTexture(cosChi, height, lookAboveHorizon);
+
+        // Now the same for the atmospheric scattering.
+
+        // The fragment could be inside the planet. In this case, we must clamp the distance.
+        // fogFactor = 1 - transm;
+
+        // Prep the fog value for deep compositing.
+        // float4 blendValue = LinearizeRGBA(fogFactor, fogColor);
     }
 
     return float4(fogColor * GetCurrentExposureMultiplier(), fogFactor);

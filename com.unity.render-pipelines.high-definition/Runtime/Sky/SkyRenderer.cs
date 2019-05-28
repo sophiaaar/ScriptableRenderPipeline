@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine.Rendering;
 
 namespace UnityEngine.Experimental.Rendering.HDPipeline
@@ -21,9 +22,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             return ColorUtils.ConvertEV100ToExposure(-(skySettings.exposure.value + debugExposure));
         }
 
-        public virtual void SetTexturesForLightingPass(CommandBuffer cmd)
+        public static void SetGlobalNeutralSkyData(CommandBuffer cmd)
         {
-            // Does nothing by default.
+            cmd.SetGlobalTexture("_OpticalDepthTexture", Texture2D.blackTexture);
+        }
+
+        public virtual void SetGlobalSkyData(CommandBuffer cmd)
+        {
+            SetGlobalNeutralSkyData(cmd);
         }
     }
 }

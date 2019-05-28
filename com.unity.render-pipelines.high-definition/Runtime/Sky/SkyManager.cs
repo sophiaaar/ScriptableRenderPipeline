@@ -31,7 +31,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public Vector4                  screenSize;
         public CommandBuffer            commandBuffer;
         public Light                    sunLight;
-        public List<Light>              dirLightsIlluminatingSky;
         public RTHandleSystem.RTHandle  colorBuffer;
         public RTHandleSystem.RTHandle  depthBuffer;
         public HDCamera                 hdCamera;
@@ -212,12 +211,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.SetGlobalFloat(HDShaderIDs._SkyTextureMipCount, mipCount);
         }
 
-        public void SetTexturesForLightingPass(CommandBuffer cmd)
+        public void SetGlobalSkyData(CommandBuffer cmd)
         {
             var renderer = m_CurrentSky.renderer;
-            if (renderer != null)
+            if (renderer != null && renderer.IsValid())
             {
-                renderer.SetTexturesForLightingPass(cmd);
+                renderer.SetGlobalSkyData(cmd);
+            }
+            else
+            {
+                SkyRenderer.SetGlobalNeutralSkyData(cmd);
             }
         }
 
@@ -330,7 +333,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_UpdateRequired = true;
         }
 
-        public void UpdateEnvironment(HDCamera hdCamera, Light sunLight, List<Light> dirLightsIlluminatingSky, CommandBuffer cmd)
+        public void UpdateEnvironment(HDCamera hdCamera, Light sunLight, CommandBuffer cmd)
         {
             // WORKAROUND for building the player.
             // When building the player, for some reason we end up in a state where frameCount is not updated but all currently setup shader texture are reset to null
@@ -347,14 +350,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             if (isRegularPreview)
                 ambientMode = SkyAmbientMode.Static;
 
-            m_CurrentSkyRenderingContext.UpdateEnvironment(m_CurrentSky, hdCamera, sunLight, dirLightsIlluminatingSky, m_UpdateRequired, ambientMode == SkyAmbientMode.Dynamic, cmd);
+            m_CurrentSkyRenderingContext.UpdateEnvironment(m_CurrentSky, hdCamera, sunLight, m_UpdateRequired, ambientMode == SkyAmbientMode.Dynamic, cmd);
             StaticLightingSky staticLightingSky = GetStaticLightingSky();
             // We don't want to update the static sky during preview because it contains custom lights that may change the result.
             // The consequence is that previews will use main scene static lighting but we consider this to be acceptable.
             if (staticLightingSky != null && !isRegularPreview)
             {
                 m_StaticLightingSky.skySettings = staticLightingSky.skySettings;
-                m_StaticLightingSkyRenderingContext.UpdateEnvironment(m_StaticLightingSky, hdCamera, sunLight, dirLightsIlluminatingSky, false, true, cmd);
+                m_StaticLightingSkyRenderingContext.UpdateEnvironment(m_StaticLightingSky, hdCamera, sunLight, false, true, cmd);
             }
 
             bool useRealtimeGI = true;
@@ -411,7 +414,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_CurrentSkyRenderingContext.RenderSky(m_VisualSky, camera, sunLight, colorBuffer, depthBuffer, debugSettings, cmd);
         }
 
-        public void RenderOpaqueAtmosphericScattering(CommandBuffer cmd, HDCamera hdCamera, RTHandleSystem.RTHandle colorBuffer, RTHandleSystem.RTHandle depthBuffer,
+        public void RenderOpaqueAtmosphericScattering(CommandBuffer cmd, HDCamera hdCamera,
+                                                      RTHandleSystem.RTHandle colorBuffer,
+                                                      RTHandleSystem.RTHandle intermediateBuffer,
+                                                      RTHandleSystem.RTHandle depthBuffer,
                                                       Matrix4x4 pixelCoordToViewDirWS, bool isMSAA)
         {
             using (new ProfilingSample(cmd, "Opaque Atmospheric Scattering"))
@@ -419,7 +425,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // FIXME: 24B GC pressure
                 var propertyBlock = new MaterialPropertyBlock();
                 propertyBlock.SetMatrix(HDShaderIDs._PixelCoordToViewDirWS, pixelCoordToViewDirWS);
-                HDUtils.DrawFullScreen(cmd, m_OpaqueAtmScatteringMaterial, colorBuffer, depthBuffer, propertyBlock, isMSAA? 1 : 0);
+                if (isMSAA)
+                    propertyBlock.SetTexture(HDShaderIDs._ColorTextureMS, colorBuffer);
+                else
+                    propertyBlock.SetTexture(HDShaderIDs._ColorTexture,   colorBuffer);
+                // Color -> Intermediate.
+                HDUtils.DrawFullScreen(cmd, m_OpaqueAtmScatteringMaterial, intermediateBuffer, depthBuffer, propertyBlock, isMSAA? 1 : 0);
+                // Intermediate -> Color.
+                HDUtils.BlitCameraTexture(cmd, intermediateBuffer, colorBuffer);
             }
         }
 

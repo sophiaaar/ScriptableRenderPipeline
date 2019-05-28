@@ -9,6 +9,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
     #pragma only_renderers d3d11 ps4 xboxone vulkan metal switch
 
     #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+    #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Lighting/LightDefinition.cs.hlsl"
     #include "Packages/com.unity.render-pipelines.high-definition/Runtime/ShaderLibrary/ShaderVariables.hlsl"
     #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/PbrSky/PbrSkyCommon.hlsl"
     #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/SkyUtils.hlsl"
@@ -16,10 +17,6 @@ Shader "Hidden/HDRP/Sky/PbrSky"
     int _HasGroundAlbedoTexture;    // bool...
     int _HasGroundEmissionTexture;  // bool...
     int _HasSpaceEmissionTexture;   // bool...
-    int _NumLights;
-
-    float4 _LightDirections[PBRSKYCONFIG_MAX_SKY_LIGHT_COUNT];
-    float4 _LightRadianceValues[PBRSKYCONFIG_MAX_SKY_LIGHT_COUNT];
 
     // 3x3, but Unity can only set 4x4...
     float4x4 _PlanetRotation;
@@ -52,54 +49,24 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
     float4 RenderSky(Varyings input)
     {
-        const float  A = _AtmosphericRadius;
-        const float  R = _PlanetaryRadius;
-        // TODO: Not sure it's possible to precompute cam rel pos since variables
-        // in the two constant buffers may be set at a different frequency?
-        const float3 C = _PlanetCenterPosition - _WorldSpaceCameraPos * 0.001; // Convert m to km
-
-        // Convention:
-        // V points towards the camera.
-        // The normal vector N points upwards (local Z).
-        // The view vector V and the normal vector N span the local X-Z plane.
-        // The light vector is represented as {phiL, cosThataL}.
+        float  R = _PlanetaryRadius;
+        float3 O = _WorldSpaceCameraPos;
         float3 V = GetSkyViewDirWS(input.positionCS.xy);
-        float3 P = -C;
-        float3 N = normalize(P);
-        float  r = max(length(P), R); // Must not be inside the planet
 
-        bool rayIntersectsAtmosphere = true;
-
-        if (r <= A)
-        {
-            // We are inside the atmosphere.
-        }
-        else
-        {
-            // We are observing the planet from space.
-            float t = IntersectSphere(A, dot(N, -V), r).x; // Min root
-
-            if (t >= 0)
-            {
-                // It's in the view.
-                P = P + t * -V;
-                N = normalize(P);
-                r = A;
-            }
-            else
-            {
-                rayIntersectsAtmosphere = false;
-            }
-        }
+        float3 N; float r;
+        float tA = IntersectAtmosphere(O, V, N, r);
 
         float NdotV  = dot(N, V);
         float cosChi = -NdotV;
         float height = r - R;
         float cosHor = GetCosineOfHorizonZenithAngle(height);
 
-        bool lookAboveHorizon = (cosChi > cosHor);
+        bool rayIntersectsAtmosphere = (tA >= 0);
+        bool lookAboveHorizon        = (cosChi > cosHor);
 
         float3 gN = 0, gBrdf = 0, transm = 1;
+
+        float3 totalRadiance = 0;
 
         if (rayIntersectsAtmosphere)
         {
@@ -108,8 +75,8 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
             if (!lookAboveHorizon) // See the ground?
             {
-                float  t  = IntersectSphere(R, cosChi, r).x;
-                float3 gP = P + t * -V;
+                float  tP = IntersectSphere(R, cosChi, r).x;
+                float3 gP = O + (tA + tP) * -V;
                        gN = normalize(gP);
 
                 float3 albedo;
@@ -125,25 +92,22 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
                 gBrdf = INV_PI * albedo;
             }
-        }
 
-        float3 totalRadiance = 0;
-
-        for (int i = 0; i < min(_NumLights, PBRSKYCONFIG_MAX_SKY_LIGHT_COUNT); i++)
-        {
-            float3 L             = _LightDirections[i].xyz;
-            float3 lightRadiance = _LightRadianceValues[i].rgb;
-
-            // TODO: solve in spherical coords?
-            float  NdotL = dot(N, L);
-            float3 projL = L - N * NdotL;
-            float3 projV = V - N * NdotV;
-            float  phiL  = acos(clamp(dot(projL, projV) * rsqrt(max(dot(projL, projL) * dot(projV, projV), FLT_EPS)), -1, 1));
-
-            TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(height, NdotV, NdotL, phiL);
-
-            if (rayIntersectsAtmosphere)
+            for (int i = 0, n = _DirectionalLightCount; i < n; i++)
             {
+                if (!_DirectionalLightDatas[i].interactsWithSky) continue;
+
+                float3 L             = -_DirectionalLightDatas[i].forward.xyz;
+                float3 lightRadiance =  _DirectionalLightDatas[i].color.rgb;
+
+                // TODO: solve in spherical coords?
+                float  NdotL = dot(N, L);
+                float3 projL = L - N * NdotL;
+                float3 projV = V - N * NdotV;
+                float  phiL  = acos(clamp(dot(projL, projV) * rsqrt(max(dot(projL, projL) * dot(projV, projV), FLT_EPS)), -1, 1));
+
+                TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(height, NdotV, NdotL, phiL);
+
                 float3 radiance = 0;
 
                 if (!lookAboveHorizon) // See the ground?

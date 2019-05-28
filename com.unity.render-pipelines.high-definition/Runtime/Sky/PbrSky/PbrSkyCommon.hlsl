@@ -322,3 +322,41 @@ TexCoord4D ConvertPositionAndOrientationToTexCoords(float height, float NdotV, f
 
     return texCoord;
 }
+
+float IntersectAtmosphere(float3 O, float3 V, out float3 N, out float r)
+{
+    const float A = _AtmosphericRadius;
+    const float R = _PlanetaryRadius;
+
+    // TODO: Not sure it's possible to precompute cam rel pos since variables
+    // in the two constant buffers may be set at a different frequency?
+    const float3 C = _PlanetCenterPosition - O * 0.001; // Convert m to km
+
+    float3 P = -C;
+
+    N = normalize(P);
+    r = max(length(P), R); // Must not be inside the planet
+
+    float t;
+
+    if (r <= A)
+    {
+        // We are inside the atmosphere.
+        t = 0;
+    }
+    else
+    {
+        // We are observing the planet from space.
+        t = IntersectSphere(A, dot(N, -V), r).x; // Min root
+
+        if (t >= 0)
+        {
+            // It's in the view.
+            P = P + t * -V;
+            N = normalize(P);
+            r = A;
+        }
+    }
+
+    return t;
+}

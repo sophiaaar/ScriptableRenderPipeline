@@ -7,14 +7,16 @@ Shader "Hidden/HDRP/OpaqueAtmosphericScattering"
         #pragma multi_compile _ DEBUG_DISPLAY
 
         // #pragma enable_d3d11_debug_symbols
-        
+
         #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
         #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/ShaderLibrary/ShaderVariables.hlsl"
         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Lighting/AtmosphericScattering/AtmosphericScattering.hlsl"
         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Sky/SkyUtils.hlsl"
 
-        TEXTURE2D_X_MSAA(float, _DepthTextureMS);
+        TEXTURE2D_X_MSAA(float4, _ColorTextureMS);
+        TEXTURE2D_X_MSAA(float,  _DepthTextureMS);
+        TEXTURE2D_X(_ColorTexture);
 
         struct Attributes
         {
@@ -48,7 +50,7 @@ Shader "Hidden/HDRP/OpaqueAtmosphericScattering"
                 // And recompute the position on the sphere with the current camera direction.
                 posInput.positionWS = GetCurrentViewPosition() - V * _MaxFogDistance;
 
-                // Warning: we do not modify depth values. Do not use them!
+                // Warning: we do not modify depth values. Use them with care.
             }
 
             return EvaluateAtmosphericScattering(posInput, V); // Premultiplied alpha
@@ -57,21 +59,25 @@ Shader "Hidden/HDRP/OpaqueAtmosphericScattering"
         float4 Frag(Varyings input) : SV_Target
         {
             UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-            float2 positionSS = input.positionCS.xy;
-            float3 V          = GetSkyViewDirWS(positionSS);
-            float  depth      = LoadCameraDepth(positionSS);
+            float2 positionSS  = input.positionCS.xy;
+            float3 V           = GetSkyViewDirWS(positionSS);
+            float  depth       = LoadCameraDepth(positionSS);
+            float3 opaqueTexel = LOAD_TEXTURE2D_X(_ColorTexture, (int2)positionSS).rgb;
+            float4 atmosTexel  = AtmosphericScatteringCompute(input, V, depth);
 
-            return AtmosphericScatteringCompute(input, V, depth);
+            return float4(atmosTexel.rgb + (1 - atmosTexel.a) * opaqueTexel.rgb, atmosTexel.a); // Premultiplied alpha (over operator)
         }
 
         float4 FragMSAA(Varyings input, uint sampleIndex: SV_SampleIndex) : SV_Target
         {
             UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-            float2 positionSS = input.positionCS.xy;
-            float3 V          = GetSkyViewDirWS(positionSS);
-            float  depth      = LOAD_TEXTURE2D_X_MSAA(_DepthTextureMS, (int2)positionSS, sampleIndex).x;
+            float2 positionSS  = input.positionCS.xy;
+            float3 V           = GetSkyViewDirWS(positionSS);
+            float  depth       = LOAD_TEXTURE2D_X_MSAA(_DepthTextureMS, (int2)positionSS, sampleIndex).x;
+            float3 opaqueTexel = LOAD_TEXTURE2D_X_MSAA(_ColorTextureMS, (int2)positionSS, sampleIndex).rgb;
+            float4 atmosTexel  = AtmosphericScatteringCompute(input, V, depth);
 
-            return AtmosphericScatteringCompute(input, V, depth);
+            return float4(atmosTexel.rgb + (1 - atmosTexel.a) * opaqueTexel.rgb, atmosTexel.a); // Premultiplied alpha (over operator)
         }
     ENDHLSL
 
@@ -80,7 +86,7 @@ Shader "Hidden/HDRP/OpaqueAtmosphericScattering"
         // 0: NOMSAA
         Pass
         {
-            Cull Off ZTest  Always ZWrite Off Blend One OneMinusSrcAlpha // Premultiplied alpha
+            Cull Off    ZTest Always    ZWrite Off    Blend Off // Manual blending
 
             HLSLPROGRAM
                 #pragma vertex Vert
@@ -91,11 +97,12 @@ Shader "Hidden/HDRP/OpaqueAtmosphericScattering"
         // 1: MSAA
         Pass
         {
-            Cull Off ZTest  Always ZWrite Off Blend One OneMinusSrcAlpha // Premultiplied alpha
+            Cull Off    ZTest Always    ZWrite Off    Blend Off // Manual blending
 
             HLSLPROGRAM
                 #pragma vertex Vert
                 #pragma fragment FragMSAA
+                #define MSAA 1
             ENDHLSL
         }
     }

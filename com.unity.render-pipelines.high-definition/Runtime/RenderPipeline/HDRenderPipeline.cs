@@ -102,6 +102,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         // 'm_CameraColorBuffer' does not contain diffuse lighting of SSS materials until the SSS pass. It is stored within 'm_CameraSssDiffuseLightingBuffer'.
         RTHandleSystem.RTHandle m_CameraColorBuffer;
+        RTHandleSystem.RTHandle m_OpaqueAtmosphericScatteringBuffer; // Necessary to perform dual-source (polychromatic alpha) blending which is not supported by Unity
         RTHandleSystem.RTHandle m_CameraSssDiffuseLightingBuffer;
 
         RTHandleSystem.RTHandle m_ContactShadowBuffer;
@@ -116,6 +117,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         RTHandleSystem.RTHandle m_SsrLightingTexture;
         // MSAA Versions of regular textures
         RTHandleSystem.RTHandle m_CameraColorMSAABuffer;
+        RTHandleSystem.RTHandle m_OpaqueAtmosphericScatteringMSAABuffer;  // Necessary to perform dual-source (polychromatic alpha) blending which is not supported by Unity
         RTHandleSystem.RTHandle m_CameraSssDiffuseLightingMSAABuffer;
 
         // The current MSAA count
@@ -442,6 +444,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_SharedRTManager.InitSharedBuffers(m_GbufferManager, m_Asset.currentPlatformRenderPipelineSettings, m_Asset.renderPipelineResources);
 
             m_CameraColorBuffer = RTHandles.Alloc(Vector2.one, filterMode: FilterMode.Point, colorFormat: GetColorBufferFormat(), enableRandomWrite: true, useMipMap: false, xrInstancing: true, useDynamicScale: true, name: "CameraColor");
+            m_OpaqueAtmosphericScatteringBuffer = RTHandles.Alloc(Vector2.one, filterMode: FilterMode.Point, colorFormat: GetColorBufferFormat(), enableRandomWrite: true, useMipMap: false, xrInstancing: true, useDynamicScale: true, name: "OpaqueAtmosphericScattering");
             m_CameraSssDiffuseLightingBuffer = RTHandles.Alloc(Vector2.one, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.B10G11R11_UFloatPack32, enableRandomWrite: true, xrInstancing: true, useDynamicScale: true, name: "CameraSSSDiffuseLighting");
 
             m_DistortionBuffer = RTHandles.Alloc(Vector2.one, filterMode: FilterMode.Point, colorFormat: Builtin.GetDistortionBufferFormat(), xrInstancing: true, useDynamicScale: true, name: "Distortion");
@@ -473,6 +476,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             if (m_Asset.currentPlatformRenderPipelineSettings.supportMSAA)
             {
                 m_CameraColorMSAABuffer = RTHandles.Alloc(Vector2.one, filterMode: FilterMode.Point, colorFormat: GetColorBufferFormat(), bindTextureMS: true, enableMSAA: true, xrInstancing: true, useDynamicScale: true, name: "CameraColorMSAA");
+                m_OpaqueAtmosphericScatteringMSAABuffer = RTHandles.Alloc(Vector2.one, filterMode: FilterMode.Point, colorFormat: GetColorBufferFormat(), bindTextureMS: true, enableMSAA: true, xrInstancing: true, useDynamicScale: true, name: "OpaqueAtmosphericScatteringMSAA");
                 m_CameraSssDiffuseLightingMSAABuffer = RTHandles.Alloc(Vector2.one, filterMode: FilterMode.Point, colorFormat: GetColorBufferFormat(), bindTextureMS: true, enableMSAA: true, xrInstancing: true, useDynamicScale: true, name: "CameraSSSDiffuseLightingMSAA");
             }
         }
@@ -485,6 +489,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_XRSystem.ClearAll();
 
             RTHandles.Release(m_CameraColorBuffer);
+            RTHandles.Release(m_OpaqueAtmosphericScatteringBuffer);
             RTHandles.Release(m_CameraSssDiffuseLightingBuffer);
 
             RTHandles.Release(m_DistortionBuffer);
@@ -502,6 +507,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             RTHandles.Release(m_IntermediateAfterPostProcessBuffer);
 
             RTHandles.Release(m_CameraColorMSAABuffer);
+            RTHandles.Release(m_OpaqueAtmosphericScatteringMSAABuffer);
             RTHandles.Release(m_CameraSssDiffuseLightingMSAABuffer);
         }
 
@@ -827,10 +833,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cmd.SetGlobalInt(HDShaderIDs._OffScreenRendering, 0);
                 cmd.SetGlobalInt(HDShaderIDs._EnableSpecularLighting, hdCamera.frameSettings.IsEnabled(FrameSettingsField.SpecularLighting) ? 1 : 0);
 
-                // The opaque lighting pass needs the optical depth texture if the PBR sky is used.
-                // Additionally, the transparent lighting pass needs a bunch of textures to compute
-                // atmospheric scattering.
-                m_SkyManager.SetTexturesForLightingPass(cmd);
+                m_SkyManager.SetGlobalSkyData(cmd);
             }
         }
 
@@ -2775,7 +2778,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         void UpdateSkyEnvironment(HDCamera hdCamera, CommandBuffer cmd)
         {
-            m_SkyManager.UpdateEnvironment(hdCamera, GetCurrentSunLight(), GetDirLightsIlluminatingSky(), cmd);
+            m_SkyManager.UpdateEnvironment(hdCamera, GetCurrentSunLight(), cmd);
         }
 
         public void RequestSkyEnvironmentUpdate()
@@ -2790,7 +2793,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 return;
             }
 
+            // Necessary to perform dual-source (polychromatic alpha) blending which is not supported by Unity.
+            // We load from the color buffer, perform blending manually, and store to the atmospheric scattering buffer.
+            // Then we perform a copy from the atmospheric scattering buffer back to the color buffer.
             var colorBuffer = hdCamera.frameSettings.IsEnabled(FrameSettingsField.MSAA) ? m_CameraColorMSAABuffer : m_CameraColorBuffer;
+            var intermediateBuffer = hdCamera.frameSettings.IsEnabled(FrameSettingsField.MSAA) ? m_OpaqueAtmosphericScatteringMSAABuffer : m_OpaqueAtmosphericScatteringBuffer;
             var depthBuffer = m_SharedRTManager.GetDepthStencilBuffer(hdCamera.frameSettings.IsEnabled(FrameSettingsField.MSAA));
 
             var visualEnv = VolumeManager.instance.stack.GetComponent<VisualEnvironment>();
@@ -2799,7 +2806,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             if (visualEnv.fogType.value != FogType.None || visualEnv.skyType.value == (int)SkyType.PBR)
             {
                 var pixelCoordToViewDirWS = hdCamera.mainViewConstants.pixelCoordToViewDirWS;
-                m_SkyManager.RenderOpaqueAtmosphericScattering(cmd, hdCamera, colorBuffer, depthBuffer, pixelCoordToViewDirWS, hdCamera.frameSettings.IsEnabled(FrameSettingsField.MSAA));
+                m_SkyManager.RenderOpaqueAtmosphericScattering(cmd, hdCamera, colorBuffer, intermediateBuffer, depthBuffer, pixelCoordToViewDirWS, hdCamera.frameSettings.IsEnabled(FrameSettingsField.MSAA));
             }
         }
 
