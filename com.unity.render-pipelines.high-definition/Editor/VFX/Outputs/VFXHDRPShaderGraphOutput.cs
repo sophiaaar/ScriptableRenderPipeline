@@ -14,7 +14,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline.VFXSG
     {
 
         static MethodInfo s_GetResourceAtPath = System.Type.GetType("UnityEditor.Experimental.VFX.VisualEffectResource, UnityEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null").GetMethod("GetResourceAtPath",System.Reflection.BindingFlags.Public| System.Reflection.BindingFlags.Static);
-        static MethodInfo s_GetOrCreateGraph = System.Type.GetType("UnityEditor.Experimental.VFX.VisualEffectResource, UnityEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null").GetMethod("GetOrCreateGraph", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        static PropertyInfo s_GetOrCreateGraph = System.Type.GetType("UnityEditor.Experimental.VFX.VisualEffectResource, UnityEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null").GetProperty("graph", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
 
 
 
@@ -34,7 +34,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline.VFXSG
 
             foreach( var vfxPath in guids.Select(t => AssetDatabase.GUIDToAssetPath(t)))
             {
-                VFXGraph graph = (VFXGraph)s_GetOrCreateGraph.Invoke(s_GetResourceAtPath.Invoke(null, new object[] { vfxPath }), new object[] { });
+                VFXGraph graph = (VFXGraph)s_GetOrCreateGraph.GetValue(s_GetResourceAtPath.Invoke(null, new object[] { vfxPath }), new object[] { });
 
                 if( graph != null)
                 {
