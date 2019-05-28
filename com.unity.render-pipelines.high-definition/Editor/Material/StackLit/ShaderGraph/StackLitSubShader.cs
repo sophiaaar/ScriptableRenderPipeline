@@ -115,6 +115,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             ExtraDefines = new List<string>()
             {
                 "#define SCENESELECTIONPASS",
+                "#pragma editor_sync_compilation",
             },            
             Includes = new List<string>()
             {

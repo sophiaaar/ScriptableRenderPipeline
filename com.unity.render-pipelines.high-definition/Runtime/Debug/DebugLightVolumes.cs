@@ -188,7 +188,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 }
 
                 // Define which kernel to use based on the lightloop options
-                int targetKernel = lightDebugSettings.lightVolumeDebugByCategory == LightLoop.LightVolumeDebug.ColorAndEdge ? m_DebugLightVolumeColorsKernel : m_DebugLightVolumeGradientKernel;
+                int targetKernel = lightDebugSettings.lightVolumeDebugByCategory == LightVolumeDebug.ColorAndEdge ? m_DebugLightVolumeColorsKernel : m_DebugLightVolumeGradientKernel;
 
                 // Set the input params for the compute
                 cmd.SetComputeTextureParam(m_DebugLightVolumeCompute, targetKernel, _DebugLightCountBufferShaderID, m_LightCountBuffer);
@@ -206,7 +206,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 int lightVolumesTileSize = 8;
                 int numTilesX = (texWidth + (lightVolumesTileSize - 1)) / lightVolumesTileSize;
                 int numTilesY = (texHeight + (lightVolumesTileSize - 1)) / lightVolumesTileSize;
-                cmd.DispatchCompute(m_DebugLightVolumeCompute, targetKernel, numTilesX, numTilesY, hdCamera.computePassCount);
+                cmd.DispatchCompute(m_DebugLightVolumeCompute, targetKernel, numTilesX, numTilesY, hdCamera.viewCount);
 
                 // Blit this into the camera target
                 HDUtils.SetRenderTarget(cmd, finalRT);
