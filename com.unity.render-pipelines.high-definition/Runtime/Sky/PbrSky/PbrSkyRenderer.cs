@@ -19,7 +19,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             InScatteredRadianceTableSizeX = 128, // <N, V>
             InScatteredRadianceTableSizeY = 32,  // height
             InScatteredRadianceTableSizeZ = 16,  // AzimuthAngle(L) w.r.t. the view vector
-            InScatteredRadianceTableSizeW = 64,  // <N, L>
+            InScatteredRadianceTableSizeW = 64,  // <N, L>,
+
+            MaxSkyLightCount = 4
         }
 
         // Store the hash of the parameters each time precomputation is done.
@@ -338,10 +340,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // Precomputation is done, shading is next.
             int numLights = 0;
 
-            Vector4[] lightDirs = new Vector4[2];
-            Vector4[] lightRads = new Vector4[2];
+            Vector4[] lightDirs = new Vector4[(int)PbrSkyConfig.MaxSkyLightCount];
+            Vector4[] lightRads = new Vector4[(int)PbrSkyConfig.MaxSkyLightCount];
 
-            for (int i = 0, n = builtinParams.dirLightsIlluminatingSky.Count; i < n; i++)
+            for (int i = 0, n = Math.Min(builtinParams.dirLightsIlluminatingSky.Count, (int)PbrSkyConfig.MaxSkyLightCount); i < n; i++)
             {
                 Light light = builtinParams.dirLightsIlluminatingSky[i];
 

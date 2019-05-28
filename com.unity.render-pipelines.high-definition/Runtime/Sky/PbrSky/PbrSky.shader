@@ -18,8 +18,8 @@ Shader "Hidden/HDRP/Sky/PbrSky"
     int _HasSpaceEmissionTexture;   // bool...
     int _NumLights;
 
-    float4 _LightDirections[2];
-    float4 _LightRadianceValues[2];
+    float4 _LightDirections[PBRSKYCONFIG_MAX_SKY_LIGHT_COUNT];
+    float4 _LightRadianceValues[PBRSKYCONFIG_MAX_SKY_LIGHT_COUNT];
 
     // 3x3, but Unity can only set 4x4...
     float4x4 _PlanetRotation;
@@ -129,7 +129,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
         float3 totalRadiance = 0;
 
-        for (int i = 0; i < _NumLights; i++)
+        for (int i = 0; i < min(_NumLights, PBRSKYCONFIG_MAX_SKY_LIGHT_COUNT); i++)
         {
             float3 L             = _LightDirections[i].xyz;
             float3 lightRadiance = _LightRadianceValues[i].rgb;
