@@ -26,6 +26,8 @@ CBUFFER_END
 // If set to 1, when full res, it may lead to extra aliasing and loss of detail, but still significant higher quality than half res.
 #define HALF_RES_DEPTH 0 // Make this an option.
 
+#define MIN_DEPTH_GATHERED 1
+
 float GetDepth(float2 positionSS)
 {
     int2 samplePos;
@@ -41,7 +43,15 @@ float GetDepth(float2 positionSS)
     }
     return LOAD_TEXTURE2D_X(_DepthPyramidTexture, samplePos).r;
 #else
+
+ #if MIN_DEPTH_GATHERED
+    float2 uv = ((_AOMipOffset * _AOBaseResMip) + ((uint2)positionSS.xy)) / float2(_ScreenSize.x, _ScreenSize.y * 1.5f);
+    float4 gatheredDepth = GATHER_TEXTURE2D_X(_DepthPyramidTexture, s_point_clamp_sampler, uv);
+    return min(Min3(gatheredDepth.x, gatheredDepth.y, gatheredDepth.z), gatheredDepth.w);
+#else
     return LOAD_TEXTURE2D_X(_DepthPyramidTexture, (_AOMipOffset * _AOBaseResMip) + ((uint2)positionSS.xy)).r;
+#endif
+
 #endif
 }
 
