@@ -582,7 +582,7 @@ struct VaryingVFXAttribute
 
             document.ReplaceParameterVariables(guiVariables);
 
-            return document.ToString(false).Replace("\r", "");
+            return document.ToString(false).Replace("$precision","float").Replace("\r", "");
         }
 
         static string GenerateParticleGetSurfaceAndBuiltinData(Graph graph, ref VFXInfos vfxInfos, int currentPass, PassPart pass,Dictionary<string, string> guiVariables,Dictionary<string, int> defines , List<VaryingAttribute> varyingAttributes)

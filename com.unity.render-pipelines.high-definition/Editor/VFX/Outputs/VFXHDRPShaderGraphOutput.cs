@@ -13,8 +13,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline.VFXSG
     class VFXShaderGraphPostProcessor : AssetPostprocessor
     {
 
-        static MethodInfo s_GetResourceAtPath = System.Type.GetType("VisualEffectResource").GetMethod("GetResourceAtPath",System.Reflection.BindingFlags.Public| System.Reflection.BindingFlags.Static);
-        static MethodInfo s_GetOrCreateGraph = System.Type.GetType("VisualEffectResource").GetMethod("GetOrCreateGraph", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        static MethodInfo s_GetResourceAtPath = System.Type.GetType("UnityEditor.Experimental.VFX.VisualEffectResource, UnityEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null").GetMethod("GetResourceAtPath",System.Reflection.BindingFlags.Public| System.Reflection.BindingFlags.Static);
+        static MethodInfo s_GetOrCreateGraph = System.Type.GetType("UnityEditor.Experimental.VFX.VisualEffectResource, UnityEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null").GetMethod("GetOrCreateGraph", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
 
 
 
