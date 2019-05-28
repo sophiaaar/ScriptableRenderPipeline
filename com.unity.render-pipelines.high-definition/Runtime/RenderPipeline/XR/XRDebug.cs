@@ -5,15 +5,9 @@ using UnityEngine.Rendering;
 
 namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
-    public enum XRDebugMode
-    {
-        None,
-        Composite,
-    }
-
     public static class XRDebugMenu
     {
-        public static XRDebugMode debugMode { get; set; }
+        public static XRLayoutOverride debugMode { get; set; }
         public static bool displayCompositeBorders;
         public static bool animateCompositeTiles;
 
@@ -22,15 +16,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         public static void Init()
         {
-            debugModeValues = (int[])Enum.GetValues(typeof(XRDebugMode));
-            debugModeStrings = Enum.GetNames(typeof(XRDebugMode))
+            debugModeValues = (int[])Enum.GetValues(typeof(XRLayoutOverride));
+            debugModeStrings = Enum.GetNames(typeof(XRLayoutOverride))
                 .Select(t => new GUIContent(t))
                 .ToArray();
         }
 
         public static void Reset()
         {
-            debugMode = XRDebugMode.None;
+            debugMode = XRLayoutOverride.None;
             displayCompositeBorders = false;
             animateCompositeTiles = false;
         }
@@ -39,10 +33,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             widgetList.AddRange(new DebugUI.Widget[]
             {
-                new DebugUI.EnumField { displayName = "XR Debug Mode", getter = () => (int)debugMode, setter = value => debugMode = (XRDebugMode)value, enumNames = debugModeStrings, enumValues = debugModeValues, getIndex = () => (int)debugMode, setIndex = value => debugMode = (XRDebugMode)value, onValueChanged = RefreshCallback },
+                new DebugUI.EnumField { displayName = "XR Debug Mode", getter = () => (int)debugMode, setter = value => debugMode = (XRLayoutOverride)value, enumNames = debugModeStrings, enumValues = debugModeValues, getIndex = () => (int)debugMode, setIndex = value => debugMode = (XRLayoutOverride)value, onValueChanged = RefreshCallback },
             });
 
-            if (debugMode == XRDebugMode.Composite)
+            if (debugMode == XRLayoutOverride.TestComposite)
             {
                 widgetList.Add(new DebugUI.Container
                 {
@@ -93,7 +87,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         bool ProcessDebugMode(bool xrEnabled, Camera camera)
         {
-            if (XRDebugMenu.debugMode == XRDebugMode.None)
+            if (XRDebugMenu.debugMode == XRLayoutOverride.None && s_displayLayoutOverride == XRLayoutOverride.None)
             {
                 DestroyDebugVolume();
                 return false;

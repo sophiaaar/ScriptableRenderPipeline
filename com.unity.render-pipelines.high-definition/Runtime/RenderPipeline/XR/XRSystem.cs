@@ -15,8 +15,19 @@ using UnityEngine.Experimental.XR;
 
 namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
+    public enum XRLayoutOverride
+    {
+        None,                       // default layout is used: legacy or XR SDK
+        TestComposite,              // split the  into tiles to simulate multi-pass
+        //TestSinglePassOneEye,     // render only eye with single-pass instancing path
+        //Custom,                   // user defined
+    }
+
     public partial class XRSystem
     {
+        // Global layout override
+        static XRLayoutOverride s_displayLayoutOverride = XRLayoutOverride.None;
+        
         // Valid empty pass when a camera is not using XR
         public readonly XRPass emptyPass = new XRPass();
 
@@ -27,6 +38,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         List<XRDisplaySubsystem> displayList = new List<XRDisplaySubsystem>();
         XRDisplaySubsystem display = null;
 #endif
+
+        // Global layout override
+        public static void SetLayoutOverride(XRLayoutOverride layoutOverride)
+        {
+            s_displayLayoutOverride = layoutOverride;
+        }
 
         internal List<(Camera, XRPass)> SetupFrame(Camera[] cameras)
         {
@@ -171,6 +188,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         internal void ClearAll()
         {
+            SetLayoutOverride(XRLayoutOverride.None);
             DestroyDebugVolume();
 
             framePasses = null;

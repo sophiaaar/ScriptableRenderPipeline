@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
@@ -7,7 +7,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine.TestTools;
 using UnityEngine.TestTools.Graphics;
-using UnityEngine.Experimental.Rendering;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 using UnityEngine.Events;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
@@ -15,9 +15,10 @@ using UnityEngine.SceneManagement;
 [ExecuteAlways]
 public class HDRP_TestSettings : GraphicsTestSettings
 {
-	public UnityEngine.Events.UnityEvent doBeforeTest;
-	public int captureFramerate = 0;
-	public int waitFrames = 0;
+    public UnityEvent doBeforeTest;
+    public int captureFramerate = 0;
+    public int waitFrames = 0;
+    public XRLayoutOverride xrLayout = XRLayoutOverride.TestComposite;
 
     public RenderPipelineAsset renderPipelineAsset;
 

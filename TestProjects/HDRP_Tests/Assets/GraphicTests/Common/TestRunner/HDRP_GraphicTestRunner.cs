@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
@@ -6,6 +6,7 @@ using UnityEngine.TestTools;
 using UnityEngine.TestTools.Graphics;
 using UnityEngine.SceneManagement;
 using UnityEngine.Events;
+using UnityEngine.Experimental.Rendering.HDPipeline;
 using System.IO;
 
 public class HDRP_GraphicTestRunner
@@ -31,6 +32,10 @@ public class HDRP_GraphicTestRunner
         }
 
         Time.captureFramerate = settings.captureFramerate;
+
+        // Apply XR layout override if required
+        if (System.Array.Exists(System.Environment.GetCommandLineArgs(), arg => arg == "-xr-tests"))
+            XRSystem.SetLayoutOverride(settings.xrLayout);
 
         if (settings.doBeforeTest != null)
         {
