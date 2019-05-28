@@ -19,7 +19,7 @@ namespace UnityEditor.VFX
         }
 
         [VFXSetting, SerializeField]
-        protected bool useSoftParticle = false;
+        protected bool useSoftParticle = false; 
 
         [VFXSetting(VFXSettingAttribute.VisibleFlags.None), SerializeField, Header("Rendering Options")]
         protected int sortPriority = 0;
@@ -143,6 +143,49 @@ namespace UnityEditor.VFX
                 yield return new VFXMapping("sortPriority", sortPriority);
                 if (HasIndirectDraw())
                     yield return new VFXMapping("indirectDraw", 1);
+            }
+        }
+    }
+
+    abstract class VFXAbstractSortedExternalOutput : VFXAbstractSortedOutput
+    {
+        internal enum TaskType
+        {
+            None = VFXTaskType.None,
+            Spawner = VFXTaskType.Spawner,
+            ConstantRateSpawner = VFXTaskType.ConstantRateSpawner,
+            BurstSpawner = VFXTaskType.BurstSpawner,
+            PeriodicBurstSpawner = VFXTaskType.PeriodicBurstSpawner,
+            VariableRateSpawner = VFXTaskType.VariableRateSpawner,
+            CustomCallbackSpawner = VFXTaskType.CustomCallbackSpawner,
+            SetAttributeSpawner = VFXTaskType.SetAttributeSpawner,
+            Initialize = VFXTaskType.Initialize,
+            Update = VFXTaskType.Update,
+            CameraSort = VFXTaskType.CameraSort,
+            StripSort = VFXTaskType.StripSort,
+            StripUpdatePerParticle = VFXTaskType.StripUpdatePerParticle,
+            StripUpdatePerStrip = VFXTaskType.StripUpdatePerStrip,
+            Output = VFXTaskType.Output,
+            ParticlePointOutput = VFXTaskType.ParticlePointOutput,
+            ParticleLineOutput = VFXTaskType.ParticleLineOutput,
+            ParticleQuadOutput = VFXTaskType.ParticleQuadOutput,
+            ParticleHexahedronOutput = VFXTaskType.ParticleHexahedronOutput,
+            ParticleMeshOutput = VFXTaskType.ParticleMeshOutput,
+            ParticleTriangleOutput = VFXTaskType.ParticleTriangleOutput,
+            ParticleOctagonOutput = VFXTaskType.ParticleOctagonOutput
+        }
+        public override VFXTaskType taskType { get { return (VFXTaskType)type; } }
+
+        public abstract TaskType type { get; }
+
+        public static TaskType GetTaskType(VFXPrimitiveType prim)
+        {
+            switch (prim)
+            {
+                case VFXPrimitiveType.Triangle: return TaskType.ParticleTriangleOutput;
+                case VFXPrimitiveType.Quad: return TaskType.ParticleQuadOutput;
+                case VFXPrimitiveType.Octagon: return TaskType.ParticleOctagonOutput;
+                default: throw new NotImplementedException();
             }
         }
     }

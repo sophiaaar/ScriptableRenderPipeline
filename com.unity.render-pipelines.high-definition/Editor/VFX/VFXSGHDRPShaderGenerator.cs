@@ -151,7 +151,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline.VFXSG
         struct VaryingAttribute
         {
             public string name;
-            public VFXValueType type;
+            public int type;
         }
 
         static List<VaryingAttribute> ComputeVaryingAttribute(Graph graph,VFXInfos vfxInfos)
@@ -164,14 +164,57 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline.VFXSG
             //Alpha is a special case that is always used (alpha from SG is multiplied by alpha from VFX) .
 
             List<VaryingAttribute> result = new List<VaryingAttribute>();
-            foreach (var info in vfxInfos.attributes.Zip(vfxInfos.attributeTypes, (a, b) => new KeyValuePair<string, VFXValueType>(a, b)).Where(t => vfxInfos.modifiedByOutputAttributes.Contains(t.Key) && (t.Key == "alpha" || shaderProperties.properties.Any(u => u.displayName.Equals(t.Key, StringComparison.InvariantCultureIgnoreCase)))))
+            foreach (var info in vfxInfos.attributes.Zip(vfxInfos.attributeTypes.Cast<int>(), (string a,int b) => new KeyValuePair<string, int>(a, (int)b)).Where(t => vfxInfos.modifiedByOutputAttributes.Contains(t.Key) && (t.Key == "alpha" || shaderProperties.properties.Any(u => u.displayName.Equals(t.Key, StringComparison.InvariantCultureIgnoreCase)))))
             {
                 result.Add(new VaryingAttribute { name = info.Key, type = info.Value});
             }
 
             return result;
         }
-        
+
+        enum ValueType
+        {
+            None = 0,
+            Float = 1,
+            Float2 = 2,
+            Float3 = 3,
+            Float4 = 4,
+            Int32 = 5,
+            Uint32 = 6,
+            Texture2D = 7,
+            Texture2DArray = 8,
+            Texture3D = 9,
+            TextureCube = 10,
+            TextureCubeArray = 11,
+            Matrix4x4 = 12,
+            Curve = 13,
+            ColorGradient = 14,
+            Mesh = 15,
+            Spline = 16,
+            Boolean = 17
+        }
+
+        public static string TypeToCode(int type)
+        {
+            switch ((ValueType)type)
+            {
+                case ValueType.Float: return "float";
+                case ValueType.Float2: return "float2";
+                case ValueType.Float3: return "float3";
+                case ValueType.Float4: return "float4";
+                case ValueType.Int32: return "int";
+                case ValueType.Uint32: return "uint";
+                case ValueType.Texture2D: return "Texture2D";
+                case ValueType.Texture2DArray: return "Texture2DArray";
+                case ValueType.Texture3D: return "Texture3D";
+                case ValueType.TextureCube: return "TextureCube";
+                case ValueType.TextureCubeArray: return "TextureCubeArray";
+                case ValueType.Matrix4x4: return "float4x4";
+                case ValueType.Boolean: return "bool";
+            }
+            throw new NotImplementedException(type.ToString());
+        }
+
 
         static string GenerateVaryingVFXAttribute(Graph graph,VFXInfos vfxInfos,List<VaryingAttribute> varyingAttributes)
         {
@@ -187,9 +230,9 @@ struct VaryingVFXAttribute
             foreach (var info in varyingAttributes)
             {
                 if( texCoordNum < 10)
-                    sb.AppendFormat("    nointerpolation {0} {1} : TEXCOORD{2};\n",VFXExpression.TypeToCode(info.type),info.name,texCoordNum++);
+                    sb.AppendFormat("    nointerpolation {0} {1} : TEXCOORD{2};\n",TypeToCode(info.type),info.name,texCoordNum++);
                 else
-                    sb.AppendFormat("    nointerpolation {0} {1} : NORMAL{2};\n", VFXExpression.TypeToCode(info.type), info.name, (texCoordNum++) - 10 + 2); //Start with NORMAL3
+                    sb.AppendFormat("    nointerpolation {0} {1} : NORMAL{2};\n", TypeToCode(info.type), info.name, (texCoordNum++) - 10 + 2); //Start with NORMAL3
             }
             sb.Append(@"};");
             return sb.ToString();
@@ -559,7 +602,7 @@ struct VaryingVFXAttribute
 
                 graph.graphData.CollectShaderProperties(shaderProperties, GenerationMode.ForReals);
 
-                ShaderGenerator sg = new ShaderGenerator();
+                var sg = new ShaderStringBuilder();
 
                 GraphContext graphContext = new GraphContext("SurfaceDescriptionInputs");
 
@@ -580,7 +623,7 @@ struct VaryingVFXAttribute
                 functionRegistry.builder.currentNode = null;
 
                 var sb = new StringBuilder();
-                sb.Append(sg.GetShaderString(0));
+                sb.Append(sg.ToString());
 
                 //Explicitely excluded slots are used later in a custom fashion.
                 usedSlots = graph.passes[currentPass].pixel.slots.Where(t => !customBehaviourSlots.Contains(t.shaderOutputName));
@@ -784,7 +827,7 @@ void ApplyVertexModification(AttributesMesh input, float3 normalWS, inout float3
 
             graph.graphData.CollectShaderProperties(shaderProperties, GenerationMode.ForReals);
 
-            ShaderGenerator sg = new ShaderGenerator();
+            var sg = new ShaderStringBuilder();
 
             GraphContext graphContext = new GraphContext("SurfaceDescriptionInputs");
 
@@ -804,7 +847,7 @@ void ApplyVertexModification(AttributesMesh input, float3 normalWS, inout float3
             shader.AppendLine(functionsString.ToString());
             functionRegistry.builder.currentNode = null;
 
-            sb.Append(sg.GetShaderString(0));
+            sb.Append(sg.ToString());
             var usedSlots = /*slots ?? */graph.graphData.outputNode.GetInputSlots<MaterialSlot>().Where(t => t.shaderOutputName != "Position").Intersect(graph.passes[currentPass].vertex.slots);
 
             foreach (var input in usedSlots)

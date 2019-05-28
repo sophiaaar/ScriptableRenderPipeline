@@ -34,17 +34,6 @@ namespace UnityEditor.VFX
             public float cropFactor = 0.5f * (1.0f - Mathf.Tan(Mathf.PI / 8.0f)); // regular octagon
         }
 
-        public static VFXTaskType GetTaskType(VFXPrimitiveType prim)
-        {
-            switch (prim)
-            {
-                case VFXPrimitiveType.Triangle: return VFXTaskType.ParticleTriangleOutput;
-                case VFXPrimitiveType.Quad: return VFXTaskType.ParticleQuadOutput;
-                case VFXPrimitiveType.Octagon: return VFXTaskType.ParticleOctagonOutput;
-                default: throw new NotImplementedException();
-            }
-        }
-
         public static string GetShaderDefine(VFXPrimitiveType prim)
         {
             switch (prim)

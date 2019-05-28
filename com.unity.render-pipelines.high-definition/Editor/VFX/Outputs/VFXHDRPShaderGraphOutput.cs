@@ -5,14 +5,19 @@ using UnityEngine;
 using System.Text;
 using UnityEditor.VFX;
 using UnityEngine.Rendering;
-using UnityEngine.Experimental.VFX;
-using UnityEditor.Experimental.VFX;
+using System.Reflection;
 
 namespace UnityEditor.Experimental.Rendering.HDPipeline.VFXSG
 {
 
     class VFXShaderGraphPostProcessor : AssetPostprocessor
     {
+
+        static MethodInfo s_GetResourceAtPath = System.Type.GetType("VisualEffectResource").GetMethod("GetResourceAtPath",System.Reflection.BindingFlags.Public| System.Reflection.BindingFlags.Static);
+        static MethodInfo s_GetOrCreateGraph = System.Type.GetType("VisualEffectResource").GetMethod("GetOrCreateGraph", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+
+
+
         static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths)
         {
             string[] guids = AssetDatabase.FindAssets("t:VisualEffectAsset");
@@ -29,7 +34,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline.VFXSG
 
             foreach( var vfxPath in guids.Select(t => AssetDatabase.GUIDToAssetPath(t)))
             {
-                VFXGraph graph = VisualEffectResource.GetResourceAtPath(vfxPath).GetOrCreateGraph();
+                VFXGraph graph = (VFXGraph)s_GetOrCreateGraph.Invoke(s_GetResourceAtPath.Invoke(null, new object[] { vfxPath }), new object[] { });
 
                 if( graph != null)
                 {
@@ -51,11 +56,11 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline.VFXSG
 
 
     [VFXInfo]
-    class VFXHDRPShaderGraphOutput : VFXAbstractSortedOutput, ISpecificGenerationOutput
+    class VFXHDRPShaderGraphOutput : VFXAbstractSortedExternalOutput, ISpecificGenerationOutput
     {
         public override string name { get { return "Shader Graph Mesh Output"; } }
         public override string codeGeneratorTemplate { get { return ""; } }
-        public override VFXTaskType taskType { get { return VFXTaskType.ParticleMeshOutput; } }
+        public override TaskType type { get { return TaskType.ParticleMeshOutput; } }
 
         [VFXSetting(VFXSettingAttribute.VisibleFlags.InGraph), SerializeField]
         protected Shader m_ShaderGraph;

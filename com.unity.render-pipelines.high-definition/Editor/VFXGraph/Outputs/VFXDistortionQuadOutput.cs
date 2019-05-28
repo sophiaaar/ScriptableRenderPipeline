@@ -1,3 +1,5 @@
+#if false
+
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor.VFX.Block;
@@ -13,7 +15,7 @@ namespace UnityEditor.VFX
 
         public override string name { get { return "Distortion Quad Output"; } }
         public override string codeGeneratorTemplate { get { return RenderPipeTemplate("VFXParticleDistortionQuad"); } }
-        public override VFXTaskType taskType { get { return useGeometryShader ? VFXTaskType.ParticlePointOutput : VFXTaskType.ParticleQuadOutput; } }
+        public override TaskType type { get { return useGeometryShader ? TaskType.ParticlePointOutput : TaskType.ParticleQuadOutput; } }
         public override bool supportsUV { get { return true; } }
 
         public override IEnumerable<string> additionalDefines
@@ -58,3 +60,4 @@ namespace UnityEditor.VFX
         }
     }
 }
+#endif

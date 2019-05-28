@@ -2,11 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace UnityEditor.VFX
 {
-    abstract class VFXAbstractParticleHDRPLitOutput : VFXAbstractParticleOutput
+    abstract class VFXAbstractParticleHDRPLitOutput : VFXAbstractParticleExternalOutput
     {
         public enum MaterialType
         {

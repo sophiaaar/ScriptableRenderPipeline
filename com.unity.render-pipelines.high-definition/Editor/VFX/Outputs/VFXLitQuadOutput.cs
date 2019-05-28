@@ -11,7 +11,7 @@ namespace UnityEditor.VFX
     {
         public override string name { get { return "Lit Quad Output"; } }
         public override string codeGeneratorTemplate { get { return RenderPipeTemplate("VFXParticleLitQuad"); } }
-        public override VFXTaskType taskType { get { return VFXTaskType.ParticleQuadOutput; } }
+        public override TaskType type { get { return TaskType.ParticleQuadOutput; } }
         public override bool supportsUV { get { return true; } }
 
         [VFXSetting(VFXSettingAttribute.VisibleFlags.InInspector), SerializeField]
