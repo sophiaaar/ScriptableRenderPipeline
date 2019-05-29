@@ -234,6 +234,12 @@ namespace UnityEditor.ShaderGraph.Drawing
 
     class StickyNote : GraphElement, IVFXResizable
     {
+        public new StickyNoteData userData
+        {
+            get => (StickyNoteData)base.userData;
+            set => base.userData = value;
+        }
+
         public enum Theme
         {
             Classic,
@@ -245,7 +251,7 @@ namespace UnityEditor.ShaderGraph.Drawing
             Purple,
             Teal
         }
-
+        
         Theme m_Theme = Theme.Classic;
         public Theme theme
         {
@@ -384,7 +390,7 @@ namespace UnityEditor.ShaderGraph.Drawing
 
         public static readonly Vector2 defaultSize = new Vector2(200, 160);
 
-        public StickyNote(Vector2 position) : this("uxml/StickyNote", position)
+        public StickyNote(Vector2 position) : this("UXML/StickyNote", position)
         {
             styleSheets.Add(Resources.Load<StyleSheet>("Selectable"));
             styleSheets.Add(Resources.Load<StyleSheet>("StickyNote"));

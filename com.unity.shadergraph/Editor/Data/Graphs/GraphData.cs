@@ -165,6 +165,18 @@ namespace UnityEditor.ShaderGraph
 
         #endregion
 
+        #region StickyNote Data
+        [SerializeField]
+        List<StickyNoteData> m_StickyNotes = new List<StickyNoteData>();
+
+        public IEnumerable<StickyNoteData> stickyNotes => m_StickyNotes;
+
+        [NonSerialized]
+        List<StickyNoteData> m_AddedStickyNotes = new List<StickyNoteData>();
+
+        public List<StickyNoteData> addedStickyNotes => m_AddedStickyNotes;
+
+        #endregion
 
         #region Edge data
 
@@ -293,6 +305,7 @@ namespace UnityEditor.ShaderGraph
             m_AddedProperties.Clear();
             m_RemovedProperties.Clear();
             m_MovedProperties.Clear();
+            m_AddedStickyNotes.Clear();
             m_MostRecentlyCreatedGroup = null;
             didActiveOutputNodeChange = false;
         }
@@ -358,6 +371,12 @@ namespace UnityEditor.ShaderGraph
 
                 m_GroupNodes.Remove(group.guid);
             }
+        }
+
+        public void CreateStickyNote(StickyNoteData stickyNoteData)
+        {
+            m_StickyNotes.Add(stickyNoteData);
+            m_AddedStickyNotes.Add(stickyNoteData);
         }
 
         public void SetNodeGroup(AbstractMaterialNode node, GroupData group)
@@ -937,6 +956,11 @@ namespace UnityEditor.ShaderGraph
                 m_PastedGroups.Add(newGroup);
             }
 
+            foreach (var stickyNote in graphToPaste.stickyNotes)
+            {
+                Debug.Log($"PASTING! {stickyNote.guid} : {stickyNote.position}");
+            }
+
             var nodeGuidMap = new Dictionary<Guid, Guid>();
             foreach (var node in graphToPaste.GetNodes<AbstractMaterialNode>())
             {
@@ -1023,12 +1047,20 @@ namespace UnityEditor.ShaderGraph
             m_Properties = SerializationHelper.Deserialize<AbstractShaderProperty>(m_SerializedProperties, GraphUtil.GetLegacyTypeRemapping());
 
             var nodes = SerializationHelper.Deserialize<AbstractMaterialNode>(m_SerializableNodes, GraphUtil.GetLegacyTypeRemapping());
+
             m_Nodes = new List<AbstractMaterialNode>(nodes.Count);
             m_NodeDictionary = new Dictionary<Guid, AbstractMaterialNode>(nodes.Count);
 
             foreach (var group in m_Groups)
             {
                 m_GroupNodes.Add(group.guid, new List<AbstractMaterialNode>());
+            }
+
+            foreach (var stickyNote in m_StickyNotes)
+            {
+                
+                //Debug.Log(stickyNote.title);
+                //m_AddedStickyNotes.Add(stickyNote);
             }
 
             foreach (var node in nodes.OfType<AbstractMaterialNode>())

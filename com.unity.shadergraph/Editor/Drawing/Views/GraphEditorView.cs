@@ -202,6 +202,11 @@ namespace UnityEditor.ShaderGraph.Drawing
                 AddGroup(graphGroup);
             }
 
+            foreach (var stickyNote in graph.stickyNotes)
+            {
+                AddStickyNote(stickyNote);
+            }
+
             foreach (var node in graph.GetNodes<AbstractMaterialNode>())
                 AddNode(node);
 
@@ -284,6 +289,14 @@ namespace UnityEditor.ShaderGraph.Drawing
                     SetGroupPosition(groupNode);
                 }
 
+                foreach (var element in graphViewChange.movedElements)
+                {
+                    var stickyNote = element as StickyNote;
+                    if (stickyNote == null)
+                        continue;
+                    SetStickyNotePosition(stickyNote);
+                }
+
                 if(nodesInsideGroup.Any())
                     graphViewChange.movedElements.AddRange(nodesInsideGroup);
 
@@ -339,6 +352,12 @@ namespace UnityEditor.ShaderGraph.Drawing
         {
             var pos = groupNode.GetPosition();
             groupNode.userData.position = new Vector2(pos.x, pos.y);
+        }
+
+        void SetStickyNotePosition(StickyNote stickyNote)
+        {
+            var pos = stickyNote.GetPosition();
+            stickyNote.userData.position = new Vector2(pos.x, pos.y);
         }
 
         void OnGroupTitleChanged(Group graphGroup, string title)
@@ -466,6 +485,11 @@ namespace UnityEditor.ShaderGraph.Drawing
                 AddGroup(groupData);
             }
 
+            foreach (var stickyNote in m_Graph.addedStickyNotes)
+            {
+                AddStickyNote(stickyNote);
+            }
+
             foreach (var node in m_Graph.addedNodes)
             {
                 AddNode(node);
@@ -508,6 +532,8 @@ namespace UnityEditor.ShaderGraph.Drawing
             {
                 SetGroupPosition(shaderGroup);
             }
+
+
 
             var nodesToUpdate = m_NodeViewHashSet;
             nodesToUpdate.Clear();
@@ -656,6 +682,17 @@ namespace UnityEditor.ShaderGraph.Drawing
             graphGroup.SetPosition(new Rect(graphGroup.userData.position, Vector2.zero));
 
             m_GraphView.AddElement(graphGroup);
+        }
+
+        void AddStickyNote(StickyNoteData stickyNoteData)
+        {
+            StickyNote stickyNote = new StickyNote(stickyNoteData.position);
+
+            stickyNote.userData = stickyNoteData;
+            stickyNote.title = stickyNoteData.title;
+            stickyNote.SetPosition(new Rect(stickyNote.userData.position, Vector2.zero));
+
+            m_GraphView.AddElement(stickyNote);
         }
 
         static void RepositionNode(GeometryChangedEvent evt)

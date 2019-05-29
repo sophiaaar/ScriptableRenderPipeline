@@ -182,12 +182,11 @@ namespace UnityEditor.ShaderGraph.Drawing
 
         public void AddStickyNote(Vector2 position)
         {
-            Debug.Log("SCHTICKKYY");
-            Debug.Log(position);
             position = contentViewContainer.WorldToLocal(position);
-            Debug.Log(position);
-            //var title = "New Note";
-
+            string title = "New Note";
+            var stickyNoteData  = new StickyNoteData(title, position);
+            graph.owner.RegisterCompleteObjectUndo("Create Sticky Note");
+            graph.CreateStickyNote(stickyNoteData);
         }
 
 
@@ -328,12 +327,13 @@ namespace UnityEditor.ShaderGraph.Drawing
             var nodes = elements.OfType<IShaderNodeView>().Select(x => x.node).Where(x => x.canCopyNode);
             var edges = elements.OfType<Edge>().Select(x => x.userData).OfType<IEdge>();
             var properties = selection.OfType<BlackboardField>().Select(x => x.userData as AbstractShaderProperty);
+            var notes = elements.OfType<StickyNote>().Select(x => x.userData);
 
             // Collect the property nodes and get the corresponding properties
             var propertyNodeGuids = nodes.OfType<PropertyNode>().Select(x => x.propertyGuid);
             var metaProperties = this.graph.properties.Where(x => propertyNodeGuids.Contains(x.guid));
 
-            var graph = new CopyPasteGraph(this.graph.assetGuid, groups, nodes, edges, properties, metaProperties);
+            var graph = new CopyPasteGraph(this.graph.assetGuid, groups, nodes, edges, properties, metaProperties, notes);
             return JsonUtility.ToJson(graph, true);
         }
 
