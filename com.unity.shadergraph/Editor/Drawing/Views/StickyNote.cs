@@ -234,6 +234,7 @@ namespace UnityEditor.ShaderGraph.Drawing
 
     class StickyNote : GraphElement, IVFXResizable
     {
+        GraphData m_Graph;
         public new StickyNoteData userData
         {
             get => (StickyNoteData)base.userData;
@@ -251,7 +252,7 @@ namespace UnityEditor.ShaderGraph.Drawing
             Purple,
             Teal
         }
-        
+
         Theme m_Theme = Theme.Classic;
         public Theme theme
         {
@@ -390,15 +391,17 @@ namespace UnityEditor.ShaderGraph.Drawing
 
         public static readonly Vector2 defaultSize = new Vector2(200, 160);
 
-        public StickyNote(Vector2 position) : this("UXML/StickyNote", position)
+        public StickyNote(Vector2 position, GraphData graph) : this("UXML/StickyNote", position, graph)
         {
             styleSheets.Add(Resources.Load<StyleSheet>("Selectable"));
             styleSheets.Add(Resources.Load<StyleSheet>("StickyNote"));
             RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
         }
 
-        public StickyNote(string uiFile, Vector2 position)
+        public StickyNote(string uiFile, Vector2 position, GraphData graph)
         {
+            m_Graph = graph;
+
             var tpl = Resources.Load<VisualTreeAsset>(uiFile);
 
             tpl.CloneTree(this);
@@ -469,7 +472,9 @@ namespace UnityEditor.ShaderGraph.Drawing
 
         void OnTitleChange(EventBase e)
         {
+            m_Graph.owner.RegisterCompleteObjectUndo("Title Changed");
             title = m_TitleField.value;
+            userData.title = title;
         }
 
         const string fitTextClass = "fit-text";

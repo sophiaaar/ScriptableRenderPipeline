@@ -686,7 +686,7 @@ namespace UnityEditor.ShaderGraph.Drawing
 
         void AddStickyNote(StickyNoteData stickyNoteData)
         {
-            StickyNote stickyNote = new StickyNote(stickyNoteData.position);
+            StickyNote stickyNote = new StickyNote(stickyNoteData.position, m_Graph);
 
             stickyNote.userData = stickyNoteData;
             stickyNote.title = stickyNoteData.title;

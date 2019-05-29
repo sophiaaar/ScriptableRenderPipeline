@@ -24,6 +24,15 @@ namespace UnityEditor.ShaderGraph
         }
 
         [SerializeField]
+        string m_Text;
+
+        public string text
+        {
+            get => m_Text;
+            set => m_Text = value;
+        }
+
+        [SerializeField]
         Vector2 m_Position;
 
         public Vector2 position
