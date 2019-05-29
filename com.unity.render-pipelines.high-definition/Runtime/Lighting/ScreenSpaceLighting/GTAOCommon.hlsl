@@ -30,8 +30,8 @@ CBUFFER_END
 
 float GetDepth(float2 positionSS)
 {
-    int2 samplePos;
 #if HALF_RES_DEPTH
+    int2 samplePos;
     uint fullRes = (_AOBaseResMip == 0);
     if (fullRes)
     {
@@ -45,9 +45,20 @@ float GetDepth(float2 positionSS)
 #else
 
  #if MIN_DEPTH_GATHERED
-    float2 uv = ((_AOMipOffset * _AOBaseResMip) + ((uint2)positionSS.xy)) / float2(_ScreenSize.x, _ScreenSize.y * 1.5f);
-    float4 gatheredDepth = GATHER_TEXTURE2D_X(_DepthPyramidTexture, s_point_clamp_sampler, uv);
-    return min(Min3(gatheredDepth.x, gatheredDepth.y, gatheredDepth.z), gatheredDepth.w);
+    if (_AOBaseResMip == 1)
+    {
+        float2 localUVs = (positionSS.xy + 0.5f) * _AOBufferSize.zw;
+        localUVs = ClampAndScaleUVForBilinear(localUVs, _AOBufferSize.zw);
+        float2 offsetInUVs = float2(0.0f, 2.0f / 3.0f);
+        localUVs *= float2(0.5f, 1.0f / 3.0f);
+        localUVs += offsetInUVs;
+        float4 gatheredDepth = GATHER_TEXTURE2D_X(_DepthPyramidTexture, s_point_clamp_sampler, localUVs);
+        return min(Min3(gatheredDepth.x, gatheredDepth.y, gatheredDepth.z), gatheredDepth.w);
+    }
+    else
+    {
+        return LOAD_TEXTURE2D_X(_DepthPyramidTexture, (_AOMipOffset * _AOBaseResMip) + ((uint2)positionSS.xy)).r;
+    }
 #else
     return LOAD_TEXTURE2D_X(_DepthPyramidTexture, (_AOMipOffset * _AOBaseResMip) + ((uint2)positionSS.xy)).r;
 #endif

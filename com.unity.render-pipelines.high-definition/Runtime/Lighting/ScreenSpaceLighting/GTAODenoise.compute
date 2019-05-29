@@ -27,7 +27,7 @@ float Blur(float2 centralPos, out float centralDepth)
 {
     float2 temporalOffset = 0;
 
-    uint4 data_12_15 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(0.0f, 0.0f) + temporalOffset)  * _AOBufferSize.zw);
+    uint4 data_12_15 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, ClampAndScaleUVForBilinear((centralPos + float2(0.0f, 0.0f) + temporalOffset)  * _AOBufferSize.zw, _AOBufferSize.zw));
 
 
     float4 UnpackedAOs, UnpackedDepths;
@@ -54,7 +54,7 @@ float Blur(float2 centralPos, out float centralDepth)
     totalWeight += weight;
 
     // Second set of gathered data.
-    uint4 data_8_11 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(-2.0f, 0.0f) + temporalOffset)  * _AOBufferSize.zw);
+    uint4 data_8_11 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, ClampAndScaleUVForBilinear((centralPos + float2(-2.0f, 0.0f) + temporalOffset)  * _AOBufferSize.zw, _AOBufferSize.zw));
     UnpackGatheredData(data_8_11, UnpackedAOs, UnpackedDepths);
 
     weight = BilateralWeight(UnpackedDepths.x, linearCentralDepth);
@@ -75,7 +75,7 @@ float Blur(float2 centralPos, out float centralDepth)
 
 
     // Third set of gathered data.
-    uint4 data_4_7 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(0.0f, 2.0f) + temporalOffset)  * _AOBufferSize.zw);
+    uint4 data_4_7 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, ClampAndScaleUVForBilinear((centralPos + float2(0.0f, 2.0f) + temporalOffset)  * _AOBufferSize.zw, _AOBufferSize.zw));
     UnpackGatheredData(data_4_7, UnpackedAOs, UnpackedDepths);
 
     weight = BilateralWeight(UnpackedDepths.x, linearCentralDepth);
@@ -95,7 +95,7 @@ float Blur(float2 centralPos, out float centralDepth)
     totalWeight += weight;
 
     // Fourth set of gathered data.
-    uint4 data_0_3 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, (centralPos + float2(-2.0f, 2.0f) + temporalOffset)  * _AOBufferSize.zw);
+    uint4 data_0_3 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, ClampAndScaleUVForBilinear((centralPos + float2(-2.0f, 2.0f) + temporalOffset)  * _AOBufferSize.zw, _AOBufferSize.zw));
     UnpackGatheredData(data_0_3, UnpackedAOs, UnpackedDepths);
 
     weight = BilateralWeight(UnpackedDepths.x, linearCentralDepth);
@@ -218,7 +218,7 @@ void TEMPORAL_DENOISE_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
     float prevMotionVecLen, prevAO, prevDepth;
     UnpackHistoryData(prevData, prevAO, prevDepth, prevMotionVecLen);
 
-    uint4 currDatas = GATHER_TEXTURE2D_X(_AOPackedBlurred, s_linear_clamp_sampler, uv);
+    uint4 currDatas = GATHER_TEXTURE2D_X(_AOPackedBlurred, s_linear_clamp_sampler, ClampAndScaleUVForBilinear(uv, _AOBufferSize.zw));
     float4 currAOs, currDepths;
     UnpackGatheredData(currDatas, currAOs, currDepths);
 

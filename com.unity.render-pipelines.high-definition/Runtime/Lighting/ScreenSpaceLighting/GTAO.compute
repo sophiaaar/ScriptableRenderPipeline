@@ -156,7 +156,7 @@ void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
     float2 rayStart = dispatchThreadId.xy;
 
     float3 V = normalize(-positionVS);
-    float fovCorrectedradiusSS =  clamp(_AORadius * saturate(max(1, positionVS.z - 2) * 1) * _AOFOVCorrection * rcp(positionVS.z), _AOStepCount, 128);
+    float fovCorrectedradiusSS =  clamp(_AORadius * saturate(max(1, positionVS.z - 2) * 1) * _AOFOVCorrection * rcp(positionVS.z), _AOStepCount, 96);
     float step = fovCorrectedradiusSS * _AOInvStepCountPlusOne;
 
 
@@ -196,7 +196,6 @@ void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
     //// Bent normals stuff
     //float bentNormalAngle = (maxHorizons.x + maxHorizons.y) * 0.5f;
     //_BentNormalsTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = abs(_AOMipOffset - mipOffset).xyxy;
-
     if (currDepth == UNITY_RAW_FAR_CLIP_VALUE)
     {
         integral = 1;
