@@ -110,7 +110,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 passInfo.renderTarget = invalidRT;
                 passInfo.renderTargetDesc = default;
             }
-            
+
             passInfo.xrSdkEnabled = false;
             passInfo.tempRenderTexture = null;
 
@@ -200,11 +200,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 {
                     //cmd.SetSinglePassStereo(SinglePassStereoMode.Instancing);
                     cmd.EnableShaderKeyword("STEREO_INSTANCING_ON");
+                    cmd.SetInstanceMultiplier(2);
 
                     renderContext.ExecuteCommandBuffer(cmd);
                     cmd.Clear();
-
-                    display.instanceMultiplier = 2;
                 }
 
                 if (camera.stereoEnabled)
@@ -230,11 +229,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             {
                 //cmd.SetSinglePassStereo(SinglePassStereoMode.None);
                 cmd.DisableShaderKeyword("STEREO_INSTANCING_ON");
+                cmd.SetInstanceMultiplier(1);
 
                 renderContext.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
-
-                display.instanceMultiplier = 1;
             }
 
             if (enabled && camera.stereoEnabled)
