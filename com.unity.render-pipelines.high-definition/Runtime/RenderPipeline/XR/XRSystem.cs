@@ -26,6 +26,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 #if USE_XR_SDK
         List<XRDisplaySubsystem> displayList = new List<XRDisplaySubsystem>();
         XRDisplaySubsystem display = null;
+
+        // Blit for mirror view
+        static Material m_BlitArraySlice;
 #endif
 
         internal XRSystem()
@@ -100,6 +103,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // XRTODO: handle more than 2 instanced views
                 TextureXR.maxViews = 2;
 
+                if (m_BlitArraySlice == null)
+                {
+                    var hdrp = GraphicsSettings.renderPipelineAsset as HDRenderPipelineAsset;
+                    m_BlitArraySlice = CoreUtils.CreateEngineMaterial(hdrp.renderPipelineResources.shaders.blitArraySlicePS);
+                }
+
                 return true;
             }
             else
@@ -145,7 +154,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 if (CanUseInstancing(camera, renderPass))
                 {
-                    // XRTODO: instanced views support with XR SDK
+                    var xrPass = XRPass.Create(renderPass);
+                    xrPass.display = display;
+
+                    for (int renderParamIndex = 0; renderParamIndex < renderPass.GetRenderParameterCount(); ++renderParamIndex)
+                    {
+                        renderPass.GetRenderParameter(camera, renderParamIndex, out var renderParam);
+                        xrPass.AddView(renderParam);
+                    }
+
+                    AddPassToFrame(camera, xrPass);
                 }
                 else
                 {
@@ -189,6 +207,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 #if USE_XR_SDK
             displayList = null;
             display = null;
+
+            CoreUtils.Destroy(m_BlitArraySlice);
+            m_BlitArraySlice = null;
 #endif
         }
 
@@ -212,10 +233,20 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         bool CanUseInstancing(Camera camera, XRDisplaySubsystem.XRRenderPass renderPass)
         {
             // XRTODO: instanced views support with XR SDK
-            return false;
+            return renderPass.GetRenderParameterCount() == 2;
 
             // check viewCount > 1, valid texture array format and valid slice index
             // limit to 2 for now (until code fully fixed)
+        }
+
+        public static void BlitArraySlice(CommandBuffer cmd, Texture source, int slice)
+        {
+            Debug.Assert(source.dimension == TextureDimension.Tex2DArray);
+
+            MaterialPropertyBlock propertyBlock = new MaterialPropertyBlock();
+            propertyBlock.SetTexture(Shader.PropertyToID("_BlitTexture"), source);
+            propertyBlock.SetInt(Shader.PropertyToID("_BlitArraySliceIndex"), slice);
+            cmd.DrawProcedural(Matrix4x4.identity, m_BlitArraySlice, 0, MeshTopology.Triangles, 3, 1, propertyBlock);
         }
 #endif
     }

@@ -85,6 +85,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public RenderTexture tempRenderTexture { get; private set; } = null;
 #if USE_XR_SDK
         RenderTextureDescriptor tempRenderTextureDesc;
+        internal XRDisplaySubsystem display = null;
 #endif
 
         // Legacy multipass support
@@ -195,6 +196,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Required for some legacy shaders (text for example)
                 cmd.SetViewProjectionMatrices(GetViewMatrix(), GetProjMatrix());
 
+                if (display != null)
+                {
+                    //cmd.SetSinglePassStereo(SinglePassStereoMode.Instancing);
+                    cmd.EnableShaderKeyword("STEREO_INSTANCING_ON");
+
+                    renderContext.ExecuteCommandBuffer(cmd);
+                    cmd.Clear();
+
+                    display.instanceMultiplier = 2;
+                }
+
                 if (camera.stereoEnabled)
                 {
                     // Reset scissor and viewport for C++ stereo code
@@ -214,6 +226,17 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         internal void StopLegacyStereo(Camera camera, CommandBuffer cmd, ScriptableRenderContext renderContext)
         {
+            if (display != null)
+            {
+                //cmd.SetSinglePassStereo(SinglePassStereoMode.None);
+                cmd.DisableShaderKeyword("STEREO_INSTANCING_ON");
+
+                renderContext.ExecuteCommandBuffer(cmd);
+                cmd.Clear();
+
+                display.instanceMultiplier = 1;
+            }
+
             if (enabled && camera.stereoEnabled)
             {
                 renderContext.ExecuteCommandBuffer(cmd);
@@ -253,6 +276,21 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         {
                             throw new NotImplementedException();
                         }
+                    }
+                    else if (viewCount == 2)
+                    {
+                        cmd.SetRenderTarget(new RenderTargetIdentifier(BuiltinRenderTextureType.CameraTarget));
+                        Rect blitRect = new Rect(hdCamera.camera.pixelRect);
+
+                        // Left eye
+                        blitRect.width /= 2;
+                        cmd.SetViewport(blitRect);
+                        XRSystem.BlitArraySlice(cmd, tempRenderTexture, 0);
+
+                        // Rigt eye
+                        blitRect.x += blitRect.width;
+                        cmd.SetViewport(blitRect);
+                        XRSystem.BlitArraySlice(cmd, tempRenderTexture, 1);
                     }
                     else
                     {
