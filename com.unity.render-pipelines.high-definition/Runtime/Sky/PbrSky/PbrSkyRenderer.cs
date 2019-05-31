@@ -368,7 +368,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 if (m_LastPrecomputedBounce < m_Settings.numBounces.value)
                 {
                     // We precompute one bounce per render call.
-                    // This can and will produce weird results during cubemap rendering.
                     PrecomputeTables(cmd);
                     m_LastPrecomputedBounce++;
 
@@ -387,11 +386,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                                                          m_Settings.spaceRotation.value.z);
 
             // This matrix needs to be updated at the draw call frequency.
-            s_PbrSkyMaterialProperties.SetMatrix( HDShaderIDs._PixelCoordToViewDirWS, builtinParams.pixelCoordToViewDirMatrix);
-            s_PbrSkyMaterialProperties.SetMatrix( HDShaderIDs._PlanetRotation,        Matrix4x4.Rotate(planetRotation));
-            s_PbrSkyMaterialProperties.SetMatrix( HDShaderIDs._SpaceRotation,         Matrix4x4.Rotate(spaceRotation));
+            s_PbrSkyMaterialProperties.SetMatrix(HDShaderIDs._PixelCoordToViewDirWS, builtinParams.pixelCoordToViewDirMatrix);
+            s_PbrSkyMaterialProperties.SetMatrix(HDShaderIDs._PlanetRotation,        Matrix4x4.Rotate(planetRotation));
+            s_PbrSkyMaterialProperties.SetMatrix(HDShaderIDs._SpaceRotation,         Matrix4x4.Rotate(spaceRotation));
 
-            if (m_LastPrecomputedBounce > 0)
+            if (m_LastPrecomputedBounce != 0)
             {
                 s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._OpticalDepthTexture,            m_OpticalDepthTable);
                 s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._GroundIrradianceTexture,        m_GroundIrradianceTables[0]);
