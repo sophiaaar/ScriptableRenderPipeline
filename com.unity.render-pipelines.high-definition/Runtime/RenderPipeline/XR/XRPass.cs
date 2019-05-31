@@ -196,16 +196,20 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Required for some legacy shaders (text for example)
                 cmd.SetViewProjectionMatrices(GetViewMatrix(), GetProjMatrix());
 
-                if (display != null)
+#if USE_XR_SDK
+                if (display != null && instancingEnabled)
                 {
-                    //cmd.SetSinglePassStereo(SinglePassStereoMode.Instancing);
-                    cmd.EnableShaderKeyword("STEREO_INSTANCING_ON");
-
-                    renderContext.ExecuteCommandBuffer(cmd);
-                    cmd.Clear();
-
-                    display.instanceMultiplier = 2;
+                    if (viewCount == 2)
+                    {
+                        cmd.EnableShaderKeyword("STEREO_INSTANCING_ON");
+                        cmd.SetInstanceMultiplier(2);
+                    }
+                    else
+                    {
+                        throw new NotImplementedException();
+                    }
                 }
+#endif
 
                 if (camera.stereoEnabled)
                 {
@@ -226,16 +230,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         internal void StopLegacyStereo(Camera camera, CommandBuffer cmd, ScriptableRenderContext renderContext)
         {
+
+#if USE_XR_SDK
             if (display != null)
             {
-                //cmd.SetSinglePassStereo(SinglePassStereoMode.None);
                 cmd.DisableShaderKeyword("STEREO_INSTANCING_ON");
-
-                renderContext.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-
-                display.instanceMultiplier = 1;
+                cmd.SetInstanceMultiplier(1);
             }
+#endif
 
             if (enabled && camera.stereoEnabled)
             {
@@ -250,6 +252,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             if (!enabled)
                 return;
 
+#if USE_XR_SDK
             if (xrSdkEnabled)
             {
                 // XRTODO(2019.3) : remove once XRE-445 is done
@@ -299,6 +302,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 }
             }
             else
+#endif // USE_XR_SDK
             {
                 renderContext.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
