@@ -307,13 +307,12 @@ half4 SplatmapFragment(Varyings IN) : SV_TARGET
     masks[0] = SAMPLE_TEXTURE2D(_Mask0, sampler_Mask0, IN.uvSplat01.xy);
     masks[1] = SAMPLE_TEXTURE2D(_Mask1, sampler_Mask0, IN.uvSplat01.zw);
     masks[2] = SAMPLE_TEXTURE2D(_Mask2, sampler_Mask0, IN.uvSplat23.xy);
-    masks[3] = SAMPLE_TEXTURE2D(_Mask3, sampler_Mask0, IN.uvSplat23.zw);
-
-    #ifdef _TERRAIN_BLEND_HEIGHT
-    HeightBasedSplatModify(splatControl, masks);
-    #endif  
-    
+    masks[3] = SAMPLE_TEXTURE2D(_Mask3, sampler_Mask0, IN.uvSplat23.zw); 
 #endif
+
+#ifdef _TERRAIN_BLEND_HEIGHT
+    HeightBasedSplatModify(splatControl, masks);
+#endif 
 
     SplatmapMix(IN.uvMainAndLM, IN.uvSplat01, IN.uvSplat23, splatControl, weight, mixedDiffuse, defaultSmoothness, normalTS);
     half3 albedo = mixedDiffuse.rgb;
