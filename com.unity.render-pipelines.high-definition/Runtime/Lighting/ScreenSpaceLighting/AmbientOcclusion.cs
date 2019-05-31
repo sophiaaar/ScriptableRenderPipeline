@@ -20,10 +20,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         [Tooltip("The effect runs at full resolution. This increases quality, but also decreases performance significantly.")]
         public BoolParameter fullResolution = new BoolParameter(true);
 
-        [Tooltip("If the option is selected, then each depth sample will be obtained as the minimum value in a 2x2 region. This improves quality, but has a small cost.")]
-        public BoolParameter useMinGatheredDepth = new BoolParameter(true);
-
-        [Tooltip("If the option is selected, then each depth sample will be obtained as the minimum value in a 2x2 region. This improves quality, but has a small cost.")]
+        [Tooltip("This poses a maximum radius in pixels that we consider. It is very important to keep this as tight as possible to preserve good performance.")]
         public ClampedIntParameter maximumRadiusInPixels = new ClampedIntParameter(40, 16, 256);
 
 
