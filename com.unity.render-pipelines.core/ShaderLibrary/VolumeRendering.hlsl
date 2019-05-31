@@ -27,6 +27,16 @@ real3 OpacityFromOpticalDepth(real3 opticalDepth)
     return 1 - TransmittanceFromOpticalDepth(opticalDepth);
 }
 
+real OpticalDepthFromOpacity(real opacity)
+{
+    return -log(1 - opacity);
+}
+
+real3 OpticalDepthFromOpacity(real3 opacity)
+{
+    return -log(1 - opacity);
+}
+
 //
 // ---------------------------------- Deep Pixel Compositing ---------------------------------------
 //

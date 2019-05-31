@@ -49,19 +49,21 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
     float4 RenderSky(Varyings input)
     {
-        float  R = _PlanetaryRadius;
-        float3 O = _WorldSpaceCameraPos;
-        float3 V = GetSkyViewDirWS(input.positionCS.xy);
+        const float  R = _PlanetaryRadius;
+        // TODO: Not sure it's possible to precompute cam rel pos since variables
+        // in the two constant buffers may be set at a different frequency?
+        const float3 O = _WorldSpaceCameraPos * 0.001 - _PlanetCenterPosition; // Convert m to km
+        const float3 V = GetSkyViewDirWS(input.positionCS.xy);
 
-        float3 N; float r;
-        float tA = IntersectAtmosphere(O, V, N, r);
+        float3 N; float r; // These params correspond to the entry point
+        float tEntry = IntersectAtmosphere(O, V, N, r);
 
         float NdotV  = dot(N, V);
         float cosChi = -NdotV;
         float height = r - R;
         float cosHor = GetCosineOfHorizonZenithAngle(height);
 
-        bool rayIntersectsAtmosphere = (tA >= 0);
+        bool rayIntersectsAtmosphere = (tEntry >= 0);
         bool lookAboveHorizon        = (cosChi > cosHor);
 
         float3 gN = 0, gBrdf = 0, transm = 1;
@@ -70,13 +72,14 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
         if (rayIntersectsAtmosphere)
         {
-            float3 oDepth = SampleOpticalDepthTexture(cosChi, height, lookAboveHorizon);
-                   transm = TransmittanceFromOpticalDepth(oDepth);
+            // float3 oDepth = SampleOpticalDepthTexture(cosChi, height, lookAboveHorizon);
+                   // transm = TransmittanceFromOpticalDepth(oDepth);
 
             if (!lookAboveHorizon) // See the ground?
             {
-                float  tP = IntersectSphere(R, cosChi, r).x;
-                float3 gP = O + (tA + tP) * -V;
+                float tExit = tEntry + IntersectSphere(R, cosChi, r).x;
+
+                float3 gP = O + tExit * -V;
                        gN = normalize(gP);
 
                 float3 albedo;
@@ -93,7 +96,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
                 gBrdf = INV_PI * albedo;
             }
 
-            for (int i = 0, n = _DirectionalLightCount; i < n; i++)
+            for (uint i = 0; i < _DirectionalLightCount; i++)
             {
                 if (!_DirectionalLightDatas[i].interactsWithSky) continue;
 
@@ -102,39 +105,39 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
                 // TODO: solve in spherical coords?
                 float  NdotL = dot(N, L);
-                float3 projL = L - N * NdotL;
-                float3 projV = V - N * NdotV;
-                float  phiL  = acos(clamp(dot(projL, projV) * rsqrt(max(dot(projL, projL) * dot(projV, projV), FLT_EPS)), -1, 1));
-
-                TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(height, NdotV, NdotL, phiL);
+                // float3 projL = L - N * NdotL;
+                // float3 projV = V - N * NdotV;
+                // float  phiL  = acos(clamp(dot(projL, projV) * rsqrt(max(dot(projL, projL) * dot(projV, projV), FLT_EPS)), -1, 1));
 
                 float3 radiance = 0;
 
                 if (!lookAboveHorizon) // See the ground?
                 {
                     float3 irradiance = SampleGroundIrradianceTexture(dot(gN, L));
-                    radiance += gBrdf * transm * irradiance;
+                    radiance += gBrdf * /*transm * */irradiance;
                 }
 
+                // TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(height, NdotV, NdotL, phiL);
+
                 // Single scattering does not contain the phase function.
-                float LdotV = dot(L, V);
+                // float LdotV = dot(L, V);
 
                 // Air.
-                radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                                 SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                                 tc.a) * AirPhase(LdotV);
+                // radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                //                  SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                //                  tc.a) * AirPhase(LdotV);
 
                 // Aerosols.
                 // TODO: since aerosols are in a separate texture,
                 // they could use a different max height value for improved precision.
-                radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                                 SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                                 tc.a) * AerosolPhase(LdotV);
+                // radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                //                  SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                //                  tc.a) * AerosolPhase(LdotV);
 
                 // MS.
-                radiance += lerp(SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                                 SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                                 tc.a);
+                // radiance += lerp(SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                //                  SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                //                  tc.a);
 
                 radiance *= lightRadiance; // Globally scale the intensity
 
@@ -160,7 +163,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
             }
         }
 
-        totalRadiance += transm * emission;
+        totalRadiance += /*transm **/ emission;
 
         return float4(totalRadiance, 1.0);
     }

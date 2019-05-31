@@ -39,7 +39,7 @@ Shader "Hidden/HDRP/OpaqueAtmosphericScattering"
             return output;
         }
 
-        inline float4 AtmosphericScatteringCompute(Varyings input, float3 V, float depth)
+        void AtmosphericScatteringCompute(Varyings input, float3 V, float depth, out float3 color, out float3 opacity)
         {
             PositionInputs posInput = GetPositionInput(input.positionCS.xy, _ScreenSize.zw, depth, UNITY_MATRIX_I_VP, UNITY_MATRIX_V);
 
@@ -50,10 +50,10 @@ Shader "Hidden/HDRP/OpaqueAtmosphericScattering"
                 // And recompute the position on the sphere with the current camera direction.
                 posInput.positionWS = GetCurrentViewPosition() - V * _MaxFogDistance;
 
-                // Warning: we do not modify depth values. Use them with care.
+                // Warning: we do not modify depth values. Use them with care!
             }
 
-            return EvaluateAtmosphericScattering(posInput, V); // Premultiplied alpha
+            EvaluateAtmosphericScattering(posInput, V, color, opacity); // Premultiplied alpha
         }
 
         float4 Frag(Varyings input) : SV_Target
@@ -62,10 +62,12 @@ Shader "Hidden/HDRP/OpaqueAtmosphericScattering"
             float2 positionSS  = input.positionCS.xy;
             float3 V           = GetSkyViewDirWS(positionSS);
             float  depth       = LoadCameraDepth(positionSS);
-            float3 opaqueTexel = LOAD_TEXTURE2D_X(_ColorTexture, (int2)positionSS).rgb;
-            float4 atmosTexel  = AtmosphericScatteringCompute(input, V, depth);
+            float3 surfColor = LOAD_TEXTURE2D_X(_ColorTexture, (int2)positionSS).rgb;
 
-            return float4(atmosTexel.rgb + (1 - atmosTexel.a) * opaqueTexel.rgb, atmosTexel.a); // Premultiplied alpha (over operator)
+            float3 volColor, volOpacity;
+            AtmosphericScatteringCompute(input, V, depth, volColor, volOpacity);
+
+            return float4(volColor + (1 - volOpacity) * surfColor, 1); // Premultiplied alpha (over operator)
         }
 
         float4 FragMSAA(Varyings input, uint sampleIndex: SV_SampleIndex) : SV_Target
@@ -74,10 +76,12 @@ Shader "Hidden/HDRP/OpaqueAtmosphericScattering"
             float2 positionSS  = input.positionCS.xy;
             float3 V           = GetSkyViewDirWS(positionSS);
             float  depth       = LOAD_TEXTURE2D_X_MSAA(_DepthTextureMS, (int2)positionSS, sampleIndex).x;
-            float3 opaqueTexel = LOAD_TEXTURE2D_X_MSAA(_ColorTextureMS, (int2)positionSS, sampleIndex).rgb;
-            float4 atmosTexel  = AtmosphericScatteringCompute(input, V, depth);
+            float3 surfColor = LOAD_TEXTURE2D_X_MSAA(_ColorTextureMS, (int2)positionSS, sampleIndex).rgb;
 
-            return float4(atmosTexel.rgb + (1 - atmosTexel.a) * opaqueTexel.rgb, atmosTexel.a); // Premultiplied alpha (over operator)
+            float3 volColor, volOpacity;
+            AtmosphericScatteringCompute(input, V, depth, volColor, volOpacity);
+
+            return float4(volColor + (1 - volOpacity) * surfColor, 1); // Premultiplied alpha (over operator)
         }
     ENDHLSL
 

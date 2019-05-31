@@ -43,7 +43,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 pbrSkyAtmosphereFlag = visualEnvironment.skyType.value == (int)SkyType.PBR ? (int)AtmosphereType.PBR : 0;
             }
 
-            cmd.SetGlobalInt(HDShaderIDs._AtmosphericScatteringType, (int)type);
+            cmd.SetGlobalInt(HDShaderIDs._AtmosphericScatteringType, pbrSkyAtmosphereFlag | (int)type);
             cmd.SetGlobalFloat(HDShaderIDs._MaxFogDistance, maxFogDistance.value);
 
             // Fog Color

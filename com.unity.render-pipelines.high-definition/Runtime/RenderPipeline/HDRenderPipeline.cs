@@ -2803,7 +2803,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             var visualEnv = VolumeManager.instance.stack.GetComponent<VisualEnvironment>();
             m_SkyManager.RenderSky(hdCamera, GetCurrentSunLight(), colorBuffer, depthBuffer, m_CurrentDebugDisplaySettings, cmd);
 
-            if (visualEnv.fogType.value != FogType.None || visualEnv.skyType.value == (int)SkyType.PBR)
+            if ((visualEnv.fogType.value != FogType.None) || (visualEnv.skyType.value == (int)SkyType.PBR))
             {
                 var pixelCoordToViewDirWS = hdCamera.mainViewConstants.pixelCoordToViewDirWS;
                 m_SkyManager.RenderOpaqueAtmosphericScattering(cmd, hdCamera, colorBuffer, intermediateBuffer, depthBuffer, pixelCoordToViewDirWS, hdCamera.frameSettings.IsEnabled(FrameSettingsField.MSAA));
