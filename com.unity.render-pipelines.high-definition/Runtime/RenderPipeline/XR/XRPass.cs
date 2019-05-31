@@ -110,7 +110,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 passInfo.renderTarget = invalidRT;
                 passInfo.renderTargetDesc = default;
             }
-            
+
             passInfo.xrSdkEnabled = false;
             passInfo.tempRenderTexture = null;
 
