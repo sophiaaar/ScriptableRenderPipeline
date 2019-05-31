@@ -50,9 +50,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             var table = RTHandles.Alloc((int)PbrSkyConfig.OpticalDepthTableSizeX,
                                         (int)PbrSkyConfig.OpticalDepthTableSizeY,
-                                        filterMode: FilterMode.Bilinear,
                                         colorFormat: GraphicsFormat.R16G16_SFloat,
-                                        enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
+                                        enableRandomWrite: true,
                                         name: "OpticalDepthTable");
 
             Debug.Assert(table != null);
@@ -69,9 +68,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         RTHandleSystem.RTHandle AllocateGroundIrradianceTable(int index)
         {
             var table = RTHandles.Alloc((int)PbrSkyConfig.GroundIrradianceTableSize, 1,
-                                        filterMode: FilterMode.Bilinear,
                                         colorFormat: s_ColorFormat,
-                                        enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
+                                        enableRandomWrite: true,
                                         name: string.Format("GroundIrradianceTable{0}", index));
 
             Debug.Assert(table != null);
@@ -87,9 +85,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                                         (int)PbrSkyConfig.InScatteredRadianceTableSizeZ *
                                         (int)PbrSkyConfig.InScatteredRadianceTableSizeW,
                                         dimension: TextureDimension.Tex3D,
-                                        filterMode: FilterMode.Bilinear,
                                         colorFormat: s_ColorFormat,
-                                        enableRandomWrite: true, xrInstancing: false, useDynamicScale: false,
+                                        enableRandomWrite: true,
                                         name: string.Format("InScatteredRadianceTable{0}", index));
 
             Debug.Assert(table != null);
