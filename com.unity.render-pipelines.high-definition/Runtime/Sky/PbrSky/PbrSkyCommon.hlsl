@@ -14,6 +14,7 @@ CBUFFER_START(UnityPbrSky)
     float  _AtmosphericRadius;
     float  _AerosolAnisotropy;
     float  _AerosolPhasePartConstant;
+    float  _Unused;
 
     float  _AirDensityFalloff;
     float  _AirScaleHeight;

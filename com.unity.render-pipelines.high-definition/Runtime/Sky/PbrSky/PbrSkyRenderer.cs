@@ -131,17 +131,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             // TODO: ground irradiance table? Volume SH? Something else?
             if (m_LastPrecomputedBounce > 0)
             {
-                cmd.SetGlobalTexture("_OpticalDepthTexture",            m_OpticalDepthTable);
-                cmd.SetGlobalTexture("_AirSingleScatteringTexture",     m_InScatteredRadianceTables[0]);
-                cmd.SetGlobalTexture("_AerosolSingleScatteringTexture", m_InScatteredRadianceTables[1]);
-                cmd.SetGlobalTexture("_MultipleScatteringTexture",      m_InScatteredRadianceTables[2]);
+                cmd.SetGlobalTexture(HDShaderIDs._OpticalDepthTexture,            m_OpticalDepthTable);
+                cmd.SetGlobalTexture(HDShaderIDs._AirSingleScatteringTexture,     m_InScatteredRadianceTables[0]);
+                cmd.SetGlobalTexture(HDShaderIDs._AerosolSingleScatteringTexture, m_InScatteredRadianceTables[1]);
+                cmd.SetGlobalTexture(HDShaderIDs._MultipleScatteringTexture,      m_InScatteredRadianceTables[2]);
             }
             else
             {
-                cmd.SetGlobalTexture("_OpticalDepthTexture",            Texture2D.blackTexture);
-                cmd.SetGlobalTexture("_AirSingleScatteringTexture",     CoreUtils.blackVolumeTexture);
-                cmd.SetGlobalTexture("_AerosolSingleScatteringTexture", CoreUtils.blackVolumeTexture);
-                cmd.SetGlobalTexture("_MultipleScatteringTexture",      CoreUtils.blackVolumeTexture);
+                SkyRenderer.SetGlobalNeutralSkyData(cmd);
             }
 
         }
@@ -201,28 +198,28 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             float R = m_Settings.planetaryRadius.value;
             float H = m_Settings.ComputeAtmosphericDepth();
 
-            cmd.SetGlobalFloat( "_PlanetaryRadius",           R);
-            cmd.SetGlobalFloat( "_RcpPlanetaryRadius",        1.0f / R);
-            cmd.SetGlobalFloat( "_AtmosphericDepth",          H);
-            cmd.SetGlobalFloat( "_RcpAtmosphericDepth",       1.0f / H);
+            cmd.SetGlobalFloat( HDShaderIDs._PlanetaryRadius,           R);
+            cmd.SetGlobalFloat( HDShaderIDs._RcpPlanetaryRadius,        1.0f / R);
+            cmd.SetGlobalFloat( HDShaderIDs._AtmosphericDepth,          H);
+            cmd.SetGlobalFloat( HDShaderIDs._RcpAtmosphericDepth,       1.0f / H);
 
-            cmd.SetGlobalFloat( "_AtmosphericRadius",         R + H);
-            cmd.SetGlobalFloat( "_AerosolAnisotropy",         m_Settings.aerosolAnisotropy.value);
-            cmd.SetGlobalFloat( "_AerosolPhasePartConstant",  CornetteShanksPhasePartConstant(m_Settings.aerosolAnisotropy.value));
+            cmd.SetGlobalFloat( HDShaderIDs._AtmosphericRadius,         R + H);
+            cmd.SetGlobalFloat( HDShaderIDs._AerosolAnisotropy,         m_Settings.aerosolAnisotropy.value);
+            cmd.SetGlobalFloat( HDShaderIDs._AerosolPhasePartConstant,  CornetteShanksPhasePartConstant(m_Settings.aerosolAnisotropy.value));
 
-            cmd.SetGlobalFloat( "_AirDensityFalloff",         m_Settings.airDensityFalloff.value);
-            cmd.SetGlobalFloat( "_AirScaleHeight",            1.0f / m_Settings.airDensityFalloff.value);
-            cmd.SetGlobalFloat( "_AerosolDensityFalloff",     m_Settings.aerosolDensityFalloff.value);
-            cmd.SetGlobalFloat( "_AerosolScaleHeight",        1.0f / m_Settings.airDensityFalloff.value);
+            cmd.SetGlobalFloat( HDShaderIDs._AirDensityFalloff,         m_Settings.airDensityFalloff.value);
+            cmd.SetGlobalFloat( HDShaderIDs._AirScaleHeight,            1.0f / m_Settings.airDensityFalloff.value);
+            cmd.SetGlobalFloat( HDShaderIDs._AerosolDensityFalloff,     m_Settings.aerosolDensityFalloff.value);
+            cmd.SetGlobalFloat( HDShaderIDs._AerosolScaleHeight,        1.0f / m_Settings.airDensityFalloff.value);
 
-            cmd.SetGlobalVector("_AirSeaLevelExtinction",     m_Settings.airThickness.value     * 0.001f); // Convert to 1/km
-            cmd.SetGlobalFloat( "_AerosolSeaLevelExtinction", m_Settings.aerosolThickness.value * 0.001f); // Convert to 1/km
+            cmd.SetGlobalVector(HDShaderIDs._AirSeaLevelExtinction,     m_Settings.airThickness.value     * 0.001f); // Convert to 1/km
+            cmd.SetGlobalFloat( HDShaderIDs._AerosolSeaLevelExtinction, m_Settings.aerosolThickness.value * 0.001f); // Convert to 1/km
 
-            cmd.SetGlobalVector("_AirSeaLevelScattering",     m_Settings.airAlbedo.value     * m_Settings.airThickness.value     * 0.001f); // Convert to 1/km
-            cmd.SetGlobalFloat( "_AerosolSeaLevelScattering", m_Settings.aerosolAlbedo.value * m_Settings.aerosolThickness.value * 0.001f); // Convert to 1/km
+            cmd.SetGlobalVector(HDShaderIDs._AirSeaLevelScattering,     m_Settings.airAlbedo.value     * m_Settings.airThickness.value     * 0.001f); // Convert to 1/km
+            cmd.SetGlobalFloat( HDShaderIDs._AerosolSeaLevelScattering, m_Settings.aerosolAlbedo.value * m_Settings.aerosolThickness.value * 0.001f); // Convert to 1/km
 
-            cmd.SetGlobalVector("_GroundAlbedo",              m_Settings.groundColor.value);
-            cmd.SetGlobalVector("_PlanetCenterPosition",      m_Settings.planetCenterPosition.value);
+            cmd.SetGlobalVector(HDShaderIDs._GroundAlbedo,              m_Settings.groundColor.value);
+            cmd.SetGlobalVector(HDShaderIDs._PlanetCenterPosition,      m_Settings.planetCenterPosition.value);
         }
 
         void PrecomputeTables(CommandBuffer cmd)
@@ -232,7 +229,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Only needs to be done once.
                 using (new ProfilingSample(cmd, "Optical Depth Precomputation"))
                 {
-                    cmd.SetComputeTextureParam(s_OpticalDepthPrecomputationCS, 0, "_OpticalDepthTable", m_OpticalDepthTable);
+                    cmd.SetComputeTextureParam(s_OpticalDepthPrecomputationCS, 0, HDShaderIDs._OpticalDepthTable, m_OpticalDepthTable);
                     cmd.DispatchCompute(s_OpticalDepthPrecomputationCS, 0, (int)PbrSkyConfig.OpticalDepthTableSizeX / 8, (int)PbrSkyConfig.OpticalDepthTableSizeY / 8, 1);
                 }
             }
@@ -257,32 +254,32 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                         {
                             // Used by all passes.
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_OpticalDepthTexture",            m_OpticalDepthTable);
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._OpticalDepthTexture,  m_OpticalDepthTable);
                         }
 
                         switch (pass)
                         {
                         case 0:
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_AirSingleScatteringTable",       m_InScatteredRadianceTables[0]);
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_AerosolSingleScatteringTable",   m_InScatteredRadianceTables[1]);
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTable",        m_InScatteredRadianceTables[2]); // MS orders
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTableOrder",   m_InScatteredRadianceTables[3]); // One order
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._AirSingleScatteringTable,       m_InScatteredRadianceTables[0]);
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._AerosolSingleScatteringTable,   m_InScatteredRadianceTables[1]);
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._MultipleScatteringTable,        m_InScatteredRadianceTables[2]); // MS orders
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._MultipleScatteringTableOrder,   m_InScatteredRadianceTables[3]); // One order
                             break;
                         case 1:
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_AirSingleScatteringTexture",     m_InScatteredRadianceTables[0]);
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_AerosolSingleScatteringTexture", m_InScatteredRadianceTables[1]);
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_GroundIrradianceTexture",        m_GroundIrradianceTables[1]);    // One order
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTable",        m_InScatteredRadianceTables[4]); // Temp
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._AirSingleScatteringTexture,     m_InScatteredRadianceTables[0]);
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._AerosolSingleScatteringTexture, m_InScatteredRadianceTables[1]);
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._GroundIrradianceTexture,        m_GroundIrradianceTables[1]);    // One order
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._MultipleScatteringTable,        m_InScatteredRadianceTables[4]); // Temp
                             break;
                         case 2:
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTexture",      m_InScatteredRadianceTables[3]); // One order
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_GroundIrradianceTexture",        m_GroundIrradianceTables[1]);    // One order
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTable",        m_InScatteredRadianceTables[4]); // Temp
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._MultipleScatteringTexture,      m_InScatteredRadianceTables[3]); // One order
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._GroundIrradianceTexture,        m_GroundIrradianceTables[1]);    // One order
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._MultipleScatteringTable,        m_InScatteredRadianceTables[4]); // Temp
                             break;
                         case 3:
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTexture",      m_InScatteredRadianceTables[4]); // Temp
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTableOrder",   m_InScatteredRadianceTables[3]); // One order
-                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, "_MultipleScatteringTable",        m_InScatteredRadianceTables[2]); // MS orders
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._MultipleScatteringTexture,      m_InScatteredRadianceTables[4]); // Temp
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._MultipleScatteringTableOrder,   m_InScatteredRadianceTables[3]); // One order
+                            cmd.SetComputeTextureParam(s_InScatteredRadiancePrecomputationCS, pass, HDShaderIDs._MultipleScatteringTable,        m_InScatteredRadianceTables[2]); // MS orders
                             break;
                         default:
                             Debug.Assert(false);
@@ -299,21 +296,21 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                     {
                         // Used by all passes.
-                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_GroundIrradianceTable",          m_GroundIrradianceTables[0]); // All orders
-                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_GroundIrradianceTableOrder",     m_GroundIrradianceTables[1]); // One order
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, HDShaderIDs._GroundIrradianceTable,          m_GroundIrradianceTables[0]); // All orders
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, HDShaderIDs._GroundIrradianceTableOrder,     m_GroundIrradianceTables[1]); // One order
                     }
 
                     switch (firstPass)
                     {
                     case 0:
-                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_OpticalDepthTexture",            m_OpticalDepthTable);
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, HDShaderIDs._OpticalDepthTexture,            m_OpticalDepthTable);
                         break;
                     case 1:
-                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_AirSingleScatteringTexture",     m_InScatteredRadianceTables[0]);
-                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_AerosolSingleScatteringTexture", m_InScatteredRadianceTables[1]);
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, HDShaderIDs._AirSingleScatteringTexture,     m_InScatteredRadianceTables[0]);
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, HDShaderIDs._AerosolSingleScatteringTexture, m_InScatteredRadianceTables[1]);
                         break;
                     case 2:
-                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, "_MultipleScatteringTexture",      m_InScatteredRadianceTables[3]); // One order
+                        cmd.SetComputeTextureParam(s_GroundIrradiancePrecomputationCS, firstPass, HDShaderIDs._MultipleScatteringTexture,      m_InScatteredRadianceTables[3]); // One order
                         break;
                     default:
                         Debug.Assert(false);
@@ -340,35 +337,51 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 m_LastPrecomputedBounce = 0;
             }
 
-            if (m_LastPrecomputedBounce == 0)
+            // F**k cubemap.
+            if (!renderForCubemap)
             {
-                // Allocate temp tables.
-                m_GroundIrradianceTables[1]    = AllocateGroundIrradianceTable(1);
-                m_InScatteredRadianceTables[3] = AllocateInScatteredRadianceTable(3);
-                m_InScatteredRadianceTables[4] = AllocateInScatteredRadianceTable(4);
-            }
-            else if ((m_LastPrecomputedBounce == m_Settings.numBounces.value) && !renderForCubemap)
-            {
-                // Free temp tables.
-                // This is a deferred release (one frame late!)
-                RTHandles.Release(m_GroundIrradianceTables[1]);
-                RTHandles.Release(m_InScatteredRadianceTables[3]);
-                RTHandles.Release(m_InScatteredRadianceTables[4]);
-                m_GroundIrradianceTables[1]    = null;
-                m_InScatteredRadianceTables[3] = null;
-                m_InScatteredRadianceTables[4] = null;
-            }
+                if (m_LastPrecomputedBounce == 0)
+                {
+                    // Allocate temp tables if needed
+                    if (m_GroundIrradianceTables[1] == null)
+                    {
+                        m_GroundIrradianceTables[1] = AllocateGroundIrradianceTable(1);
+                    }
 
-            if (m_LastPrecomputedBounce < m_Settings.numBounces.value)
-            {
-                // We precompute one bounce per render call.
-                // This can and will produce weird results during cubemap rendering.
-                PrecomputeTables(cmd);
-                m_LastPrecomputedBounce++;
-            }
+                    if (m_InScatteredRadianceTables[3] == null)
+                    {
+                        m_InScatteredRadianceTables[3] = AllocateInScatteredRadianceTable(3);
+                    }
 
-            // Update the hash for the current bounce.
-            m_LastPrecomputationParamHash = currentParamHash;
+                    if (m_InScatteredRadianceTables[4] == null)
+                    {
+                        m_InScatteredRadianceTables[4] = AllocateInScatteredRadianceTable(4);
+                    }
+                }
+
+                if (m_LastPrecomputedBounce == m_Settings.numBounces.value)
+                {
+                    // Free temp tables.
+                    // This is a deferred release (one frame late)!
+                    RTHandles.Release(m_GroundIrradianceTables[1]);
+                    RTHandles.Release(m_InScatteredRadianceTables[3]);
+                    RTHandles.Release(m_InScatteredRadianceTables[4]);
+                    m_GroundIrradianceTables[1]    = null;
+                    m_InScatteredRadianceTables[3] = null;
+                    m_InScatteredRadianceTables[4] = null;
+                }
+
+                if (m_LastPrecomputedBounce < m_Settings.numBounces.value)
+                {
+                    // We precompute one bounce per render call.
+                    // This can and will produce weird results during cubemap rendering.
+                    PrecomputeTables(cmd);
+                    m_LastPrecomputedBounce++;
+
+                    // Update the hash for the current bounce.
+                    m_LastPrecomputationParamHash = currentParamHash;
+                }
+            }
 
             // Precomputation is done, shading is next.
             Quaternion planetRotation = Quaternion.Euler(m_Settings.planetRotation.value.x,
@@ -381,40 +394,52 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             // This matrix needs to be updated at the draw call frequency.
             s_PbrSkyMaterialProperties.SetMatrix( HDShaderIDs._PixelCoordToViewDirWS, builtinParams.pixelCoordToViewDirMatrix);
-            s_PbrSkyMaterialProperties.SetTexture("_OpticalDepthTexture",             m_OpticalDepthTable);
-            s_PbrSkyMaterialProperties.SetTexture("_GroundIrradianceTexture",         m_GroundIrradianceTables[0]);
-            s_PbrSkyMaterialProperties.SetTexture("_AirSingleScatteringTexture",      m_InScatteredRadianceTables[0]);
-            s_PbrSkyMaterialProperties.SetTexture("_AerosolSingleScatteringTexture",  m_InScatteredRadianceTables[1]);
-            s_PbrSkyMaterialProperties.SetTexture("_MultipleScatteringTexture",       m_InScatteredRadianceTables[2]);
-            s_PbrSkyMaterialProperties.SetMatrix( "_PlanetRotation",                  Matrix4x4.Rotate(planetRotation));
-            s_PbrSkyMaterialProperties.SetMatrix( "_SpaceRotation",                   Matrix4x4.Rotate(spaceRotation));
+            s_PbrSkyMaterialProperties.SetMatrix( HDShaderIDs._PlanetRotation,        Matrix4x4.Rotate(planetRotation));
+            s_PbrSkyMaterialProperties.SetMatrix( HDShaderIDs._SpaceRotation,         Matrix4x4.Rotate(spaceRotation));
+
+            if (m_LastPrecomputedBounce > 0)
+            {
+                s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._OpticalDepthTexture,            m_OpticalDepthTable);
+                s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._GroundIrradianceTexture,        m_GroundIrradianceTables[0]);
+                s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._AirSingleScatteringTexture,     m_InScatteredRadianceTables[0]);
+                s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._AerosolSingleScatteringTexture, m_InScatteredRadianceTables[1]);
+                s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._MultipleScatteringTexture,      m_InScatteredRadianceTables[2]);
+            }
+            else
+            {
+                s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._OpticalDepthTexture,            Texture2D.blackTexture);
+                s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._GroundIrradianceTexture,        Texture2D.blackTexture);
+                s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._AirSingleScatteringTexture,     CoreUtils.blackVolumeTexture);
+                s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._AerosolSingleScatteringTexture, CoreUtils.blackVolumeTexture);
+                s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._MultipleScatteringTexture,      CoreUtils.blackVolumeTexture);
+            }
 
             int hasGroundAlbedoTexture = 0;
 
             if (m_Settings.groundAlbedoTexture.value != null)
             {
                 hasGroundAlbedoTexture = 1;
-                s_PbrSkyMaterialProperties.SetTexture("_GroundAlbedoTexture", m_Settings.groundAlbedoTexture.value);
+                s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._GroundAlbedoTexture, m_Settings.groundAlbedoTexture.value);
             }
-            s_PbrSkyMaterialProperties.SetInt("_HasGroundAlbedoTexture", hasGroundAlbedoTexture);
+            s_PbrSkyMaterialProperties.SetInt(HDShaderIDs._HasGroundAlbedoTexture, hasGroundAlbedoTexture);
 
             int hasGroundEmissionTexture = 0;
 
             if (m_Settings.groundEmissionTexture.value != null)
             {
                 hasGroundEmissionTexture = 1;
-                s_PbrSkyMaterialProperties.SetTexture("_GroundEmissionTexture", m_Settings.groundEmissionTexture.value);
+                s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._GroundEmissionTexture, m_Settings.groundEmissionTexture.value);
             }
-            s_PbrSkyMaterialProperties.SetInt("_HasGroundEmissionTexture", hasGroundEmissionTexture);
+            s_PbrSkyMaterialProperties.SetInt(HDShaderIDs._HasGroundEmissionTexture, hasGroundEmissionTexture);
 
             int hasSpaceEmissionTexture = 0;
 
             if (m_Settings.spaceEmissionTexture.value != null)
             {
                 hasSpaceEmissionTexture = 1;
-                s_PbrSkyMaterialProperties.SetTexture("_SpaceEmissionTexture", m_Settings.spaceEmissionTexture.value);
+                s_PbrSkyMaterialProperties.SetTexture(HDShaderIDs._SpaceEmissionTexture, m_Settings.spaceEmissionTexture.value);
             }
-            s_PbrSkyMaterialProperties.SetInt("_HasSpaceEmissionTexture", hasSpaceEmissionTexture);
+            s_PbrSkyMaterialProperties.SetInt(HDShaderIDs._HasSpaceEmissionTexture, hasSpaceEmissionTexture);
 
             CoreUtils.DrawFullScreen(builtinParams.commandBuffer, s_PbrSkyMaterial, s_PbrSkyMaterialProperties, renderForCubemap ? 0 : 1);
         }
