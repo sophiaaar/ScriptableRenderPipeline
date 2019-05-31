@@ -56,12 +56,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             Debug.Assert(table != null);
 
-            // Must not contain garbage.
-            RenderTexture lastActive = RenderTexture.active;
-            RenderTexture.active = table;
-            GL.Clear(false, true, Color.clear);
-            RenderTexture.active = lastActive;
-
             return table;
         }
 
@@ -135,10 +129,21 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             UpdateGlobalConstantBuffer(cmd);
 
             // TODO: ground irradiance table? Volume SH? Something else?
-            cmd.SetGlobalTexture("_OpticalDepthTexture",            m_OpticalDepthTable);
-            cmd.SetGlobalTexture("_AirSingleScatteringTexture",     m_InScatteredRadianceTables[0]);
-            cmd.SetGlobalTexture("_AerosolSingleScatteringTexture", m_InScatteredRadianceTables[1]);
-            cmd.SetGlobalTexture("_MultipleScatteringTexture",      m_InScatteredRadianceTables[2]);
+            if (m_LastPrecomputedBounce > 0)
+            {
+                cmd.SetGlobalTexture("_OpticalDepthTexture",            m_OpticalDepthTable);
+                cmd.SetGlobalTexture("_AirSingleScatteringTexture",     m_InScatteredRadianceTables[0]);
+                cmd.SetGlobalTexture("_AerosolSingleScatteringTexture", m_InScatteredRadianceTables[1]);
+                cmd.SetGlobalTexture("_MultipleScatteringTexture",      m_InScatteredRadianceTables[2]);
+            }
+            else
+            {
+                cmd.SetGlobalTexture("_OpticalDepthTexture",            Texture2D.blackTexture);
+                cmd.SetGlobalTexture("_AirSingleScatteringTexture",     CoreUtils.blackVolumeTexture);
+                cmd.SetGlobalTexture("_AerosolSingleScatteringTexture", CoreUtils.blackVolumeTexture);
+                cmd.SetGlobalTexture("_MultipleScatteringTexture",      CoreUtils.blackVolumeTexture);
+            }
+
         }
 
         public override bool IsValid()
