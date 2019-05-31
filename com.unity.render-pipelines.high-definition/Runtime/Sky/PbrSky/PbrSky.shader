@@ -47,6 +47,8 @@ Shader "Hidden/HDRP/Sky/PbrSky"
         return output;
     }
 
+    // TODO: we must write depth for the planet!
+    // What about depth prepass??
     float4 RenderSky(Varyings input)
     {
         const float  R = _PlanetaryRadius;
