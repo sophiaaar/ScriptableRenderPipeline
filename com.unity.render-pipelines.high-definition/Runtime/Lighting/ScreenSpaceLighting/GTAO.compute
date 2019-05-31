@@ -162,7 +162,7 @@ void GTAO_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
     float2 rayStart = dispatchThreadId.xy;
 
     float3 V = normalize(-positionVS);
-    float fovCorrectedradiusSS =  clamp(_AORadius * saturate(max(1, positionVS.z - 2) * 1) * _AOFOVCorrection * rcp(positionVS.z), _AOStepCount, 40);
+    float fovCorrectedradiusSS =  clamp(_AORadius * saturate(max(1, positionVS.z - 2) * 1) * _AOFOVCorrection * rcp(positionVS.z), _AOStepCount, _AOMaxRadiusInPixels);
     float step = fovCorrectedradiusSS * _AOInvStepCountPlusOne;
 
 

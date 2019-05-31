@@ -23,6 +23,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         [Tooltip("If the option is selected, then each depth sample will be obtained as the minimum value in a 2x2 region. This improves quality, but has a small cost.")]
         public BoolParameter useMinGatheredDepth = new BoolParameter(true);
 
+        [Tooltip("If the option is selected, then each depth sample will be obtained as the minimum value in a 2x2 region. This improves quality, but has a small cost.")]
+        public ClampedIntParameter maximumRadiusInPixels = new ClampedIntParameter(40, 16, 256);
+
 
         [Tooltip("Controls how much the ambient light affects occlusion.")]
         public ClampedFloatParameter directLightingStrength = new ClampedFloatParameter(0f, 0f, 1f);
@@ -214,7 +217,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 info.mipLevelOffsets[1].x,
                 info.mipLevelOffsets[1].y,
                 1.0f / ((float)settings.stepCount.value + 1.0f),
-                0.0f
+                settings.maximumRadiusInPixels.value
             );
 
             var cs = m_Resources.shaders.GTAOCS;

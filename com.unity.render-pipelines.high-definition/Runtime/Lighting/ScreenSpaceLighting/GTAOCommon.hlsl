@@ -21,6 +21,7 @@ CBUFFER_END
 #define _AOTemporalRotationIdx _AOParams1.w
 #define _AOMipOffset _AOParams2.xy
 #define _AOInvStepCountPlusOne _AOParams2.z
+#define _AOMaxRadiusInPixels (int)_AOParams2.w
 
 // If this is set to 0 best quality is achieved when full res, but performance is significantly lower.
 // If set to 1, when full res, it may lead to extra aliasing and loss of detail, but still significant higher quality than half res.
