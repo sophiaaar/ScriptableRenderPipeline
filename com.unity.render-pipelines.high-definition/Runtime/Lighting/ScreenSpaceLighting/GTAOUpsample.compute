@@ -1,22 +1,20 @@
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Lighting/ScreenSpaceLighting/GTAOCommon.hlsl"
 
-// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel AOUpsample
 
-// Create a RenderTexture with enableRandomWrite flag and set it
-// with cs.SetTexture
 RW_TEXTURE2D_X(float, _OcclusionTexture);
 TEXTURE2D_X_UINT(_AOPackedData);
 
 #define EPSILON 0.01
 #define DELTA_SCALE 10
 
-#define BILATERAL 1
+#define BILATERAL 0
+
+// TODO: This pass really could really use some quality improvement. 
 
 [numthreads(8,8,1)]
 void AOUpsample(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
-    // This will need to be a gather soon.
     // Gather half res samples + depths.
     float2 uv = (dispatchThreadId.xy + 0.5f) * _ScreenSize.zw;
     uint4 currDatas = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, ClampAndScaleUVForBilinear(uv, _AOBufferSize.zw));

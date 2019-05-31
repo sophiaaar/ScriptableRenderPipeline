@@ -237,7 +237,7 @@ void TEMPORAL_DENOISE_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
     // The conversion and the pow happens in upsample phase.
     _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = PackAOOutput(newAO, currDepths.y);
 #else
-    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = 1.0f - pow(newAO, _AOIntensity);
+    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = 1.0f - PositivePow(newAO, _AOIntensity);
 #endif
 
     

@@ -28,7 +28,11 @@ CBUFFER_END
 #define HALF_RES_DEPTH 1 // Make this an option.
 
 // This increases the quality when running with half resolution buffer, however it adds a bit of cost. Note that it will not have artifact as we already don't allow samples to be at the edge of the depth buffer.
-#define MIN_DEPTH_GATHERED 1
+#define MIN_DEPTH_GATHERED_FOR_CENTRAL 1
+
+#define MIN_DEPTH_GATHERED_FOR_SAMPLE 0
+
+
 
 float GetMinDepth(float2 localUVs)
 {
@@ -40,19 +44,19 @@ float GetMinDepth(float2 localUVs)
     return min(Min3(gatheredDepth.x, gatheredDepth.y, gatheredDepth.z), gatheredDepth.w);
 }
 
-float GetDepth(float2 positionSS)
+float GetDepthForCentral(float2 positionSS)
 {
 
 #ifdef FULL_RES
 
 #if HALF_RES_DEPTH
 
-#if MIN_DEPTH_GATHERED
+#if MIN_DEPTH_GATHERED_FOR_CENTRAL
 
     float2 localUVs = positionSS.xy * _AOBufferSize.zw;
     return GetMinDepth(localUVs);
 
-#else // MIN_DEPTH_GATHERED
+#else // MIN_DEPTH_GATHERED_FOR_CENTRAL
     return LOAD_TEXTURE2D_X(_DepthPyramidTexture, _AOMipOffset + positionSS / 2).r;
 #endif 
 
@@ -62,14 +66,39 @@ float GetDepth(float2 positionSS)
 
 #else // FULL_RES
 
-#if MIN_DEPTH_GATHERED
+#if MIN_DEPTH_GATHERED_FOR_CENTRAL
+
     float2 localUVs = positionSS.xy * _AOBufferSize.zw;
     return GetMinDepth(localUVs);
 #else
+
     return LOAD_TEXTURE2D_X(_DepthPyramidTexture, _AOMipOffset + (uint2)positionSS.xy).r;
 #endif
 
 #endif
+}
+
+
+float GetDepthSample(float2 positionSS)
+{
+#if MIN_DEPTH_GATHERED_FOR_SAMPLE
+    return GetDepthForCentral(positionSS);
+#endif 
+
+#ifdef FULL_RES
+
+#if HALF_RES_DEPTH
+    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, _AOMipOffset + positionSS / 2).r;
+#endif 
+
+    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, positionSS).r;
+
+
+#else // FULL_RES
+
+    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, uint2(0, _ScreenSize.y) + (uint2)positionSS.xy).r;
+#endif
+
 }
 
 float GTAOFastSqrt(float x)

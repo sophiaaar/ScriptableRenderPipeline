@@ -95,9 +95,14 @@ float GetOffset(uint2 positionSS)
 // Input generation functions
 // --------------------------------------------
 
-float3 GetPositionVS(float2 positionSS, out float depth)
+float3 GetPositionVS(float2 positionSS, float depth)
 {
-    depth = GetDepth(positionSS);
+    float linearDepth = LinearEyeDepth(depth, _ZBufferParams);
+    return float3((positionSS * _AODepthToViewParams.xy - _AODepthToViewParams.zw) * linearDepth, linearDepth);
+}
+
+float3 GetPositionSampleVS(float2 positionSS, out float depth)
+{
     float linearDepth = LinearEyeDepth(depth, _ZBufferParams);
     return float3((positionSS * _AODepthToViewParams.xy - _AODepthToViewParams.zw) * linearDepth, linearDepth);
 }
@@ -124,7 +129,7 @@ float HorizonLoop(float3 positionVS, float3 V, float2 rayStart, float2 rayDir, f
         float2 samplePos = max(1, min(rayStart + t * rayDir, _AOBufferSize.xy - 1));
 
         // Find horizons at these steps:
-        float sampleDepth; 
+        float sampleDepth = GetDepthSample(samplePos);
         float3 samplePosVS = GetPositionVS(samplePos.xy, sampleDepth);
 
         float3 deltaPos = samplePosVS - positionVS;
@@ -147,7 +152,7 @@ RW_TEXTURE2D_X(uint, _AOPackedData);
 void GTAO_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
     // Read buffers as early as possible.
-    float currDepth;
+    float currDepth = GetDepthForCentral(dispatchThreadId.xy);
     float3 positionVS = GetPositionVS(dispatchThreadId.xy, currDepth);
 #if HALF_RES
     float4 normalBufferData = LOAD_TEXTURE2D_X(_NormalBufferTexture, dispatchThreadId.xy * 2);
