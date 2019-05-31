@@ -3,6 +3,8 @@
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Builtin/BuiltinData.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
 
+StructuredBuffer<int2>  _DepthPyramidMipLevelOffsets;
+
 CBUFFER_START(GTAOUniformBuffer)
 float4 _AOBufferSize;
 float4 _AOParams0;     
@@ -25,14 +27,14 @@ CBUFFER_END
 
 // If this is set to 0 best quality is achieved when full res, but performance is significantly lower.
 // If set to 1, when full res, it may lead to extra aliasing and loss of detail, but still significant higher quality than half res.
-#define HALF_RES_DEPTH 1 // Make this an option.
+#define HALF_RES_DEPTH_FOR_SAMPLES 1 
+#define HALF_RES_DEPTH_FOR_CENTRAL 0 
+
 
 // This increases the quality when running with half resolution buffer, however it adds a bit of cost. Note that it will not have artifact as we already don't allow samples to be at the edge of the depth buffer.
 #define MIN_DEPTH_GATHERED_FOR_CENTRAL 1
 
-#define MIN_DEPTH_GATHERED_FOR_SAMPLE 0
-
-
+#define LOWER_MIP_SAMPLES 1
 
 float GetMinDepth(float2 localUVs)
 {
@@ -44,61 +46,59 @@ float GetMinDepth(float2 localUVs)
     return min(Min3(gatheredDepth.x, gatheredDepth.y, gatheredDepth.z), gatheredDepth.w);
 }
 
+
 float GetDepthForCentral(float2 positionSS)
 {
-
 #ifdef FULL_RES
 
-#if HALF_RES_DEPTH
+    #if HALF_RES_DEPTH_FOR_CENTRAL
 
-#if MIN_DEPTH_GATHERED_FOR_CENTRAL
+        #if MIN_DEPTH_GATHERED_FOR_CENTRAL
+            float2 localUVs = positionSS.xy * _AOBufferSize.zw;
+            return GetMinDepth(localUVs);
+        #endif
 
-    float2 localUVs = positionSS.xy * _AOBufferSize.zw;
-    return GetMinDepth(localUVs);
+            return LOAD_TEXTURE2D_X(_DepthPyramidTexture, _DepthPyramidMipLevelOffsets[1] + positionSS / 2).r;
+    #endif
 
-#else // MIN_DEPTH_GATHERED_FOR_CENTRAL
-    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, _AOMipOffset + positionSS / 2).r;
-#endif 
-
-#else  // HALF_RES_DEPTH
     return LOAD_TEXTURE2D_X(_DepthPyramidTexture, positionSS).r;
-#endif
 
 #else // FULL_RES
 
-#if MIN_DEPTH_GATHERED_FOR_CENTRAL
+    #if MIN_DEPTH_GATHERED_FOR_CENTRAL
 
-    float2 localUVs = positionSS.xy * _AOBufferSize.zw;
-    return GetMinDepth(localUVs);
-#else
+        float2 localUVs = positionSS.xy * _AOBufferSize.zw;
+        return GetMinDepth(localUVs);
 
-    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, _AOMipOffset + (uint2)positionSS.xy).r;
-#endif
+    #else
+        return LOAD_TEXTURE2D_X(_DepthPyramidTexture, _DepthPyramidMipLevelOffsets[1] + (uint2)positionSS.xy).r;
+    #endif
 
-#endif
+#endif  // FULL_RES
 }
 
 
-float GetDepthSample(float2 positionSS)
+float GetDepthSample(float2 positionSS, bool lowerRes)
 {
-#if MIN_DEPTH_GATHERED_FOR_SAMPLE
-    return GetDepthForCentral(positionSS);
-#endif 
+#if !LOWER_MIP_SAMPLES
+    lowerRes = false;
+#endif
 
 #ifdef FULL_RES
 
-#if HALF_RES_DEPTH
-    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, _AOMipOffset + positionSS / 2).r;
-#endif 
+    #if HALF_RES_DEPTH_FOR_SAMPLES
+        
+        return LOAD_TEXTURE2D_X(_DepthPyramidTexture, _DepthPyramidMipLevelOffsets[1 + lowerRes] + (uint2)positionSS.xy / (2 + 2*lowerRes)).r;
+
+    #endif
 
     return LOAD_TEXTURE2D_X(_DepthPyramidTexture, positionSS).r;
 
-
 #else // FULL_RES
 
-    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, uint2(0, _ScreenSize.y) + (uint2)positionSS.xy).r;
-#endif
+    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, _DepthPyramidMipLevelOffsets[1 + lowerRes] + (uint2)positionSS.xy / (1 + lowerRes)).r;
 
+#endif
 }
 
 float GTAOFastSqrt(float x)

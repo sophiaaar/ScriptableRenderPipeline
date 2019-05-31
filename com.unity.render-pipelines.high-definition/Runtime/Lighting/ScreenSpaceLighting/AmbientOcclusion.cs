@@ -142,7 +142,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         public bool IsActive(HDCamera camera, AmbientOcclusion settings) => camera.frameSettings.IsEnabled(FrameSettingsField.SSAO) && settings.intensity.value > 0f;
 
-        public void Render(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, ScriptableRenderContext renderContext, int frameCount)
+        public void Render(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, ScriptableRenderContext renderContext, int frameCount, ComputeBuffer depthMipBuffer)
         {
 
 #if ENABLE_RAYTRACING
@@ -152,12 +152,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             else
 #endif
             {
-                Dispatch(cmd, camera, sharedRTManager, frameCount);
+                Dispatch(cmd, camera, sharedRTManager, frameCount, depthMipBuffer);
                 PostDispatchWork(cmd, camera, sharedRTManager);
             }
         }
 
-        private void RenderAO(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, int frameCount)
+        private void RenderAO(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, int frameCount, ComputeBuffer depthMipBuffer)
         {
             // Grab current settings
             var settings = VolumeManager.instance.stack.GetComponent<AmbientOcclusion>();
@@ -233,6 +233,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._OcclusionTexture, m_AmbientOcclusionTex);
             cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._BentNormalsTexture, m_BentNormalTex);
             cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._AOPackedData, m_PackedDataTex);
+
+            cmd.SetComputeBufferParam(cs, kernel, HDShaderIDs._DepthPyramidMipLevelOffsets, depthMipBuffer);
 
             const int groupSizeX = 8;
             const int groupSizeY = 8;
@@ -379,11 +381,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
         }
 
-        public void Dispatch(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, int frameCount)
+        public void Dispatch(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, int frameCount, ComputeBuffer depthMipBuffer)
         {
             using (new ProfilingSample(cmd, "GTAO", CustomSamplerId.RenderSSAO.GetSampler()))
             {
-                RenderAO(cmd, camera, sharedRTManager, frameCount);
+                RenderAO(cmd, camera, sharedRTManager, frameCount, depthMipBuffer);
                 DenoiseAO(cmd, camera, sharedRTManager);
             }
         }
