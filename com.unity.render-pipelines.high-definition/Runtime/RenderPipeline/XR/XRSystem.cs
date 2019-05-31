@@ -233,6 +233,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         bool CanUseInstancing(Camera camera, XRDisplaySubsystem.XRRenderPass renderPass)
         {
             // XRTODO: instanced views support with XR SDK
+            // must be array and same target, different viewport possible but same size, also same culling ID
             return renderPass.GetRenderParameterCount() == 2;
 
             // check viewCount > 1, valid texture array format and valid slice index
