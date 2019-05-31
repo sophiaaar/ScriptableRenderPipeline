@@ -12,7 +12,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public ClampedFloatParameter intensity = new ClampedFloatParameter(0f, 0f, 4f);
 
         [Tooltip("Number of steps to take along one signed direction during horizon search (this is the number of steps in positive and negative direction).")]
-        public ClampedIntParameter stepCount = new ClampedIntParameter(4, 2, 32);
+        public ClampedIntParameter stepCount = new ClampedIntParameter(6, 2, 32);
 
         [Tooltip("Sampling radius. Bigger the radius, wider AO will be achieved, risking to lose fine details and increasing cost of the effect due to increasing cache misses.")]
         public ClampedFloatParameter radius = new ClampedFloatParameter(1.5f, 0.25f, 5.0f);
@@ -20,16 +20,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         [Tooltip("The effect runs at full resolution. This increases quality, but also decreases performance significantly.")]
         public BoolParameter fullResolution = new BoolParameter(true);
 
-        [Tooltip("Controls the thickness of occluders. Increase this value to increase the size of dark areas.")]
-        public ClampedFloatParameter thicknessModifier = new ClampedFloatParameter(1f, 1f, 10f);
+        [Tooltip("If the option is selected, then each depth sample will be obtained as the minimum value in a 2x2 region. This improves quality, but has a small cost.")]
+        public BoolParameter useMinGatheredDepth = new BoolParameter(true);
+
 
         [Tooltip("Controls how much the ambient light affects occlusion.")]
         public ClampedFloatParameter directLightingStrength = new ClampedFloatParameter(0f, 0f, 1f);
-
-        // Hidden parameters
-        [HideInInspector] public ClampedFloatParameter noiseFilterTolerance = new ClampedFloatParameter(0f, -8f, 0f);
-        [HideInInspector] public ClampedFloatParameter blurTolerance = new ClampedFloatParameter(-4.6f, -8f, 1f);
-        [HideInInspector] public ClampedFloatParameter upsampleTolerance = new ClampedFloatParameter(-12f, -12f, -1f);
     }
 
     public class AmbientOcclusionSystem
@@ -48,9 +44,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         private bool m_RunningFullRes = false;
         private int m_HistoryIndex = 0;
-
-        // TODO_FCC: Old.
-        //readonly ScaleFunc[] m_ScaleFunctors;
 
         //// MSAA-specifics
         //readonly RTHandle m_MultiAmbientOcclusionTex;
@@ -221,11 +214,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 info.mipLevelOffsets[1].x,
                 info.mipLevelOffsets[1].y,
                 1.0f / ((float)settings.stepCount.value + 1.0f),
-                0
+                0.0f
             );
 
             var cs = m_Resources.shaders.GTAOCS;
-            var kernel = cs.FindKernel("GTAOMain");
+            var kernel = cs.FindKernel("GTAOMain_HalfRes");
+            if(m_RunningFullRes)
+            {
+                kernel = cs.FindKernel("GTAOMain_FullRes");
+            }
 
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AOBufferSize, aoBufferInfo);
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AODepthToViewParams, toViewSpaceProj);

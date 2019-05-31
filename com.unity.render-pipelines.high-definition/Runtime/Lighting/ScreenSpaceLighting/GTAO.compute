@@ -1,8 +1,10 @@
-#include "GTAOCommon.hlsl"
+#include "Packages/com.unity.render-pipelines.high-definition/Runtime/Lighting/ScreenSpaceLighting/GTAOCommon.hlsl"
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/NormalBuffer.hlsl"
 
-#pragma kernel GTAOMain
-#pragma enable_d3d11_debug_symbols
+//#pragma enable_d3d11_debug_symbols
+
+#pragma kernel GTAOMain_HalfRes GTAO_KERNEL_NAME=GTAOMain_HalfRes HALF_RES
+#pragma kernel GTAOMain_FullRes GTAO_KERNEL_NAME=GTAOMain_FullRes FULL_RES
 
 // --------------------------------------------
 // Options
@@ -117,9 +119,9 @@ float HorizonLoop(float3 positionVS, float3 V, float2 rayStart, float2 rayDir, f
     float maxHorizon = -1;
     float t = rayOffset * rayStep + rayStep;
 
-    for (int i = 0; i < _AOStepCount; i++)
+    for (uint i = 0; i < _AOStepCount; i++)
     {
-        float2 samplePos = min(rayStart + t * rayDir, _AOBufferSize.xy - 1);
+        float2 samplePos = max(1, min(rayStart + t * rayDir, _AOBufferSize.xy - 1));
 
         // Find horizons at these steps:
         float sampleDepth; 
@@ -142,12 +144,16 @@ RW_TEXTURE2D_X(float3, _BentNormalsTexture);
 RW_TEXTURE2D_X(uint, _AOPackedData);
 
 [numthreads(8,8,1)]
-void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
+void GTAO_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
     // Read buffers as early as possible.
     float currDepth;
     float3 positionVS = GetPositionVS(dispatchThreadId.xy, currDepth);
-    float4 normalBufferData = LOAD_TEXTURE2D_X(_NormalBufferTexture, dispatchThreadId.xy * (_AOBaseResMip + 1));
+#if HALF_RES
+    float4 normalBufferData = LOAD_TEXTURE2D_X(_NormalBufferTexture, dispatchThreadId.xy * 2);
+#else
+    float4 normalBufferData = LOAD_TEXTURE2D_X(_NormalBufferTexture, dispatchThreadId.xy);
+#endif
 
 
     float2 dir = GetDirection(dispatchThreadId.xy);
@@ -156,7 +162,7 @@ void GTAOMain (uint3 dispatchThreadId : SV_DispatchThreadID)
     float2 rayStart = dispatchThreadId.xy;
 
     float3 V = normalize(-positionVS);
-    float fovCorrectedradiusSS =  clamp(_AORadius * saturate(max(1, positionVS.z - 2) * 1) * _AOFOVCorrection * rcp(positionVS.z), _AOStepCount, 96);
+    float fovCorrectedradiusSS =  clamp(_AORadius * saturate(max(1, positionVS.z - 2) * 1) * _AOFOVCorrection * rcp(positionVS.z), _AOStepCount, 40);
     float step = fovCorrectedradiusSS * _AOInvStepCountPlusOne;
 
 

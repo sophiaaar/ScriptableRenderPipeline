@@ -24,43 +24,48 @@ CBUFFER_END
 
 // If this is set to 0 best quality is achieved when full res, but performance is significantly lower.
 // If set to 1, when full res, it may lead to extra aliasing and loss of detail, but still significant higher quality than half res.
-#define HALF_RES_DEPTH 0 // Make this an option.
+#define HALF_RES_DEPTH 1 // Make this an option.
 
+// This increases the quality when running with half resolution buffer, however it adds a bit of cost. Note that it will not have artifact as we already don't allow samples to be at the edge of the depth buffer.
 #define MIN_DEPTH_GATHERED 1
+
+float GetMinDepth(float2 localUVs)
+{
+    localUVs = ClampAndScaleUVForBilinear(localUVs, _AOBufferSize.zw);
+    localUVs.x = localUVs.x * 0.5f;
+    localUVs.y = localUVs.y * (1.0f / 3.0f) + (2.0f / 3.0f);
+
+    float4 gatheredDepth = GATHER_TEXTURE2D_X(_DepthPyramidTexture, s_point_clamp_sampler, localUVs);
+    return min(Min3(gatheredDepth.x, gatheredDepth.y, gatheredDepth.z), gatheredDepth.w);
+}
 
 float GetDepth(float2 positionSS)
 {
-#if HALF_RES_DEPTH
-    int2 samplePos;
-    uint fullRes = (_AOBaseResMip == 0);
-    if (fullRes)
-    {
-        samplePos = _AOMipOffset + positionSS.xy / 2;
-    }
-    else
-    {
-        samplePos = _AOMipOffset + positionSS.xy;
-    }
-    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, samplePos).r;
-#else
 
- #if MIN_DEPTH_GATHERED
-    if (_AOBaseResMip == 1)
-    {
-        float2 localUVs = (positionSS.xy + 0.5f) * _AOBufferSize.zw;
-        localUVs = ClampAndScaleUVForBilinear(localUVs, _AOBufferSize.zw);
-        float2 offsetInUVs = float2(0.0f, 2.0f / 3.0f);
-        localUVs *= float2(0.5f, 1.0f / 3.0f);
-        localUVs += offsetInUVs;
-        float4 gatheredDepth = GATHER_TEXTURE2D_X(_DepthPyramidTexture, s_point_clamp_sampler, localUVs);
-        return min(Min3(gatheredDepth.x, gatheredDepth.y, gatheredDepth.z), gatheredDepth.w);
-    }
-    else
-    {
-        return LOAD_TEXTURE2D_X(_DepthPyramidTexture, (_AOMipOffset * _AOBaseResMip) + ((uint2)positionSS.xy)).r;
-    }
+#ifdef FULL_RES
+
+#if HALF_RES_DEPTH
+
+#if MIN_DEPTH_GATHERED
+
+    float2 localUVs = positionSS.xy * _AOBufferSize.zw;
+    return GetMinDepth(localUVs);
+
+#else // MIN_DEPTH_GATHERED
+    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, _AOMipOffset + positionSS / 2).r;
+#endif 
+
+#else  // HALF_RES_DEPTH
+    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, positionSS).r;
+#endif
+
+#else // FULL_RES
+
+#if MIN_DEPTH_GATHERED
+    float2 localUVs = positionSS.xy * _AOBufferSize.zw;
+    return GetMinDepth(localUVs);
 #else
-    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, (_AOMipOffset * _AOBaseResMip) + ((uint2)positionSS.xy)).r;
+    return LOAD_TEXTURE2D_X(_DepthPyramidTexture, _AOMipOffset + (uint2)positionSS.xy).r;
 #endif
 
 #endif

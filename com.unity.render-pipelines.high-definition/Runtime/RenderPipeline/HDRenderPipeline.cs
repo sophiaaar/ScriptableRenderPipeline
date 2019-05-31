@@ -191,7 +191,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         readonly LightLoop m_LightLoop = new LightLoop();
         readonly VolumetricLightingSystem m_VolumetricLightingSystem = new VolumetricLightingSystem();
         readonly AmbientOcclusionSystem m_AmbientOcclusionSystem;
-        readonly GTAOSystem m_GTAOSystem;
 
         // Debugging
         MaterialPropertyBlock m_SharedPropertyBlock = new MaterialPropertyBlock();
@@ -298,7 +297,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_SharedRTManager.Build(asset);
             m_PostProcessSystem = new PostProcessSystem(asset);
             m_AmbientOcclusionSystem = new AmbientOcclusionSystem(asset);
-            m_GTAOSystem = new GTAOSystem(asset);
 
             // Initialize various compute shader resources
             m_SsrTracingKernel      = m_ScreenSpaceReflectionsCS.FindKernel("ScreenSpaceReflectionsTracing");
@@ -744,7 +742,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_PostProcessSystem.Cleanup();
             m_AmbientOcclusionSystem.Cleanup();
             m_BlueNoise.Cleanup();
-            m_GTAOSystem.Cleanup();
 
             HDCamera.ClearAll();
 
@@ -1690,21 +1687,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 if (!hdCamera.frameSettings.SSAORunsAsync())
                     m_AmbientOcclusionSystem.Render(cmd, hdCamera, m_SharedRTManager, renderContext, m_FrameCount);
-
-                    using (new ProfilingSample(cmd, "GTAO", CustomSamplerId.ResolveSSAO.GetSampler()))
-                    {
-                        m_GTAOSystem.Render(cmd, hdCamera, m_SharedRTManager, m_DepthPyramidMipLevelOffsetsBuffer, m_FrameCount);
-                        m_GTAOSystem.Denoise(cmd, hdCamera, m_SharedRTManager, m_DepthPyramidMipLevelOffsetsBuffer);
-                    }
-                    var aosett = VolumeManager.instance.stack.GetComponent<GTAmbientOcclusion>();
-
-                    if (aosett.intensity.value > 0)
-                    {
-                        cmd.SetGlobalTexture(HDShaderIDs._AmbientOcclusionTexture, m_GTAOSystem.GetAOTex());
-                        (RenderPipelineManager.currentPipeline as HDRenderPipeline).PushFullScreenDebugTexture(hdCamera, cmd, m_GTAOSystem.GetAOTex(), FullScreenDebugMode.SSAO);
-                    }
-
-
 
                     m_LightLoop.CopyStencilBufferIfNeeded(cmd, hdCamera, m_SharedRTManager);
 
