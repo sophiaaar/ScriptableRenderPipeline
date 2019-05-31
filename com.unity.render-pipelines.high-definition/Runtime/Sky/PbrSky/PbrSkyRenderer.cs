@@ -161,12 +161,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             RTHandles.Release(m_InScatteredRadianceTables[3]); m_InScatteredRadianceTables[3] = null;
             RTHandles.Release(m_InScatteredRadianceTables[4]); m_InScatteredRadianceTables[4] = null;
 
-            s_OpticalDepthPrecomputationCS        = null;
-            s_GroundIrradiancePrecomputationCS    = null;
-            s_InScatteredRadiancePrecomputationCS = null;
-            s_PbrSkyMaterial                      = null;
-            s_PbrSkyMaterialProperties            = null;
-
             m_LastPrecomputedBounce = 0;
             m_IsBuilt = false;
         }
