@@ -89,6 +89,9 @@ float4 EvaluateAtmosphericScattering(PositionInputs posInput, float3 V, float4 i
         // For Pre-Multiplied Alpha Blend, we need to multiply fog color by src alpha to match regular alpha blending formula.
         // result.rgb = lerp(result.rgb, unpremul_volColor * result.a, volOpacity);
         result.rgb = result.rgb * (1 - volOpacity) + volColor * result.a;
+        // Note: this formula for color is correct, assuming we apply the Over operator afterwards
+        // (see the appendix in the Deep Compositing paper). But do we?
+        // Additionally, we do not modify the alpha here, which is most certainly WRONG.
     #endif
 #else
     // Evaluation of fog for opaque objects is currently done in a full screen pass independent from any material parameters.

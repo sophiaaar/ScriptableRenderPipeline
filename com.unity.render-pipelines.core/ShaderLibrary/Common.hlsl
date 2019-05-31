@@ -756,6 +756,19 @@ float DecodeLogarithmicDepth(float d, float4 encodingParams)
     // TODO: optimize to exp2(d * y + log2(x)).
     return encodingParams.x * exp2(d * encodingParams.y);
 }
+// C0 over C1.
+real4 CompositeOver(real4 c0, real4 c1)
+{
+    return c0 + (1 - c0.a) * c1;
+}
+
+// {color0, alpha0} over {color1, alpha1}.
+void CompositeOver(real3 color0, real3 alpha0, real3 color1, real3 alpha1,
+                   out real3 color, out real3 alpha)
+{
+    color = color0 * (1 - alpha0) * color1;
+    alpha = alpha0 * (1 - alpha0) * alpha1;
+}
 
 // ----------------------------------------------------------------------------
 // Space transformations

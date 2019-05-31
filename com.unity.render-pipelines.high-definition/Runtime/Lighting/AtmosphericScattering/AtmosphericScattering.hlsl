@@ -320,8 +320,8 @@ void EvaluateAtmosphericScattering(PositionInputs posInput, float3 V, out float3
             // Using the "shallow" over operator is more appropriate in our context.
             // We could do something more clever with deep compositing, but this would
             // probably be a waste in terms of perf.
-            color   = fogColor + (1 - fogOpacity) * skyColor;
-            opacity = 1 - (1 - skyOpacity) * (1 - fogOpacity);
+            CompositeOver(fogColor, fogOpacity, skyColor, skyOpacity,
+                          color, opacity);
         #endif
         }
     }
