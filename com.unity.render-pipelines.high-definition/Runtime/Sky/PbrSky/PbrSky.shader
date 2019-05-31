@@ -72,9 +72,6 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
         if (rayIntersectsAtmosphere)
         {
-            // float3 oDepth = SampleOpticalDepthTexture(cosChi, height, lookAboveHorizon);
-                   // transm = TransmittanceFromOpticalDepth(oDepth);
-
             if (!lookAboveHorizon) // See the ground?
             {
                 float tExit = tEntry + IntersectSphere(R, cosChi, r).x;
@@ -96,52 +93,25 @@ Shader "Hidden/HDRP/Sky/PbrSky"
                 gBrdf = INV_PI * albedo;
             }
 
-            for (uint i = 0; i < _DirectionalLightCount; i++)
+            if (!lookAboveHorizon) // See the ground?
             {
-                if (!_DirectionalLightDatas[i].interactsWithSky) continue;
-
-                float3 L             = -_DirectionalLightDatas[i].forward.xyz;
-                float3 lightRadiance =  _DirectionalLightDatas[i].color.rgb;
-
-                // TODO: solve in spherical coords?
-                float  NdotL = dot(N, L);
-                // float3 projL = L - N * NdotL;
-                // float3 projV = V - N * NdotV;
-                // float  phiL  = acos(clamp(dot(projL, projV) * rsqrt(max(dot(projL, projL) * dot(projV, projV), FLT_EPS)), -1, 1));
-
-                float3 radiance = 0;
-
-                if (!lookAboveHorizon) // See the ground?
+                for (uint i = 0; i < _DirectionalLightCount; i++)
                 {
+                    if (!_DirectionalLightDatas[i].interactsWithSky) continue;
+
+                    float3 L             = -_DirectionalLightDatas[i].forward.xyz;
+                    float3 lightRadiance =  _DirectionalLightDatas[i].color.rgb;
+
+                    float NdotL = dot(N, L);
+
+                    float3 radiance = 0;
+
                     float3 irradiance = SampleGroundIrradianceTexture(dot(gN, L));
-                    radiance += gBrdf * /*transm * */irradiance;
+                    radiance += gBrdf * irradiance; // Transmittance is applied during the atmospheric scattering pass
+                    radiance *= lightRadiance;      // Globally scale the intensity
+
+                    totalRadiance += radiance;
                 }
-
-                // TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(height, NdotV, NdotL, phiL);
-
-                // Single scattering does not contain the phase function.
-                // float LdotV = dot(L, V);
-
-                // Air.
-                // radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                //                  SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                //                  tc.a) * AirPhase(LdotV);
-
-                // Aerosols.
-                // TODO: since aerosols are in a separate texture,
-                // they could use a different max height value for improved precision.
-                // radiance += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                //                  SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                //                  tc.a) * AerosolPhase(LdotV);
-
-                // MS.
-                // radiance += lerp(SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                //                  SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                //                  tc.a);
-
-                radiance *= lightRadiance; // Globally scale the intensity
-
-                totalRadiance += radiance;
             }
         }
 
@@ -163,7 +133,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
             }
         }
 
-        totalRadiance += /*transm **/ emission;
+        totalRadiance += emission; // Transmittance is applied during the atmospheric scattering pass
 
         return float4(totalRadiance, 1.0);
     }
