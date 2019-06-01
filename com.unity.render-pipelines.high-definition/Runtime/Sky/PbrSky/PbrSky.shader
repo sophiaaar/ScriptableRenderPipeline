@@ -85,7 +85,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
 
                 if (_HasGroundAlbedoTexture)
                 {
-                    albedo = SAMPLE_TEXTURECUBE(_GroundAlbedoTexture, s_trilinear_clamp_sampler, mul(N, (float3x3)_PlanetRotation));
+                    albedo = SAMPLE_TEXTURECUBE(_GroundAlbedoTexture, s_trilinear_clamp_sampler, mul(gN, (float3x3)_PlanetRotation));
                 }
                 else
                 {
@@ -104,8 +104,6 @@ Shader "Hidden/HDRP/Sky/PbrSky"
                     float3 L             = -_DirectionalLightDatas[i].forward.xyz;
                     float3 lightRadiance =  _DirectionalLightDatas[i].color.rgb;
 
-                    float NdotL = dot(N, L);
-
                     float3 radiance = 0;
 
                     float3 irradiance = SampleGroundIrradianceTexture(dot(gN, L));
@@ -123,7 +121,7 @@ Shader "Hidden/HDRP/Sky/PbrSky"
         {
             if (_HasGroundEmissionTexture)
             {
-                emission = SAMPLE_TEXTURECUBE(_GroundEmissionTexture, s_trilinear_clamp_sampler, mul(N, (float3x3)_PlanetRotation));
+                emission = SAMPLE_TEXTURECUBE(_GroundEmissionTexture, s_trilinear_clamp_sampler, mul(gN, (float3x3)_PlanetRotation));
             }
         }
         else // See the space?
