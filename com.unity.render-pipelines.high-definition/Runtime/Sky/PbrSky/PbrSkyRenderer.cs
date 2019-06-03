@@ -317,7 +317,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
         }
 
-        // 'renderSunDisk' parameter is meaningless and is thus ignored.
+        // 'renderSunDisk' parameter is not supported.
+        // Users should instead create an emissive (or lit) mesh for every relevant light source
+        // (to support multiple stars in space, moons with moon phases, etc).
         public override void RenderSky(BuiltinSkyParameters builtinParams, bool renderForCubemap, bool renderSunDisk)
         {
             CommandBuffer cmd = builtinParams.commandBuffer;
