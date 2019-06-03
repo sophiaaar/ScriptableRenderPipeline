@@ -23,7 +23,11 @@ bool ShouldEvaluateTransmission(float3 V, float3 L, PreLightData preLightData, B
 
 bool isThickObjectTransmission(BSDFData bsdfData, int shadowIndex)
 {
+#ifdef MATERIAL_INCLUDE_TRANSMISSION
     return HasFlag(bsdfData.materialFeatures, MATERIALFEATUREFLAGS_TRANSMISSION_MODE_THICK_OBJECT) && (shadowIndex >= 0.0);
+#else
+    return false;
+#endif
 }
 
 bool ShouldEvaluateThickObjectTransmission(float3 V, float3 L, PreLightData preLightData, BSDFData bsdfData, int shadowIndex)
@@ -88,6 +92,7 @@ DirectLighting ShadeSurface_Directional(LightLoopContext lightLoopContext,
 
         float microShadowOpacity = _MicroShadowOpacity;
 
+#ifdef MATERIAL_INCLUDE_TRANSMISSION
         if (ShouldEvaluateTransmission(V, L, preLightData, bsdfData))
         {
             // Disable micro shadow, contact shadow and shadow mask in case of transmission
@@ -103,6 +108,7 @@ DirectLighting ShadeSurface_Directional(LightLoopContext lightLoopContext,
                 light.shadowIndex = -1;
             }
         }
+#endif
 
         float shadow = ComputeMicroShadowing(GetAmbientOcclusionForMicroShadowing(bsdfData), abs(dot(bsdfData.normalWS, L)), microShadowOpacity);
         // This code works for both surface reflection and thin object transmission.
@@ -182,6 +188,7 @@ DirectLighting ShadeSurface_Punctual(LightLoopContext lightLoopContext,
         float4 lightColor = EvaluateLight_Punctual(lightLoopContext, posInput, light, L, distances);
         lightColor.rgb *= lightColor.a; // Composite
 
+#ifdef MATERIAL_INCLUDE_TRANSMISSION
         if (ShouldEvaluateTransmission(V, L, preLightData, bsdfData))
         {
             // Disable contact shadow and shadow mask in case of transmission
@@ -195,6 +202,7 @@ DirectLighting ShadeSurface_Punctual(LightLoopContext lightLoopContext,
                                                                         bsdfData, light, L, distances);
             }
         }
+#endif
 
         float shadow = EvaluateShadow_Punctual(lightLoopContext, posInput, light, builtinData, GetNormalForShadowBias(bsdfData), L, distances);
         lightColor.rgb *= ComputeShadowColor(shadow, light.shadowTint);
