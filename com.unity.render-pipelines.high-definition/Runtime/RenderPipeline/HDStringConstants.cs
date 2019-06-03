@@ -710,6 +710,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public static readonly int _AOParams0                      = Shader.PropertyToID("_AOParams0");
         public static readonly int _AOParams1                      = Shader.PropertyToID("_AOParams1");
         public static readonly int _AOParams2                      = Shader.PropertyToID("_AOParams2");
+        public static readonly int _AOParams3                      = Shader.PropertyToID("_AOParams3");
         public static readonly int _OcclusionTexture               = Shader.PropertyToID("_OcclusionTexture");
         public static readonly int _BentNormalsTexture             = Shader.PropertyToID("_BentNormalsTexture");
         public static readonly int _AOPackedData                   = Shader.PropertyToID("_AOPackedData");
@@ -718,8 +719,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public static readonly int _AOPackedBlurred                = Shader.PropertyToID("_AOPackedBlurred");
         public static readonly int _AOOutputHistory = Shader.PropertyToID("_AOOutputHistory");
 
-        public static readonly int _AODebug                         = Shader.PropertyToID("_AODebug");
-        public static readonly int _AODebug2 = Shader.PropertyToID("_AODebug2");
 
     }
 }

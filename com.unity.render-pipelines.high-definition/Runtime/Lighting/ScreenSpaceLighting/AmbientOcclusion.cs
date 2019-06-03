@@ -142,7 +142,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         public bool IsActive(HDCamera camera, AmbientOcclusion settings) => camera.frameSettings.IsEnabled(FrameSettingsField.SSAO) && settings.intensity.value > 0f;
 
-        public void Render(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, ScriptableRenderContext renderContext, int frameCount, ComputeBuffer depthMipBuffer)
+        public void Render(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, ScriptableRenderContext renderContext, int frameCount)
         {
 
 #if ENABLE_RAYTRACING
@@ -152,12 +152,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             else
 #endif
             {
-                Dispatch(cmd, camera, sharedRTManager, frameCount, depthMipBuffer);
+                Dispatch(cmd, camera, sharedRTManager, frameCount);
                 PostDispatchWork(cmd, camera, sharedRTManager);
             }
         }
 
-        private void RenderAO(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, int frameCount, ComputeBuffer depthMipBuffer)
+        private void RenderAO(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, int frameCount)
         {
             // Grab current settings
             var settings = VolumeManager.instance.stack.GetComponent<AmbientOcclusion>();
@@ -209,10 +209,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 );
 
 
-            HDUtils.PackedMipChainInfo info = sharedRTManager.GetDepthBufferMipChainInfo();
             Vector4 aoParams2 = new Vector4(
-                info.mipLevelOffsets[1].x,
-                info.mipLevelOffsets[1].y,
+                RTHandles.rtHandleProperties.currentRenderTargetSize.x,
+                RTHandles.rtHandleProperties.currentRenderTargetSize.y,
                 1.0f / ((float)settings.stepCount.value + 1.0f),
                 settings.maximumRadiusInPixels.value
             );
@@ -233,8 +232,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._OcclusionTexture, m_AmbientOcclusionTex);
             cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._BentNormalsTexture, m_BentNormalTex);
             cmd.SetComputeTextureParam(cs, kernel, HDShaderIDs._AOPackedData, m_PackedDataTex);
-
-            cmd.SetComputeBufferParam(cs, kernel, HDShaderIDs._DepthPyramidMipLevelOffsets, depthMipBuffer);
 
             const int groupSizeX = 8;
             const int groupSizeY = 8;
@@ -284,17 +281,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 0
             );
 
-            HDUtils.PackedMipChainInfo info = sharedRTManager.GetDepthBufferMipChainInfo();
-            Vector4 aoParams2 = new Vector4(
-                info.mipLevelOffsets[m_RunningFullRes ? 0 : 1].x,
-                info.mipLevelOffsets[m_RunningFullRes ? 0 : 1].y,
-                1.0f / ((float)settings.stepCount.value + 1.0f),
-                0
-            );
-
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AOParams0, aoParams0);
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AOParams1, aoParams1);
-            cmd.SetComputeVectorParam(cs, HDShaderIDs._AOParams2, aoParams2);
             cmd.SetComputeVectorParam(cs, HDShaderIDs._AOBufferSize, aoBufferInfo);
 
             // Spatial
@@ -381,11 +369,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
         }
 
-        public void Dispatch(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, int frameCount, ComputeBuffer depthMipBuffer)
+        public void Dispatch(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, int frameCount)
         {
             using (new ProfilingSample(cmd, "GTAO", CustomSamplerId.RenderSSAO.GetSampler()))
             {
-                RenderAO(cmd, camera, sharedRTManager, frameCount, depthMipBuffer);
+                RenderAO(cmd, camera, sharedRTManager, frameCount);
                 DenoiseAO(cmd, camera, sharedRTManager);
             }
         }
