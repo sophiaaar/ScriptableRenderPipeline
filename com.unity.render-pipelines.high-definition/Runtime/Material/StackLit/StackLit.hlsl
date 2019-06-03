@@ -3116,18 +3116,16 @@ void EvaluateBSDF_GetNormalUnclampedNdotV(BSDFData bsdfData, PreLightData preLig
     }
 }
 
-bool ShouldEvaluateThickObjectTransmission(float3 V, float3 L, PreLightData preLightData,
-                                           BSDFData bsdfData, int shadowIndex)
+bool ShouldEvaluateTransmission(float3 V, float3 L, PreLightData preLightData, BSDFData bsdfData)
 {
 #ifdef MATERIAL_INCLUDE_TRANSMISSION
-
     bool lightCanOnlyBeTransmitted;
     float3 mainN, mainL;
     float mainNdotL;
     GetNLForDirectionalPunctualLights(bsdfData, preLightData, L, V, mainN, mainL, mainNdotL, lightCanOnlyBeTransmitted);
 
-    return HasFlag(bsdfData.materialFeatures, MATERIALFEATUREFLAGS_TRANSMISSION_MODE_THICK_OBJECT) &&
-            (shadowIndex >= 0.0) && lightCanOnlyBeTransmitted;
+    bool haveTransmission = Max3(bsdfData.transmittance.r, bsdfData.transmittance.g, bsdfData.transmittance.b) > 0.0;
+    return haveTransmission && lightCanOnlyBeTransmitted;
 #else
     return false;
 #endif
@@ -3137,7 +3135,7 @@ bool ShouldEvaluateThickObjectTransmission(float3 V, float3 L, PreLightData preL
 // Surface shading (all light types) below
 //-----------------------------------------------------------------------------
 
-#define OVERRIDE_SHOULD_EVALUATE_THICK_OBJECT_TRANSMISSION
+#define OVERRIDE_SHOULD_EVALUATE_TRANSMISSION
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Lighting/LightEvaluation.hlsl"
 //#include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/MaterialEvaluation.hlsl"
 //...already included earlier.
