@@ -36,12 +36,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             int pbrSkyAtmosphereFlag = 0;
 
             var visualEnvironment = VolumeManager.instance.stack.GetComponent<VisualEnvironment>();
+            Debug.Assert(visualEnvironment != null);
 
-            if (visualEnvironment != null)
-            {
-                // The PBR sky contributes to atmospheric scattering.
-                pbrSkyAtmosphereFlag = visualEnvironment.skyType.value == (int)SkyType.PBR ? (int)AtmosphereType.PBR : 0;
-            }
+            // The PBR sky contributes to atmospheric scattering.
+            pbrSkyAtmosphereFlag = visualEnvironment.skyType.value == (int)SkyType.PBR ? (int)AtmosphereType.PBR : 0;
 
             cmd.SetGlobalInt(HDShaderIDs._AtmosphericScatteringType, pbrSkyAtmosphereFlag | (int)type);
             cmd.SetGlobalFloat(HDShaderIDs._MaxFogDistance, maxFogDistance.value);

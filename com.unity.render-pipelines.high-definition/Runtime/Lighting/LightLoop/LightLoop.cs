@@ -1917,11 +1917,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     bool isPbrSkyActive = false;
 
                     var visualEnvironment = VolumeManager.instance.stack.GetComponent<VisualEnvironment>();
+                    Debug.Assert(visualEnvironment != null);
 
-                    if (visualEnvironment != null)
-                    {
-                        isPbrSkyActive = (visualEnvironment.skyType.value == SkySettings.GetUniqueID<PbrSkySettings>());
-                    }
+                    isPbrSkyActive = (visualEnvironment.skyType.value == SkySettings.GetUniqueID<PbrSkySettings>());
 
                     // TODO: Refactor shadow management
                     // The good way of managing shadow:
