@@ -387,6 +387,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 }
                 else
                 {
+                    m_Blend = 1.0f;
                     // With ShaderGraph m_cachedProjectorPassValue is setup to -1 if the pass isn't generated, thus we can create emissive only decal if required
                     m_cachedProjectorPassValue = m_Material.FindPass(s_MaterialSGDecalPassNames[(int)(perChannelMask ? MaterialSGDecalPass.ShaderGraph_DBufferProjector4RT : MaterialSGDecalPass.ShaderGraph_DBufferProjector3RT)]);
                     m_cachedProjectorEmissivePassValue = m_Material.FindPass(s_MaterialSGDecalPassNames[(int)MaterialSGDecalPass.ShaderGraph_ProjectorEmissive]);
@@ -581,8 +582,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 m_LightVolumes[m_DecalDatasCount].lightAxisX = influenceRightVS;
                 m_LightVolumes[m_DecalDatasCount].lightAxisY = influenceUpVS;
                 m_LightVolumes[m_DecalDatasCount].lightAxisZ = influenceForwardVS;
-                m_LightVolumes[m_DecalDatasCount].boxInnerDist = influenceExtents - LightLoop.k_BoxCullingExtentThreshold;
-                m_LightVolumes[m_DecalDatasCount].boxInvRange.Set(1.0f / LightLoop.k_BoxCullingExtentThreshold.x, 1.0f / LightLoop.k_BoxCullingExtentThreshold.y, 1.0f / LightLoop.k_BoxCullingExtentThreshold.z);
+                m_LightVolumes[m_DecalDatasCount].boxInnerDist = influenceExtents - HDRenderPipeline.k_BoxCullingExtentThreshold;
+                m_LightVolumes[m_DecalDatasCount].boxInvRange.Set(1.0f / HDRenderPipeline.k_BoxCullingExtentThreshold.x, 1.0f / HDRenderPipeline.k_BoxCullingExtentThreshold.y, 1.0f / HDRenderPipeline.k_BoxCullingExtentThreshold.z);
             }
 
             private void AssignCurrentBatches(ref Matrix4x4[] decalToWorldBatch, ref Matrix4x4[] normalToWorldBatch, int batchCount)
@@ -619,7 +620,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 // XRTODO: investigate if instancing is working with the following code
                 Vector3 cameraPos = instance.CurrentCamera.transform.position;
-                Matrix4x4 worldToView = LightLoop.WorldToCamera(instance.CurrentCamera);
+                Matrix4x4 worldToView = HDRenderPipeline.WorldToCamera(instance.CurrentCamera);
                 bool perChannelMask = instance.perChannelMask;
                 for (int resultIndex = 0; resultIndex < m_NumResults; resultIndex++)
                 {
@@ -837,9 +838,31 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 Array.Copy(value.resultIndices, m_ResultIndices, m_NumResults);
             }
         }
+		
+		void SetupMipStreamingSettings(Texture texture, bool allMips)
+		{
+			if (texture)
+			{
+				if (texture.dimension == UnityEngine.Rendering.TextureDimension.Tex2D)
+				{
+					Texture2D tex2D = (texture as Texture2D);
+					if (allMips)
+						tex2D.requestedMipmapLevel = 0;
+					else
+						tex2D.ClearRequestedMipmapLevel();
+				}
+			}
+		}
 
         DecalHandle AddDecal(Matrix4x4 localToWorld, Quaternion rotation, Matrix4x4 sizeOffset, float drawDistance, float fadeScale, Vector4 uvScaleBias, bool affectsTransparency, Material material, int layerMask, float fadeFactor)
         {
+			if (material != null)
+			{
+				SetupMipStreamingSettings(material.GetTexture("_BaseColorMap"), true);
+				SetupMipStreamingSettings(material.GetTexture("_NormalMap"), true);
+				SetupMipStreamingSettings(material.GetTexture("_MaskMap"), true);
+			}
+				
             DecalSet decalSet = null;
             int key = material != null ? material.GetInstanceID() : kNullMaterialIndex;
             if (!m_DecalSets.TryGetValue(key, out decalSet))
