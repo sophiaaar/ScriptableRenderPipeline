@@ -44,7 +44,7 @@ float IntegrateArcCosWeighted(float horzion1, float horizon2, float n, float cos
 
 float UpdateHorizon(float maxH, float candidateH, float distSq)
 {
-    float falloff = saturate((1.0f - (distSq * _AOInvRadiusSq)));    // TODO_FCC: Check this, maybe without the pow is enough.
+    float falloff = saturate((1.0f - (distSq * _AOInvRadiusSq)));
 
     return (candidateH > maxH) ? lerp(maxH, candidateH, falloff) : maxH;        // TODO_FCC: Thickness heuristic here.
 }
