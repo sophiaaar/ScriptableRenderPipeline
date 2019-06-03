@@ -23,7 +23,7 @@
 #define NORMAL_FROM_GBUFFER 1
 #define NORMAL_COMPUTATION NORMAL_FROM_GBUFFER
 
-#define THE_VERSION_LAURENT_LIKES 1
+#define WEIGHT_WITH_PROJ_N_LENGTH 0
 
 // --------------------------------------------
 // Integration functions
@@ -196,7 +196,7 @@ void GTAO_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
     maxHorizons.y = n + min(maxHorizons.y - n, HALF_PI);
 
 #if INTEGRAL_TYPE == INTEGRAL_COSINE
-#if THE_VERSION_LAURENT_LIKES
+#if !WEIGHT_WITH_PROJ_N_LENGTH
     float integral = 1 * IntegrateArcCosWeighted(maxHorizons.x, maxHorizons.y, n, cosN);
 #else
     float integral = projNLen * IntegrateArcCosWeighted(maxHorizons.x, maxHorizons.y, n, cosN);
