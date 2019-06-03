@@ -26,11 +26,30 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         [Tooltip("Controls how much the ambient light affects occlusion.")]
         public ClampedFloatParameter directLightingStrength = new ClampedFloatParameter(0f, 0f, 1f);
+
+        [Tooltip("Enable raytraced ambient occlusion.")]
+        public BoolParameter enableRaytracing = new BoolParameter(false);
+
+        [Tooltip("Controls the length of ambient occlusion rays.")]
+        public ClampedFloatParameter rayLength = new ClampedFloatParameter(0.5f, 0f, 50f);
+
+        [Tooltip("Enable Filtering on the raytraced ambient occlusion.")]
+        public BoolParameter enableFilter = new BoolParameter(false);
+
+        [Tooltip("Controls the length of ambient occlusion rays.")]
+        public ClampedIntParameter numSamples = new ClampedIntParameter(4, 1, 64);
+
+        [Tooltip("Controls the length of ambient occlusion rays.")]
+        public ClampedIntParameter filterRadius = new ClampedIntParameter(16, 1, 32);
+
     }
 
     public class AmbientOcclusionSystem
     {
         RenderPipelineResources m_Resources;
+#if ENABLE_RAYTRACING
+        HDRenderPipelineRayTracingResources m_RTResources;
+#endif
         RenderPipelineSettings m_Settings;
 
         private bool m_HistoryReady = false;
@@ -67,14 +86,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         void AllocRT(float scaleFactor)
         {
-            m_AmbientOcclusionTex = RTHandles.Alloc(Vector2.one, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R8_UNorm, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "Ambient Occlusion");
-            m_BentNormalTex = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R8G8B8A8_SNorm, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "Bent normals");
-            m_PackedDataTex = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed data");
-            m_PackedDataBlurred = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed blurred data");
-            m_PackedHistory[0] = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed history_1");
-            m_PackedHistory[1] = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed history_2");
+            m_AmbientOcclusionTex = RTHandles.Alloc(Vector2.one, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R8_UNorm, useDynamicScale: true, enableRandomWrite: true, name: "Ambient Occlusion");
+            m_BentNormalTex = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R8G8B8A8_SNorm, useDynamicScale: true, enableRandomWrite: true, name: "Bent normals");
+            m_PackedDataTex = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed data");
+            m_PackedDataBlurred = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed blurred data");
+            m_PackedHistory[0] = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed history_1");
+            m_PackedHistory[1] = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed history_2");
 
-            m_FinalHalfRes = RTHandles.Alloc(Vector2.one * 0.5f, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, xrInstancing: true, useDynamicScale: true, enableRandomWrite: true, name: "Final Half Res AO Packed");
+            m_FinalHalfRes = RTHandles.Alloc(Vector2.one * 0.5f, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, useDynamicScale: true, enableRandomWrite: true, name: "Final Half Res AO Packed");
         }
 
         void EnsureRTSize(AmbientOcclusion settings)
@@ -93,6 +112,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             m_Settings = hdAsset.currentPlatformRenderPipelineSettings;
             m_Resources = hdAsset.renderPipelineResources;
+#if ENABLE_RAYTRACING
+            m_RTResources = hdAsset.renderPipelineRayTracingResources;
+#endif
 
             if (!hdAsset.currentPlatformRenderPipelineSettings.supportSSAO)
                 return;
@@ -114,7 +136,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public void InitRaytracing(HDRaytracingManager raytracingManager, SharedRTManager sharedRTManager)
         {
             m_RayTracingManager = raytracingManager;
-            m_RaytracingAmbientOcclusion.Init(m_Resources, m_Settings, m_RayTracingManager, sharedRTManager);
+            m_RaytracingAmbientOcclusion.Init(m_Resources, m_RTResources, m_Settings, m_RayTracingManager, sharedRTManager);
         }
 #endif
 
@@ -123,6 +145,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public void Render(CommandBuffer cmd, HDCamera camera, SharedRTManager sharedRTManager, ScriptableRenderContext renderContext, int frameCount)
         {
 
+            var settings = VolumeManager.instance.stack.GetComponent<AmbientOcclusion>();
+
+            if (!IsActive(camera, settings))
+            {
+                // No AO applied - neutral is black, see the comment in the shaders
+                cmd.SetGlobalTexture(HDShaderIDs._AmbientOcclusionTexture, TextureXR.GetBlackTexture());
+                cmd.SetGlobalVector(HDShaderIDs._AmbientOcclusionParam, Vector4.zero);
+                return;
+            }
+            else
 #if ENABLE_RAYTRACING
             HDRaytracingEnvironment rtEnvironement = m_RayTracingManager.CurrentEnvironment();
             if (rtEnvironement != null && rtEnvironement.raytracedAO)
@@ -139,9 +171,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             // Grab current settings
             var settings = VolumeManager.instance.stack.GetComponent<AmbientOcclusion>();
-
-            if (!IsActive(camera, settings))
-                return;
 
             EnsureRTSize(settings);
 
@@ -217,7 +246,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             int threadGroupY = ((int)runningRes.y + (groupSizeY - 1)) / groupSizeY;
             using (new ProfilingSample(cmd, "GTAO Horizon search and integration", CustomSamplerId.RenderSSAO.GetSampler()))
             {
-                cmd.DispatchCompute(cs, kernel, threadGroupX, threadGroupY, camera.computePassCount);
+                cmd.DispatchCompute(cs, kernel, threadGroupX, threadGroupY, camera.viewCount);
             }
         }
 
@@ -276,7 +305,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 const int groupSizeY = 8;
                 int threadGroupX = ((int)runningRes.x + (groupSizeX - 1)) / groupSizeX;
                 int threadGroupY = ((int)runningRes.y + (groupSizeY - 1)) / groupSizeY;
-                cmd.DispatchCompute(cs, kernel, threadGroupX, threadGroupY, camera.computePassCount);
+                cmd.DispatchCompute(cs, kernel, threadGroupX, threadGroupY, camera.viewCount);
             }
 
             if (!m_HistoryReady)
@@ -317,7 +346,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 const int groupSizeY = 8;
                 int threadGroupX = ((int)runningRes.x + (groupSizeX - 1)) / groupSizeX;
                 int threadGroupY = ((int)runningRes.y + (groupSizeY - 1)) / groupSizeY;
-                cmd.DispatchCompute(cs, kernel, threadGroupX, threadGroupY, camera.computePassCount);
+                cmd.DispatchCompute(cs, kernel, threadGroupX, threadGroupY, camera.viewCount);
 
                 m_HistoryIndex = outputIndex;
             }
@@ -341,8 +370,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     const int groupSizeY = 8;
                     int threadGroupX = ((int)camera.actualWidth + (groupSizeX - 1)) / groupSizeX;
                     int threadGroupY = ((int)camera.actualHeight + (groupSizeY - 1)) / groupSizeY;
-                    cmd.DispatchCompute(cs, kernel, threadGroupX, threadGroupY, camera.computePassCount);
-
+                    cmd.DispatchCompute(cs, kernel, threadGroupX, threadGroupY, camera.viewCount);
                 }
             }
         }
@@ -360,14 +388,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             // Grab current settings
             var settings = VolumeManager.instance.stack.GetComponent<AmbientOcclusion>();
-
-            if (!IsActive(camera, settings))
-            {
-                // No AO applied - neutral is black, see the comment in the shaders
-                cmd.SetGlobalTexture(HDShaderIDs._AmbientOcclusionTexture, TextureXR.GetBlackTexture());
-                cmd.SetGlobalVector(HDShaderIDs._AmbientOcclusionParam, Vector4.zero);
-                return;
-            }
 
             cmd.SetGlobalTexture(HDShaderIDs._AmbientOcclusionTexture, m_AmbientOcclusionTex);
             cmd.SetGlobalVector(HDShaderIDs._AmbientOcclusionParam, new Vector4(0f, 0f, 0f, settings.directLightingStrength.value));
