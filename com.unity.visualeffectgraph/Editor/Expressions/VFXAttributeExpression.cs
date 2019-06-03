@@ -31,7 +31,7 @@ namespace UnityEditor.VFX
         public static readonly VFXAttribute ScaleX              = new VFXAttribute("scaleX", VFXValue.Constant(1.0f), VFXVariadic.BelongsToVariadic);
         public static readonly VFXAttribute ScaleY              = new VFXAttribute("scaleY", VFXValue.Constant(1.0f), VFXVariadic.BelongsToVariadic);
         public static readonly VFXAttribute ScaleZ              = new VFXAttribute("scaleZ", VFXValue.Constant(1.0f), VFXVariadic.BelongsToVariadic);
-        public static readonly VFXAttribute Lifetime            = new VFXAttribute("lifetime", VFXValue.Constant(1.0f));
+        public static readonly VFXAttribute Lifetime            = new VFXAttribute("lifetime", VFXValue.Constant(1.0f), Flags.RequireInitialization);
         public static readonly VFXAttribute Age                 = new VFXAttribute("age", VFXValueType.Float);
         public static readonly VFXAttribute AngleX              = new VFXAttribute("angleX", VFXValueType.Float, VFXVariadic.BelongsToVariadic);
         public static readonly VFXAttribute AngleY              = new VFXAttribute("angleY", VFXValueType.Float, VFXVariadic.BelongsToVariadic);
@@ -68,6 +68,8 @@ namespace UnityEditor.VFX
         public static readonly string[] AllWritable = All.Except(AllReadOnly).ToArray();
         public static readonly string[] AllReadWritable = All.Except(AllReadOnly).Except(AllWriteOnly).ToArray();
 
+        public static readonly HashSet<string> AllRequiringInitialization = new HashSet<string>(AllAttribute.Where(t => (t.flags & Flags.RequireInitialization) != 0).Select(t=>t.name));
+
         public static readonly VFXAttribute[] AllVariadicAttribute = new VFXAttribute[]
         {
             new VFXAttribute("angle", VFXValueType.Float3, VFXVariadic.True),
@@ -102,13 +104,17 @@ namespace UnityEditor.VFX
             : this(name, GetValueFromType(type), variadic, space)
         {
         }
-
-        public VFXAttribute(string name, VFXValue value, VFXVariadic variadic = VFXVariadic.False, SpaceableType space = SpaceableType.None)
+        public VFXAttribute(string name, VFXValue value, Flags flags = Flags.None):
+            this(name,value,VFXVariadic.False,SpaceableType.None,flags)
+        {
+        }
+            public VFXAttribute(string name, VFXValue value, VFXVariadic variadic, SpaceableType space = SpaceableType.None, Flags flags = Flags.None)
         {
             this.name = name;
             this.value = value;
             this.variadic = variadic;
             this.space = space;
+            this.flags = flags;
             if (space != SpaceableType.None && variadic != VFXVariadic.False)
             {
                 throw new InvalidOperationException("Can't mix spaceable and variadic attributes : " + name);
@@ -138,10 +144,20 @@ namespace UnityEditor.VFX
             return exist;
         }
 
+        [Flags]
+        public enum Flags
+        {
+            None = 0,
+            RequireInitialization = 1 << 0,
+        }
+
         public string name;
         public VFXValue value;
         public VFXVariadic variadic;
         public SpaceableType space;
+        public Flags flags;
+
+
 
         public VFXValueType type
         {
