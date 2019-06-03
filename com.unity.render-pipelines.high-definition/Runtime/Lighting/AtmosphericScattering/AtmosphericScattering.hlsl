@@ -155,39 +155,38 @@ void EvaluateAtmosphericScattering(PositionInputs posInput, float3 V, out float3
 
         if (posInput.deviceDepth == UNITY_RAW_FAR_CLIP_VALUE)
         {
-            fragLinDepth = FLT_INF;
+            fragLinDepth = FLT_INF; // Skybox at infinity
         }
 
         // Convert it to distance along the ray. Doesn't work with tilt shift, etc.
-        float fragLinDist = fragLinDepth * rcp(dot(-V, GetViewForwardDir()));
+        float tFrag = fragLinDepth * rcp(dot(-V, GetViewForwardDir()));
 
-        if (fragLinDist < tEntry)
+        if (tFrag < tEntry)
         {
-            // The fragment is outside the atmosphere,
+            // The fragment is outside (in front of) the atmosphere,
             // so it's not affected by atmospheric scattering.
             return;
         }
 
         // The compute the distance at which we exit the atmosphere.
         float rExit = lookAboveHorizon ? A : R;
-        float tExit = tEntry + lookAboveHorizon ? IntersectSphere(rExit, cosChi, r).y
-                                                : IntersectSphere(rExit, cosChi, r).x;
+        float tExit = tEntry + lookAboveHorizon ? IntersectSphere(rExit, cosChi, r).y  // Atmospheric exit
+                                                : IntersectSphere(rExit, cosChi, r).x; // Planetary entry
 
-        // Optical depth from 'tEntry' to 'tExit'.
-        float3 skyOD = SampleOpticalDepthTexture(cosChi, height, lookAboveHorizon);
+        float3 skyOD = SampleOpticalDepthTexture(cosChi, height, lookAboveHorizon); // from 'tEntry' to 'tExit'
 
         float3 N1;
         float  height1, NdotV1;
 
         N1 = height1 = NdotV1 = 0; // Kill the compiler warning about uninit var
 
-        if (fragLinDist < tExit)
+        if (tFrag < tExit)
         {
             // The fragment is inside the atmosphere.
             // So far, we computed the optical depth along the entire ray.
             // Now we need to subtract the part occluded by the fragment.
 
-            float3 P1 = O + fragLinDist * -V;
+            float3 P1 = O + tFrag * -V;
                    N1 = normalize(P1);
             float  r1 = max(length(P1), R); // Must not be inside the planet
 
@@ -196,9 +195,13 @@ void EvaluateAtmosphericScattering(PositionInputs posInput, float3 V, out float3
 
             float cosChi1 = -NdotV1;
 
+            float3 behindOD = SampleOpticalDepthTexture(cosChi1, height1); // from 'tFrag' to 'tExit' now
+
             // Reduce the optical depth.
-            skyOD -= SampleOpticalDepthTexture(cosChi1, height1);
+            skyOD -= behindOD;
         }
+
+        float3 skyTransm = TransmittanceFromOpticalDepth(skyOD);
 
         float3 skyColor = 0;
 
@@ -217,7 +220,7 @@ void EvaluateAtmosphericScattering(PositionInputs posInput, float3 V, out float3
 
             TexCoord4D tc = ConvertPositionAndOrientationToTexCoords(height, NdotV, NdotL, phiL);
 
-            float3 radiance = 0;
+            float3 radiance = 0; // from 'tEntry' to 'tExit'
 
             // Single scattering does not contain the phase function.
             float LdotV = dot(L, V);
@@ -239,8 +242,10 @@ void EvaluateAtmosphericScattering(PositionInputs posInput, float3 V, out float3
                              SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
                              tc.a);
 
-            if (fragLinDist < tExit)
+            if (tFrag < tExit)
             {
+                float3 radiance1 = 0; // from 'tEntry' to 'tFrag'
+
                 // TODO: solve in spherical coords?
                 float  NdotL1 = dot(N1, L);
                 float3 projL1 = L - N1 * NdotL1;
@@ -252,21 +257,24 @@ void EvaluateAtmosphericScattering(PositionInputs posInput, float3 V, out float3
                 // Single scattering does not contain the phase function.
 
                 // Air.
-                radiance -= lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                                 SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                                 tc.a) * AirPhase(LdotV);
+                radiance1 += lerp(SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                                  SAMPLE_TEXTURE3D_LOD(_AirSingleScatteringTexture,     s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                                  tc.a) * AirPhase(LdotV);
 
                 // Aerosols.
                 // TODO: since aerosols are in a separate texture,
                 // they could use a different max height value for improved precision.
-                radiance -= lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                                 SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                                 tc.a) * AerosolPhase(LdotV);
+                radiance1 += lerp(SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                                  SAMPLE_TEXTURE3D_LOD(_AerosolSingleScatteringTexture, s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                                  tc.a) * AerosolPhase(LdotV);
 
                 // MS.
-                radiance -= lerp(SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
-                                 SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
-                                 tc.a);
+                radiance1 += lerp(SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w0), 0).rgb,
+                                  SAMPLE_TEXTURE3D_LOD(_MultipleScatteringTexture,      s_linear_clamp_sampler, float3(tc.u, tc.v, tc.w1), 0).rgb,
+                                  tc.a);
+
+                // L(tEntry, tFrag) = L(tEntry, tExit) - T(tEntry, tFrag) * L(tFrag, tExit)
+                radiance -= skyTransm * radiance1;
             }
 
             radiance *= lightRadiance; // Globally scale the intensity
@@ -276,7 +284,7 @@ void EvaluateAtmosphericScattering(PositionInputs posInput, float3 V, out float3
 
         skyColor *= GetCurrentExposureMultiplier();
 
-        float3 skyOpacity = 1 - TransmittanceFromOpticalDepth(skyOD);
+        float3 skyOpacity = 1 - skyTransm;
 
         if (fogType == FOGTYPE_NONE)
         {
