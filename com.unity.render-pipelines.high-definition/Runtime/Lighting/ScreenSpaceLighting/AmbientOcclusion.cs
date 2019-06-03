@@ -237,7 +237,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             const int groupSizeY = 8;
             int threadGroupX = ((int)runningRes.x + (groupSizeX - 1)) / groupSizeX;
             int threadGroupY = ((int)runningRes.y + (groupSizeY - 1)) / groupSizeY;
-            using (new ProfilingSample(cmd, "GTAO Tracing", CustomSamplerId.RenderSSAO.GetSampler()))
+            using (new ProfilingSample(cmd, "GTAO Horizon search and integration", CustomSamplerId.RenderSSAO.GetSampler()))
             {
                 cmd.DispatchCompute(cs, kernel, threadGroupX, threadGroupY, camera.computePassCount);
             }
