@@ -45,11 +45,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         private bool m_RunningFullRes = false;
         private int m_HistoryIndex = 0;
 
-        //// MSAA-specifics
-        //readonly RTHandle m_MultiAmbientOcclusionTex;
-        //readonly MaterialPropertyBlock m_ResolvePropertyBlock;
-        //readonly Material m_ResolveMaterial;
-
 #if ENABLE_RAYTRACING
         public HDRaytracingManager m_RayTracingManager = new HDRaytracingManager();
         readonly HDRaytracingAmbientOcclusion m_RaytracingAmbientOcclusion = new HDRaytracingAmbientOcclusion();
@@ -104,23 +99,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             m_PackedHistory = new RTHandle[2];
             AllocRT(0.5f);
-
-            // TODO_FCC: Consider.
-            //bool supportMSAA = hdAsset.currentPlatformRenderPipelineSettings.supportMSAA;
-            //if (supportMSAA)
-            //{
-            //    m_MultiAmbientOcclusionTex = RTHandles.Alloc(Vector2.one,
-            //        filterMode: FilterMode.Bilinear,
-            //        colorFormat: GraphicsFormat.R8G8_UNorm,
-            //        enableRandomWrite: true,
-            //        xrInstancing: true,
-            //        useDynamicScale: true,
-            //        name: "Ambient Occlusion MSAA"
-            //    );
-
-            //    m_ResolveMaterial = CoreUtils.CreateEngineMaterial(m_Resources.shaders.aoResolvePS);
-            //    m_ResolvePropertyBlock = new MaterialPropertyBlock();
-            //}
         }
 
         public void Cleanup()
@@ -390,18 +368,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 cmd.SetGlobalVector(HDShaderIDs._AmbientOcclusionParam, Vector4.zero);
                 return;
             }
-
-            // MSAA Resolve // TODO_FCC: Implement.
-            //if (camera.frameSettings.IsEnabled(FrameSettingsField.MSAA))
-            //{
-            //    using (new ProfilingSample(cmd, "Resolve AO Buffer", CustomSamplerId.ResolveSSAO.GetSampler()))
-            //    {
-            //        HDUtils.SetRenderTarget(cmd, m_AmbientOcclusionTex);
-            //        m_ResolvePropertyBlock.SetTexture(HDShaderIDs._DepthValuesTexture, sharedRTManager.GetDepthValuesTexture());
-            //        m_ResolvePropertyBlock.SetTexture(HDShaderIDs._MultiAmbientOcclusionTexture, m_MultiAmbientOcclusionTex);
-            //        cmd.DrawProcedural(Matrix4x4.identity, m_ResolveMaterial, 0, MeshTopology.Triangles, 3, 1, m_ResolvePropertyBlock);
-            //    }
-            //}
 
             cmd.SetGlobalTexture(HDShaderIDs._AmbientOcclusionTexture, m_AmbientOcclusionTex);
             cmd.SetGlobalVector(HDShaderIDs._AmbientOcclusionParam, new Vector4(0f, 0f, 0f, settings.directLightingStrength.value));
