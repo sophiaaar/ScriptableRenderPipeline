@@ -432,7 +432,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Color -> Intermediate.
                 HDUtils.DrawFullScreen(cmd, m_OpaqueAtmScatteringMaterial, intermediateBuffer, depthBuffer, propertyBlock, isMSAA? 1 : 0);
                 // Intermediate -> Color.
-                HDUtils.BlitCameraTexture(cmd, intermediateBuffer, colorBuffer);
+                // Note: Blit does not support MSAA (and is probably slower).
+                cmd.CopyTexture(intermediateBuffer, colorBuffer);
             }
         }
 
