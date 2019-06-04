@@ -3,6 +3,10 @@ using UnityEngine.Rendering;
 using UnityEngine.Profiling;
 using UnityEngine.Rendering.LWRP;
 
+#if UNITY_EDITOR
+using UnityEditor.SceneManagement;
+#endif
+
 namespace UnityEngine.Experimental.Rendering.LWRP
 {
     internal class Render2DLightingPass : ScriptableRenderPass
@@ -12,8 +16,9 @@ namespace UnityEngine.Experimental.Rendering.LWRP
         static readonly ShaderTagId k_CombinedRenderingPassName = new ShaderTagId("Lightweight2D");
         static readonly ShaderTagId k_NormalsRenderingPassName = new ShaderTagId("NormalsRendering");
         static readonly ShaderTagId k_LegacyPassName = new ShaderTagId("SRPDefaultUnlit");
+        static readonly ShaderTagId k_ForwardPassName = new ShaderTagId("LightweightForward");
         static readonly List<ShaderTagId> k_ShaderTags = new List<ShaderTagId>() { k_LegacyPassName, k_CombinedRenderingPassName };
-        //static readonly List<ShaderTagId> k_ShaderTags = new List<ShaderTagId>() { k_CombinedRenderingPassName };
+        static readonly List<ShaderTagId> k_PreviewTags = new List<ShaderTagId>() { k_ForwardPassName };
 
         public Render2DLightingPass(Renderer2DData rendererData)
         {
@@ -47,8 +52,18 @@ namespace UnityEngine.Experimental.Rendering.LWRP
             context.ExecuteCommandBuffer(cmd);
 
             Profiler.BeginSample("RenderSpritesWithLighting - Prepare");
-            DrawingSettings combinedDrawSettings = CreateDrawingSettings(k_ShaderTags, ref renderingData, SortingCriteria.CommonTransparent);
+            
             DrawingSettings normalsDrawSettings = CreateDrawingSettings(k_NormalsRenderingPassName, ref renderingData, SortingCriteria.CommonTransparent);
+
+            bool isPreview = false;
+#if UNITY_EDITOR
+            isPreview = EditorSceneManager.IsPreviewSceneObject(camera);
+#endif
+            DrawingSettings combinedDrawSettings;
+            if (!isPreview)
+                combinedDrawSettings = CreateDrawingSettings(k_ShaderTags, ref renderingData, SortingCriteria.CommonTransparent);
+            else
+                combinedDrawSettings = CreateDrawingSettings(k_PreviewTags, ref renderingData, SortingCriteria.CommonTransparent);
 
             FilteringSettings filterSettings = new FilteringSettings();
             filterSettings.renderQueueRange = RenderQueueRange.all;
