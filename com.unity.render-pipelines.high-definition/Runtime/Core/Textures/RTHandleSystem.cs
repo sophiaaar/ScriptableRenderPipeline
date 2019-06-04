@@ -303,7 +303,6 @@ namespace UnityEngine.Experimental.Rendering
             MSAASamples msaaSamples = MSAASamples.None,
             bool bindTextureMS = false,
             bool useDynamicScale = false,
-            bool xrInstancing = false,
             RenderTextureMemoryless memoryless = RenderTextureMemoryless.None,
             string name = ""
             )
@@ -314,9 +313,6 @@ namespace UnityEngine.Experimental.Rendering
                 Debug.LogWarning("RTHandle allocated without MSAA but with bindMS set to true, forcing bindMS to false.");
                 bindTextureMS = false;
             }
-
-            // XR override for instancing support
-            VRTextureUsage vrUsage = TextureXR.OverrideRenderTexture(xrInstancing, ref dimension, ref slices);
 
             // We need to handle this in an explicit way since GraphicsFormat does not expose depth formats. TODO: Get rid of this branch once GraphicsFormat'll expose depth related formats
             RenderTexture rt;
@@ -338,7 +334,6 @@ namespace UnityEngine.Experimental.Rendering
                     antiAliasing = (int)msaaSamples,
                     bindTextureMS = bindTextureMS,
                     useDynamicScale = m_HardwareDynamicResRequested && useDynamicScale,
-                    vrUsage = vrUsage,
                     memorylessMode = memoryless,
                     name = CoreUtils.GetRenderTargetAutoName(width, height, slices, format, name, mips: useMipMap, enableMSAA: enableMSAA, msaaSamples: msaaSamples)
                 };
@@ -362,7 +357,6 @@ namespace UnityEngine.Experimental.Rendering
                     antiAliasing = (int)msaaSamples,
                     bindTextureMS = bindTextureMS,
                     useDynamicScale = m_HardwareDynamicResRequested && useDynamicScale,
-                    vrUsage = vrUsage,
                     memorylessMode = memoryless,
                     name = CoreUtils.GetRenderTargetAutoName(width, height, slices, GraphicsFormatUtility.GetRenderTextureFormat(colorFormat), name, mips: useMipMap, enableMSAA: enableMSAA, msaaSamples: msaaSamples)
                 };
@@ -405,7 +399,6 @@ namespace UnityEngine.Experimental.Rendering
             bool enableMSAA = false,
             bool bindTextureMS = false,
             bool useDynamicScale = false,
-            bool xrInstancing = false,
             RenderTextureMemoryless memoryless = RenderTextureMemoryless.None,
             string name = ""
             )
@@ -434,7 +427,6 @@ namespace UnityEngine.Experimental.Rendering
                     enableMSAA,
                     bindTextureMS,
                     useDynamicScale,
-                    xrInstancing,
                     memoryless,
                     name
                     );
@@ -472,7 +464,6 @@ namespace UnityEngine.Experimental.Rendering
             bool enableMSAA = false,
             bool bindTextureMS = false,
             bool useDynamicScale = false,
-            bool xrInstancing = false,
             RenderTextureMemoryless memoryless = RenderTextureMemoryless.None,
             string name = ""
             )
@@ -498,7 +489,6 @@ namespace UnityEngine.Experimental.Rendering
                     enableMSAA,
                     bindTextureMS,
                     useDynamicScale,
-                    xrInstancing,
                     memoryless,
                     name
                     );
@@ -528,7 +518,6 @@ namespace UnityEngine.Experimental.Rendering
             bool enableMSAA,
             bool bindTextureMS,
             bool useDynamicScale,
-            bool xrInstancing,
             RenderTextureMemoryless memoryless,
             string name
             )
@@ -558,9 +547,6 @@ namespace UnityEngine.Experimental.Rendering
             int msaaSamples = allocForMSAA ? (int)m_ScaledRTCurrentMSAASamples : 1;
             RTCategory category = allocForMSAA ? RTCategory.MSAA : RTCategory.Regular;
 
-            // XR override for instancing support
-            VRTextureUsage vrUsage = TextureXR.OverrideRenderTexture(xrInstancing, ref dimension, ref slices);
-
             // We need to handle this in an explicit way since GraphicsFormat does not expose depth formats. TODO: Get rid of this branch once GraphicsFormat'll expose depth related formats
             RenderTexture rt;
             if (isShadowMap || depthBufferBits != DepthBits.None)
@@ -581,7 +567,6 @@ namespace UnityEngine.Experimental.Rendering
                     antiAliasing = msaaSamples,
                     bindTextureMS = bindTextureMS,
                     useDynamicScale = m_HardwareDynamicResRequested && useDynamicScale,
-                    vrUsage = vrUsage,
                     memorylessMode = memoryless,
                     name = CoreUtils.GetRenderTargetAutoName(width, height, slices, GraphicsFormatUtility.GetRenderTextureFormat(colorFormat), name, mips: useMipMap, enableMSAA: allocForMSAA, msaaSamples: m_ScaledRTCurrentMSAASamples)
                 };
@@ -603,7 +588,6 @@ namespace UnityEngine.Experimental.Rendering
                     antiAliasing = msaaSamples,
                     bindTextureMS = bindTextureMS,
                     useDynamicScale = m_HardwareDynamicResRequested && useDynamicScale,
-                    vrUsage = vrUsage,
                     memorylessMode = memoryless,
                     name = CoreUtils.GetRenderTargetAutoName(width, height, slices, GraphicsFormatUtility.GetRenderTextureFormat(colorFormat), name, mips: useMipMap, enableMSAA: allocForMSAA, msaaSamples: m_ScaledRTCurrentMSAASamples)
                 };
