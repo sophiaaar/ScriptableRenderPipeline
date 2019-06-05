@@ -1,6 +1,5 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine.Rendering;
+using System;
 
 namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
