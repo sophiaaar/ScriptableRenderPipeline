@@ -106,7 +106,6 @@ Shader "Hidden/HDRP/OpaqueAtmosphericScattering"
             HLSLPROGRAM
                 #pragma vertex Vert
                 #pragma fragment FragMSAA
-                #define MSAA 1
             ENDHLSL
         }
     }
