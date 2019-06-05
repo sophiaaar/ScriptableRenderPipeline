@@ -139,6 +139,14 @@ namespace UnityEditor.ShaderGraph
         }
 
         [NonSerialized]
+        List<StickyNoteData> m_NoteChanges = new List<StickyNoteData>();
+
+        public IEnumerable<StickyNoteData> noteChanges
+        {
+            get { return m_NoteChanges; }
+        }
+
+        [NonSerialized]
         List<NodeGroupChange> m_NodeGroupChanges = new List<NodeGroupChange>();
 
         public IEnumerable<NodeGroupChange> nodeGroupChanges
@@ -175,6 +183,11 @@ namespace UnityEditor.ShaderGraph
         List<StickyNoteData> m_AddedStickyNotes = new List<StickyNoteData>();
 
         public List<StickyNoteData> addedStickyNotes => m_AddedStickyNotes;
+
+        [NonSerialized]
+        List<StickyNoteData> m_RemovedNotes = new List<StickyNoteData>();
+
+        public IEnumerable<StickyNoteData> removedNotes => m_RemovedNotes;
 
         #endregion
 
@@ -306,6 +319,8 @@ namespace UnityEditor.ShaderGraph
             m_RemovedProperties.Clear();
             m_MovedProperties.Clear();
             m_AddedStickyNotes.Clear();
+            m_RemovedNotes.Clear();
+            m_NoteChanges.Clear();
             m_MostRecentlyCreatedGroup = null;
             didActiveOutputNodeChange = false;
         }
@@ -373,10 +388,38 @@ namespace UnityEditor.ShaderGraph
             }
         }
 
+        void RemoveNoteNoValidate(StickyNoteData note)
+        {
+            if(!m_StickyNotes.Contains(note))
+                throw new InvalidOperationException("Cannot remove a note that doesn't exist.");
+            m_StickyNotes.Remove(note);
+            m_RemovedNotes.Add(note);
+
+//            if (!m_Groups.Contains(group))
+//                throw new InvalidOperationException("Cannot remove a group that doesn't exist.");
+//            m_Groups.Remove(group);
+//            m_RemovedGroups.Add(group);
+//
+//            if (m_GroupNodes.TryGetValue(group.guid, out var nodes))
+//            {
+//                foreach (AbstractMaterialNode node in nodes.ToList())
+//                {
+//                    SetNodeGroup(node, null);
+//                }
+//
+//                m_GroupNodes.Remove(group.guid);
+//            }
+        }
+
         public void CreateStickyNote(StickyNoteData stickyNoteData)
         {
             m_StickyNotes.Add(stickyNoteData);
             m_AddedStickyNotes.Add(stickyNoteData);
+        }
+
+        public void ChangeStickyNoteTitle(StickyNoteData stickyNoteData)
+        {
+            m_NoteChanges.Add(stickyNoteData);
         }
 
         public void SetNodeGroup(AbstractMaterialNode node, GroupData group)
@@ -522,7 +565,7 @@ namespace UnityEditor.ShaderGraph
             ValidateGraph();
         }
 
-        public void RemoveElements(IEnumerable<AbstractMaterialNode> nodes, IEnumerable<IEdge> edges, IEnumerable<GroupData> groups)
+        public void RemoveElements(IEnumerable<AbstractMaterialNode> nodes, IEnumerable<IEdge> edges, IEnumerable<GroupData> groups, IEnumerable<StickyNoteData> notes)
         {
             var nodesCopy = nodes.ToArray();
             foreach (var node in nodesCopy)
@@ -546,6 +589,11 @@ namespace UnityEditor.ShaderGraph
             foreach (var groupData in groups)
             {
                 RemoveGroupNoValidate(groupData);
+            }
+
+            foreach (var noteData in notes)
+            {
+                RemoveNoteNoValidate(noteData);
             }
 
             ValidateGraph();
@@ -907,6 +955,16 @@ namespace UnityEditor.ShaderGraph
                 }
             }
 
+            using (var removedNotesPooledObject = ListPool<StickyNoteData>.GetDisposable())
+            {
+                var removedNoteDatas = removedNotesPooledObject.value;
+                removedNoteDatas.AddRange(m_StickyNotes);
+                foreach (var groupData in removedNoteDatas)
+                {
+                    RemoveNoteNoValidate(groupData);
+                }
+            }
+
             using (var pooledList = ListPool<IEdge>.GetDisposable())
             {
                 var removedNodeEdges = pooledList.value;
@@ -924,6 +982,11 @@ namespace UnityEditor.ShaderGraph
             }
 
             ValidateGraph();
+
+            foreach (var stickyNote in other.stickyNotes)
+            {
+                CreateStickyNote(stickyNote);
+            }
 
             foreach (GroupData groupData in other.groups)
                 AddGroup(groupData);
@@ -1058,7 +1121,7 @@ namespace UnityEditor.ShaderGraph
 
             foreach (var stickyNote in m_StickyNotes)
             {
-                
+
                 //Debug.Log(stickyNote.title);
                 //m_AddedStickyNotes.Add(stickyNote);
             }

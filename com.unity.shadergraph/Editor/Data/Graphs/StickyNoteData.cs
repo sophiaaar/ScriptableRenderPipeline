@@ -24,6 +24,15 @@ namespace UnityEditor.ShaderGraph
         }
 
         [SerializeField]
+        string m_Content;
+
+        public string content
+        {
+            get => m_Content;
+            set => m_Content = value;
+        }
+
+        [SerializeField]
         string m_Text;
 
         public string text
@@ -41,11 +50,12 @@ namespace UnityEditor.ShaderGraph
             set => m_Position = value;
         }
 
-        public StickyNoteData(string title, Vector2 position)
+        public StickyNoteData(string title, string content, Vector2 position)
         {
             m_Guid = Guid.NewGuid();
             m_Title = title;
             m_Position = position;
+            m_Content = content;
         }
 
         public void OnBeforeSerialize()

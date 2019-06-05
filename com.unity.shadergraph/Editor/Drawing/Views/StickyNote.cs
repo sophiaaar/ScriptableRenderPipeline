@@ -472,9 +472,9 @@ namespace UnityEditor.ShaderGraph.Drawing
 
         void OnTitleChange(EventBase e)
         {
-            m_Graph.owner.RegisterCompleteObjectUndo("Title Changed");
-            title = m_TitleField.value;
-            userData.title = title;
+            //m_Graph.owner.RegisterCompleteObjectUndo("Title Changed");
+            //title = m_TitleField.value;
+            //userData.title = title;
         }
 
         const string fitTextClass = "fit-text";
@@ -610,10 +610,19 @@ namespace UnityEditor.ShaderGraph.Drawing
 
         void NotifyChange(StickyNodeChangeEvent.Change change)
         {
-            if (OnChange != null)
+            if (change == StickyNodeChangeEvent.Change.title)
             {
-                OnChange(change);
+                m_Graph.owner.RegisterCompleteObjectUndo($"Change {change.ToString()}");
+                userData.title = title;
+                m_Graph.ChangeStickyNoteTitle(userData);
+                //
             }
+//            if (OnChange != null)
+//            {
+//
+//
+//                //OnChange(change);
+//            }
         }
 
         public System.Action<StickyNodeChangeEvent.Change> OnChange;

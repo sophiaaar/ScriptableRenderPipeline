@@ -462,7 +462,8 @@ namespace UnityEditor.ShaderGraph.Drawing
             graphObject.graph.RemoveElements(
                 graphView.selection.OfType<IShaderNodeView>().Select(x => x.node).Where(x => x.allowedInSubGraph),
                 Enumerable.Empty<IEdge>(),
-                Enumerable.Empty<GroupData>());
+                Enumerable.Empty<GroupData>(),
+                Enumerable.Empty<StickyNoteData>());
             graphObject.graph.ValidateGraph();
         }
 

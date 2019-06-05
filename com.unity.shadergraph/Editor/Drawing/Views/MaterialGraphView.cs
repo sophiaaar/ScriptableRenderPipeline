@@ -74,10 +74,11 @@ namespace UnityEditor.ShaderGraph.Drawing
 
         public override void BuildContextualMenu(ContextualMenuPopulateEvent evt)
         {
+            Vector2 mousePosition = evt.mousePosition;
             base.BuildContextualMenu(evt);
             if(evt.target is GraphView)
             {
-                evt.menu.InsertAction(1, "Create Sticky Note", (e) => { AddStickyNote(evt.mousePosition); });
+                evt.menu.InsertAction(1, "Create Sticky Note", (e) => { AddStickyNote(mousePosition); });
             }
 
             if (evt.target is GraphView || evt.target is Node)
@@ -182,9 +183,11 @@ namespace UnityEditor.ShaderGraph.Drawing
 
         public void AddStickyNote(Vector2 position)
         {
+            Debug.Log(position);
             position = contentViewContainer.WorldToLocal(position);
             string title = "New Note";
-            var stickyNoteData  = new StickyNoteData(title, position);
+            string content = "Write something here";
+            var stickyNoteData  = new StickyNoteData(title, content, position);
             graph.owner.RegisterCompleteObjectUndo("Create Sticky Note");
             graph.CreateStickyNote(stickyNoteData);
         }
@@ -368,7 +371,8 @@ namespace UnityEditor.ShaderGraph.Drawing
             graph.owner.RegisterCompleteObjectUndo(operationName);
             graph.RemoveElements(selection.OfType<IShaderNodeView>().Where(v => !(v.node is SubGraphOutputNode) && v.node.canDeleteNode).Select(x => x.node),
                 selection.OfType<Edge>().Select(x => x.userData).OfType<IEdge>(),
-                selection.OfType<ShaderGroup>().Select(x => x.userData));
+                selection.OfType<ShaderGroup>().Select(x => x.userData),
+                selection.OfType<StickyNote>().Select(x => x.userData));
 
             foreach (var selectable in selection)
             {

@@ -36,7 +36,7 @@ namespace UnityEditor.ShaderGraph
         void RemoveNodesInsideGroup(DropdownMenuAction action)
         {
             m_Graph.owner.RegisterCompleteObjectUndo("Delete Group and Contents");
-            m_Graph.RemoveElements(m_Graph.GetNodesInGroup(userData), Enumerable.Empty<IEdge>(), new [] {userData});
+            m_Graph.RemoveElements(m_Graph.GetNodesInGroup(userData), Enumerable.Empty<IEdge>(), new [] {userData}, Enumerable.Empty<StickyNoteData>());
         }
     }
 }

@@ -320,7 +320,8 @@ namespace UnityEditor.ShaderGraph.Drawing
                 m_Graph.owner.RegisterCompleteObjectUndo("Remove Elements");
                 m_Graph.RemoveElements(graphViewChange.elementsToRemove.OfType<IShaderNodeView>().Select(v => v.node),
                     graphViewChange.elementsToRemove.OfType<Edge>().Select(e => (IEdge)e.userData),
-                    graphViewChange.elementsToRemove.OfType<ShaderGroup>().Select(g => g.userData));
+                    graphViewChange.elementsToRemove.OfType<ShaderGroup>().Select(g => g.userData),
+                    graphViewChange.elementsToRemove.OfType<StickyNote>().Select(n => n.userData));
                 foreach (var edge in graphViewChange.elementsToRemove.OfType<Edge>())
                 {
                     if (edge.input != null)
@@ -474,6 +475,13 @@ namespace UnityEditor.ShaderGraph.Drawing
                 }
             }
 
+            foreach (var noteData in m_Graph.removedNotes)
+            {
+                var note = m_GraphView.graphElements.ToList().OfType<StickyNote>().First(n => n.userData == noteData);
+                m_GraphView.RemoveElement(note);
+            }
+
+
             foreach (GroupData groupData in m_Graph.removedGroups)
             {
                 var group = m_GraphView.graphElements.ToList().OfType<ShaderGroup>().First(g => g.userData == groupData);
@@ -488,6 +496,12 @@ namespace UnityEditor.ShaderGraph.Drawing
             foreach (var stickyNote in m_Graph.addedStickyNotes)
             {
                 AddStickyNote(stickyNote);
+            }
+
+            foreach (var stickyNoteData in m_Graph.noteChanges)
+            {
+                var note = m_GraphView.graphElements.ToList().OfType<StickyNote>().First(n => n.userData == stickyNoteData);
+                note.title = stickyNoteData.title;
             }
 
             foreach (var node in m_Graph.addedNodes)
@@ -690,7 +704,8 @@ namespace UnityEditor.ShaderGraph.Drawing
 
             stickyNote.userData = stickyNoteData;
             stickyNote.title = stickyNoteData.title;
-            stickyNote.SetPosition(new Rect(stickyNote.userData.position, Vector2.zero));
+            stickyNote.contents = stickyNoteData.content;
+            stickyNote.SetPosition(new Rect(stickyNote.userData.position, new Vector2(200, 125)));
 
             m_GraphView.AddElement(stickyNote);
         }
