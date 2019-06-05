@@ -123,7 +123,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public ComputeShader groundIrradiancePrecomputationCS;
             [Reload("Runtime/Sky/PbrSky/InScatteredRadiancePrecomputation.compute")]
             public ComputeShader inScatteredRadiancePrecomputationCS;
-            [Reload("Runtime/Sky/brSky/PbrSky.shader")]
+            [Reload("Runtime/Sky/PbrSky/PbrSky.shader")]
             public Shader        pbrSkyPS;
 
             // Material
