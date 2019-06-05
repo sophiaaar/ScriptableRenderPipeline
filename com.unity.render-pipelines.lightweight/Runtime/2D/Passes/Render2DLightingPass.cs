@@ -13,12 +13,10 @@ namespace UnityEngine.Experimental.Rendering.LWRP
     {
         static SortingLayer[] s_SortingLayers;
         Renderer2DData m_RendererData;
-        static readonly ShaderTagId k_CombinedRenderingPassName = new ShaderTagId("Lightweight2D");
+        static readonly ShaderTagId k_2DRenderingPassName = new ShaderTagId("Lightweight2D");
         static readonly ShaderTagId k_NormalsRenderingPassName = new ShaderTagId("NormalsRendering");
         static readonly ShaderTagId k_LegacyPassName = new ShaderTagId("SRPDefaultUnlit");
-        static readonly ShaderTagId k_ForwardPassName = new ShaderTagId("LightweightForward");
-        static readonly List<ShaderTagId> k_ShaderTags = new List<ShaderTagId>() { k_LegacyPassName, k_CombinedRenderingPassName };
-        static readonly List<ShaderTagId> k_PreviewTags = new List<ShaderTagId>() { k_ForwardPassName };
+        static readonly List<ShaderTagId> k_ShaderTags = new List<ShaderTagId>() { k_LegacyPassName, k_2DRenderingPassName };
 
         public Render2DLightingPass(Renderer2DData rendererData)
         {
@@ -47,23 +45,22 @@ namespace UnityEngine.Experimental.Rendering.LWRP
 
             cmd.SetGlobalFloat("_HDREmulationScale", m_RendererData.hdrEmulationScale);
             cmd.SetGlobalFloat("_InverseHDREmulationScale", 1.0f / m_RendererData.hdrEmulationScale);
-            RendererLighting.SetShapeLightShaderGlobals(cmd);
 
-            context.ExecuteCommandBuffer(cmd);
-
-            Profiler.BeginSample("RenderSpritesWithLighting - Prepare");
-            
-            DrawingSettings normalsDrawSettings = CreateDrawingSettings(k_NormalsRenderingPassName, ref renderingData, SortingCriteria.CommonTransparent);
 
             bool isPreview = false;
 #if UNITY_EDITOR
             isPreview = EditorSceneManager.IsPreviewSceneObject(camera);
 #endif
-            DrawingSettings combinedDrawSettings;
-            if (!isPreview)
-                combinedDrawSettings = CreateDrawingSettings(k_ShaderTags, ref renderingData, SortingCriteria.CommonTransparent);
+            if (isPreview)
+                RendererLighting.SetPreviewShaderGlobals(cmd);
             else
-                combinedDrawSettings = CreateDrawingSettings(k_PreviewTags, ref renderingData, SortingCriteria.CommonTransparent);
+                RendererLighting.SetShapeLightShaderGlobals(cmd);
+
+            context.ExecuteCommandBuffer(cmd);
+
+            Profiler.BeginSample("RenderSpritesWithLighting - Prepare");
+            DrawingSettings combinedDrawSettings = CreateDrawingSettings(k_ShaderTags, ref renderingData, SortingCriteria.CommonTransparent); ;
+            DrawingSettings normalsDrawSettings = CreateDrawingSettings(k_NormalsRenderingPassName, ref renderingData, SortingCriteria.CommonTransparent);
 
             FilteringSettings filterSettings = new FilteringSettings();
             filterSettings.renderQueueRange = RenderQueueRange.all;
