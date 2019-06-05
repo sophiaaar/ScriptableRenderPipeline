@@ -161,7 +161,6 @@ void GTAO_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
     float4 normalBufferData = LOAD_TEXTURE2D_X(_NormalBufferTexture, dispatchThreadId.xy);
 #endif
 
-
     float2 dir = GetDirection(dispatchThreadId.xy);
     float offset = GetOffset(dispatchThreadId.xy);
 
@@ -170,7 +169,6 @@ void GTAO_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
     float3 V = normalize(-positionVS);
     float fovCorrectedradiusSS =  clamp(_AORadius * _AOFOVCorrection * rcp(positionVS.z), _AOStepCount, _AOMaxRadiusInPixels);
     float step = fovCorrectedradiusSS * _AOInvStepCountPlusOne;
-
 
     // Find horizons 
     float2 maxHorizons;
@@ -187,13 +185,13 @@ void GTAO_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
     float cosN = dot(projN / projNLen, V);
 
     float3 T = cross(V, sliceN);
-    float n = -sign(dot(projN, T)) * GTAOFastAcos(cosN);
+    float N = -sign(dot(projN, T)) * GTAOFastAcos(cosN);
 
     // Now we find the actual horizon angles
     maxHorizons.x = -GTAOFastAcos(maxHorizons.x);
     maxHorizons.y = GTAOFastAcos(maxHorizons.y);
-    maxHorizons.x = n + max(maxHorizons.x - n, -HALF_PI);
-    maxHorizons.y = n + min(maxHorizons.y - n, HALF_PI);
+    maxHorizons.x = N + max(maxHorizons.x - N, -HALF_PI);
+    maxHorizons.y = N + min(maxHorizons.y - N, HALF_PI);
 
 #if INTEGRAL_TYPE == INTEGRAL_COSINE
 #if !WEIGHT_WITH_PROJ_N_LENGTH
