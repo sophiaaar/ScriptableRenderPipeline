@@ -37,7 +37,6 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
         public MSAASamples msaaSamples; // Only supported for Explicit size mode
         public bool bindTextureMS;
         public bool useDynamicScale;
-        public bool xrInstancing;
         public RenderTextureMemoryless memoryless;
         public string name;
 
@@ -127,7 +126,6 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
                 hashCode = hashCode * 23 + (isShadowMap ? 1 : 0);
                 hashCode = hashCode * 23 + (bindTextureMS ? 1 : 0);
                 hashCode = hashCode * 23 + (useDynamicScale ? 1 : 0);
-                hashCode = hashCode * 23 + (xrInstancing ? 1 : 0);
             }
 
             return hashCode;
@@ -329,15 +327,15 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
                 {
                     case TextureSizeMode.Explicit:
                         resource.rt = m_RTHandleSystem.Alloc(desc.width, desc.height, desc.slices, desc.depthBufferBits, desc.colorFormat, desc.filterMode, desc.wrapMode, desc.dimension, desc.enableRandomWrite,
-                        desc.useMipMap, desc.autoGenerateMips, desc.isShadowMap, desc.anisoLevel, desc.mipMapBias, desc.msaaSamples, desc.bindTextureMS, desc.useDynamicScale, desc.xrInstancing, desc.memoryless, desc.name);
+                        desc.useMipMap, desc.autoGenerateMips, desc.isShadowMap, desc.anisoLevel, desc.mipMapBias, desc.msaaSamples, desc.bindTextureMS, desc.useDynamicScale, desc.memoryless, desc.name);
                         break;
                     case TextureSizeMode.Scale:
                         resource.rt = m_RTHandleSystem.Alloc(desc.scale, desc.slices, desc.depthBufferBits, desc.colorFormat, desc.filterMode, desc.wrapMode, desc.dimension, desc.enableRandomWrite,
-                        desc.useMipMap, desc.autoGenerateMips, desc.isShadowMap, desc.anisoLevel, desc.mipMapBias, desc.enableMSAA, desc.bindTextureMS, desc.useDynamicScale, desc.xrInstancing, desc.memoryless, desc.name);
+                        desc.useMipMap, desc.autoGenerateMips, desc.isShadowMap, desc.anisoLevel, desc.mipMapBias, desc.enableMSAA, desc.bindTextureMS, desc.useDynamicScale, desc.memoryless, desc.name);
                         break;
                     case TextureSizeMode.Functor:
                         resource.rt = m_RTHandleSystem.Alloc(desc.func, desc.slices, desc.depthBufferBits, desc.colorFormat, desc.filterMode, desc.wrapMode, desc.dimension, desc.enableRandomWrite,
-                        desc.useMipMap, desc.autoGenerateMips, desc.isShadowMap, desc.anisoLevel, desc.mipMapBias, desc.enableMSAA, desc.bindTextureMS, desc.useDynamicScale, desc.xrInstancing, desc.memoryless, desc.name);
+                        desc.useMipMap, desc.autoGenerateMips, desc.isShadowMap, desc.anisoLevel, desc.mipMapBias, desc.enableMSAA, desc.bindTextureMS, desc.useDynamicScale, desc.memoryless, desc.name);
                         break;
                 }
             }

@@ -4,6 +4,8 @@ using UnityEngine.Experimental.Rendering.RenderGraphModule;
 
 namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
+    using RTHandle = RTHandleSystem.RTHandle;
+
     public partial class HDRenderPipeline
     {
         void ExecuteWithRenderGraph(RenderRequest renderRequest, ScriptableRenderContext renderContext, CommandBuffer cmd, DensityVolumeList densityVolumes)
@@ -12,7 +14,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             var camera = hdCamera.camera;
             var cullingResults = renderRequest.cullingResults.cullingResults;
             bool msaa = hdCamera.frameSettings.IsEnabled(FrameSettingsField.MSAA);
-            //var target = renderRequest.target;
+            var target = renderRequest.target;
 
             CreateSharedResources(m_RenderGraph, hdCamera, m_CurrentDebugDisplaySettings);
 
@@ -96,10 +98,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 StartLegacyStereo(m_RenderGraph, hdCamera);
 
-                RenderDeferredLighting(m_RenderGraph, hdCamera, colorBuffer, prepassOutput.gbuffer);
+                var deferredLightingOutput = RenderDeferredLighting(m_RenderGraph, hdCamera, colorBuffer, prepassOutput.gbuffer);
+
+                RenderSubsurfaceScattering(m_RenderGraph, hdCamera,
+                    colorBuffer /*msaa*/, deferredLightingOutput.sssDifuseLightingBuffer, GetSSSBuffer(false), GetDepthStencilBuffer(msaa), GetDepthTexture());
 
                 StopLegacyStereo(m_RenderGraph, hdCamera);
 
+                BlitFinalCameraTexture(m_RenderGraph, hdCamera, colorBuffer, target.id);
             }
 
             ExecuteRenderGraph(m_RenderGraph, hdCamera, m_MSAASamples, renderContext, cmd);
@@ -117,6 +123,31 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             renderGraph.Execute(renderContext, cmd, renderGraphParams);
         }
 
+        class FinalBlitPassData
+        {
+            public BlitFinalCameraTextureParameters parameters;
+            public RenderGraphResource              source;
+            public RenderTargetIdentifier           destination;
+        }
+
+        void BlitFinalCameraTexture(RenderGraph renderGraph, HDCamera hdCamera, RenderGraphResource source, RenderTargetIdentifier destination)
+        {
+            using (var builder = renderGraph.AddRenderPass<FinalBlitPassData>("Final Blit (Dev Build Only)", out var passData))
+            {
+                passData.parameters = PrepareFinalBlitParameters(hdCamera);
+                passData.source = builder.ReadTexture(source);
+                passData.destination = destination;
+
+                builder.SetRenderFunc(
+                (FinalBlitPassData data, RenderGraphContext context) =>
+                {
+                    var sourceTexture = context.resources.GetTexture(data.source);
+                    BlitFinalCameraTexture(data.parameters, context.renderGraphPool.GetTempMaterialPropertyBlock(), sourceTexture, data.destination, context.cmd);
+                });
+            }
+
+        }
+
         RenderGraphMutableResource CreateColorBuffer(HDCamera hdCamera, bool allowMSAA)
         {
             bool msaa = hdCamera.frameSettings.IsEnabled(FrameSettingsField.MSAA) && allowMSAA;
@@ -127,7 +158,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     enableRandomWrite = !msaa,
                     bindTextureMS = msaa,
                     enableMSAA = msaa,
-                    xrInstancing = true,
+                    slices = TextureXR.slices,
+                    dimension = TextureXR.dimension,
                     useDynamicScale = true,
                     clearBuffer = NeedClearColorBuffer(hdCamera),
                     clearColor = GetColorBufferClearColor(hdCamera),

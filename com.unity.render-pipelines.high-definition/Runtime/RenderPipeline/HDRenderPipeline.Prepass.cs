@@ -211,25 +211,24 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             bool shadowMasks = frameSettings.IsEnabled(FrameSettingsField.ShadowMask);
 
             passData.depthBuffer = builder.UseDepthBuffer(GetDepthStencilBuffer());
-            passData.gbufferRT[0] = builder.UseColorBuffer(builder.CreateTexture(
-                new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R8G8B8A8_SRGB, xrInstancing = true, useDynamicScale = true, clearBuffer = clearGBuffer, clearColor = Color.clear, name = "GBuffer0" }, HDShaderIDs._GBufferTexture[0]), 0);
+            passData.gbufferRT[0] = builder.UseColorBuffer(GetSSSBuffer(false), 0);
             passData.gbufferRT[1] = builder.UseColorBuffer(GetNormalBuffer(), 1);
             passData.gbufferRT[2] = builder.UseColorBuffer(builder.CreateTexture(
-                new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R8G8B8A8_UNorm, xrInstancing = true, useDynamicScale = true, clearBuffer = clearGBuffer, clearColor = Color.clear, name = "GBuffer2" }, HDShaderIDs._GBufferTexture[2]), 2);
+                new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R8G8B8A8_UNorm, slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, clearBuffer = clearGBuffer, clearColor = Color.clear, name = "GBuffer2" }, HDShaderIDs._GBufferTexture[2]), 2);
             passData.gbufferRT[3] = builder.UseColorBuffer(builder.CreateTexture(
-                new TextureDesc(Vector2.one) { colorFormat = Builtin.GetLightingBufferFormat(), xrInstancing = true, useDynamicScale = true, clearBuffer = clearGBuffer, clearColor = Color.clear, name = "GBuffer3" }, HDShaderIDs._GBufferTexture[3]), 3);
+                new TextureDesc(Vector2.one) { colorFormat = Builtin.GetLightingBufferFormat(), slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, clearBuffer = clearGBuffer, clearColor = Color.clear, name = "GBuffer3" }, HDShaderIDs._GBufferTexture[3]), 3);
 
             int currentIndex = 4;
             if (lightLayers)
             {
                 passData.gbufferRT[currentIndex] = builder.UseColorBuffer(builder.CreateTexture(
-                    new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R8G8B8A8_UNorm, xrInstancing = true, useDynamicScale = true, clearBuffer = clearGBuffer, clearColor = Color.clear, name = "LightLayers" }, HDShaderIDs._LightLayersTexture), currentIndex);
+                    new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R8G8B8A8_UNorm, slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, clearBuffer = clearGBuffer, clearColor = Color.clear, name = "LightLayers" }, HDShaderIDs._LightLayersTexture), currentIndex);
                 currentIndex++;
             }
             if (shadowMasks)
             {
                 passData.gbufferRT[currentIndex] = builder.UseColorBuffer(builder.CreateTexture(
-                    new TextureDesc(Vector2.one) { colorFormat = Builtin.GetShadowMaskBufferFormat(), xrInstancing = true, useDynamicScale = true, clearBuffer = clearGBuffer, clearColor = Color.clear, name = "ShadowMasks" }, HDShaderIDs._ShadowMaskTexture), currentIndex);
+                    new TextureDesc(Vector2.one) { colorFormat = Builtin.GetShadowMaskBufferFormat(), slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, clearBuffer = clearGBuffer, clearColor = Color.clear, name = "ShadowMasks" }, HDShaderIDs._ShadowMaskTexture), currentIndex);
                 currentIndex++;
             }
 
@@ -286,7 +285,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             using (var builder = renderGraph.AddRenderPass<ResolvePrepassData>("Resolve Prepass MSAA", out var passData))
             {
                 // This texture stores a set of depth values that are required for evaluating a bunch of effects in MSAA mode (R = Samples Max Depth, G = Samples Min Depth, G =  Samples Average Depth)
-                RenderGraphMutableResource depthValuesBuffer = builder.CreateTexture(new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R32G32B32A32_SFloat, xrInstancing = true, useDynamicScale = true, name = "DepthValuesBuffer" });
+                RenderGraphMutableResource depthValuesBuffer = builder.CreateTexture(new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R32G32B32A32_SFloat, slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, name = "DepthValuesBuffer" });
 
                 passData.depthResolveMaterial = m_DepthResolveMaterial;
                 passData.depthResolvePassIndex = SampleCountToPassIndex(m_MSAASamples);

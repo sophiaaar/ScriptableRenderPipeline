@@ -25,7 +25,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             {
                 passData.hdCamera = hdCamera;
                 passData.depthStencilBuffer = depthStencilBuffer;
-                passData.stencilBufferCopy = builder.WriteTexture(builder.CreateTexture(new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R8_UNorm, enableRandomWrite = true, name = "CameraStencilCopy", useDynamicScale = true, xrInstancing = true }));
+                passData.stencilBufferCopy = builder.WriteTexture(builder.CreateTexture(new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R8_UNorm, slices = TextureXR.slices, dimension = TextureXR.dimension, enableRandomWrite = true, name = "CameraStencilCopy", useDynamicScale = true }));
                 passData.copyStencil = copyStencil;
                 passData.copyStencilForSSR = copyStencilForSSR;
 
@@ -80,9 +80,36 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
         }
 
+        class PushGlobalCameraParamPassData
+        {
+            public HDCamera    hdCamera;
+            public float       time;
+            public float       lastTime;
+            public int         frameCount;
+
+        }
+
+        void PushGlobalCameraParams(RenderGraph renderGraph, HDCamera hdCamera)
+        {
+            using (var builder = renderGraph.AddRenderPass<PushGlobalCameraParamPassData>(out var passData))
+            {
+                passData.hdCamera = hdCamera;
+                passData.time = m_Time;
+                passData.lastTime = m_LastTime;
+                passData.frameCount = m_FrameCount;
+
+                builder.SetRenderFunc(
+                (PushGlobalCameraParamPassData data, RenderGraphContext context) =>
+                {
+                    data.hdCamera.SetupGlobalParams(context.cmd, data.time, data.lastTime, data.frameCount);
+                });
+            }
+        }
+
         void RenderShadows(RenderGraph renderGraph, HDCamera hdCamera, CullingResults cullResults)
         {
             m_ShadowManager.RenderShadows(m_RenderGraph, hdCamera, cullResults);
+            PushGlobalCameraParams(renderGraph, hdCamera);
         }
 
         class DeferredLightingPassData
@@ -94,18 +121,20 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public RenderGraphMutableResource   sssDifuseLightingBuffer;
             public RenderGraphResource          depthBuffer;
             public RenderGraphResource          depthTexture;
+
+            public RenderGraphResource[]        gBuffer = new RenderGraphResource[8];
         }
 
-        struct DeferredLightingOutput
+        struct LightingOutput
         {
             public RenderGraphMutableResource colorBuffer;
             public RenderGraphMutableResource sssDifuseLightingBuffer;
         }
 
-        DeferredLightingOutput RenderDeferredLighting(RenderGraph renderGraph, HDCamera hdCamera, RenderGraphMutableResource colorBuffer, GBufferOutput gbuffer)
+        LightingOutput RenderDeferredLighting(RenderGraph renderGraph, HDCamera hdCamera, RenderGraphMutableResource colorBuffer, GBufferOutput gbuffer)
         {
             if (hdCamera.frameSettings.litShaderMode != LitShaderMode.Deferred)
-                return new DeferredLightingOutput();
+                return new LightingOutput();
 
             using (var builder = renderGraph.AddRenderPass<DeferredLightingPassData>("Deferred Lighting", out var passData))
             {
@@ -123,16 +152,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 {
                     passData.sssDifuseLightingBuffer = builder.WriteTexture(builder.CreateTexture(
                         new TextureDesc(Vector2.one)
-                        { colorFormat = GraphicsFormat.B10G11R11_UFloatPack32, enableRandomWrite = true, clearBuffer = true, clearColor = Color.clear, xrInstancing = true, useDynamicScale = true, name = "CameraSSSDiffuseLighting" }));
+                        { colorFormat = GraphicsFormat.B10G11R11_UFloatPack32, slices = TextureXR.slices, dimension = TextureXR.dimension, enableRandomWrite = true, clearBuffer = true, clearColor = Color.clear, useDynamicScale = true, name = "CameraSSSDiffuseLighting" }));
                 }
                 passData.depthBuffer = builder.ReadTexture(GetDepthStencilBuffer());
                 passData.depthTexture = builder.ReadTexture(GetDepthTexture());
 
-                // No need to pass handles to render func as these will be automatically bound (ShaderTagId was passed at creation time)
                 for (int i = 0; i < gbuffer.gbuffer.Length; ++i)
-                    builder.ReadTexture(gbuffer.gbuffer[i]);
+                    passData.gBuffer[i] = builder.ReadTexture(gbuffer.gbuffer[i]);
 
-                var output = new DeferredLightingOutput();
+                var output = new LightingOutput();
                 output.colorBuffer = passData.colorBuffer;
                 output.sssDifuseLightingBuffer = passData.sssDifuseLightingBuffer;
 
@@ -145,6 +173,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                         data.resources.colorBuffers[1] = context.resources.GetTexture(data.sssDifuseLightingBuffer);
                     data.resources.depthStencilBuffer = context.resources.GetTexture(data.depthBuffer);
                     data.resources.depthTexture = context.resources.GetTexture(data.depthTexture);
+
+                    // TODO: try to find a better way to bind this.
+                    for (int i = 0; i < gbuffer.gbuffer.Length; ++i)
+                        context.cmd.SetGlobalTexture(HDShaderIDs._GBufferTexture[i], context.resources.GetTexture(data.gBuffer[i]));
 
                     if (data.parameters.enableTile)
                     {

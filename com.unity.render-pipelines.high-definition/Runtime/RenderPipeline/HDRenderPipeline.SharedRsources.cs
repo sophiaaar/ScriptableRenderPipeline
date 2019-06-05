@@ -7,19 +7,23 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
     public partial class HDRenderPipeline
     {
         // The render target used when we do not support MSAA
-        RenderGraphMutableResource    m_DepthBuffer;
-        RenderGraphMutableResource    m_NormalBuffer;
-        RenderGraphMutableResource    m_MotionVectorsBuffer;
+        RenderGraphMutableResource      m_DepthBuffer;
+        RenderGraphMutableResource      m_NormalBuffer;
+        RenderGraphMutableResource      m_MotionVectorsBuffer;
 
-        RenderGraphMutableResource    m_DepthBufferMipChain;
-        HDUtils.PackedMipChainInfo    m_DepthBufferMipChainInfo; // This is metadata
+        // Albedo + SSS Profile and mask / Specular occlusion (when no SSS)
+        // This will be used during GBuffer and/or forward passes.
+        RenderGraphMutableResource      m_SSSBuffer;
+
+        RenderGraphMutableResource      m_DepthBufferMipChain;
+        HDUtils.PackedMipChainInfo      m_DepthBufferMipChainInfo; // This is metadata
 
         // MSAA Render targets
-        RenderGraphMutableResource    m_DepthBufferMSAA;
-        RenderGraphMutableResource    m_NormalBufferMSAA;
-        RenderGraphMutableResource    m_MotionVectorsBufferMSAA;
+        RenderGraphMutableResource      m_DepthBufferMSAA;
+        RenderGraphMutableResource      m_NormalBufferMSAA;
+        RenderGraphMutableResource      m_MotionVectorsBufferMSAA;
         // This texture must be used because reading directly from an MSAA Depth buffer is way to expensive. The solution that we went for is writing the depth in an additional color buffer (10x cheaper to solve on ps4)
-        RenderGraphMutableResource    m_DepthAsColorBufferMSAA;
+        RenderGraphMutableResource      m_DepthAsColorBufferMSAA;
 
         Vector2Int ComputeDepthBufferMipChainSize(Vector2Int screenSize)
         {
@@ -39,18 +43,20 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         void CreateSharedResources(RenderGraph renderGraph, HDCamera hdCamera, DebugDisplaySettings debugDisplaySettings)
         {
-            TextureDesc depthDesc = new TextureDesc(Vector2.one) { depthBufferBits = DepthBits.Depth32, clearBuffer = true, xrInstancing = true, useDynamicScale = true, name = "CameraDepthStencil" };
+            TextureDesc depthDesc = new TextureDesc(Vector2.one) { depthBufferBits = DepthBits.Depth32, clearBuffer = true, slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, name = "CameraDepthStencil" };
 
             m_DepthBuffer = renderGraph.CreateTexture(depthDesc);
             m_DepthBufferMSAA = renderGraph.CreateTexture(new TextureDesc(depthDesc) { bindTextureMS = true, enableMSAA = true, name = "CameraDepthStencilMSAA" });
-            m_DepthAsColorBufferMSAA = renderGraph.CreateTexture(new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R32_SFloat, clearBuffer = true, clearColor = Color.black, bindTextureMS = true, enableMSAA = true, xrInstancing = true, useDynamicScale = true, name = "DepthAsColorMSAA" }, HDShaderIDs._DepthTextureMS);
-            m_DepthBufferMipChain = renderGraph.CreateTexture(new TextureDesc(ComputeDepthBufferMipChainSize) { colorFormat = GraphicsFormat.R32_SFloat, enableRandomWrite = true, xrInstancing = true, useDynamicScale = true, name = "CameraDepthBufferMipChain" }, HDShaderIDs._CameraDepthTexture);
+            m_DepthAsColorBufferMSAA = renderGraph.CreateTexture(new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R32_SFloat, clearBuffer = true, clearColor = Color.black, bindTextureMS = true, enableMSAA = true, slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, name = "DepthAsColorMSAA" }, HDShaderIDs._DepthTextureMS);
+            m_DepthBufferMipChain = renderGraph.CreateTexture(new TextureDesc(ComputeDepthBufferMipChainSize) { colorFormat = GraphicsFormat.R32_SFloat, enableRandomWrite = true, slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, name = "CameraDepthBufferMipChain" }, HDShaderIDs._CameraDepthTexture);
 
-            TextureDesc normalDesc = new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R8G8B8A8_UNorm, clearBuffer = NeedClearGBuffer(), clearColor = Color.black, xrInstancing = true, useDynamicScale = true, enableRandomWrite = true, name = "NormalBuffer" };
+            m_SSSBuffer = renderGraph.CreateTexture(new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R8G8B8A8_SRGB, slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, clearBuffer = NeedClearGBuffer(), clearColor = Color.clear, name = "SSSBuffer" });
+
+            TextureDesc normalDesc = new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R8G8B8A8_UNorm, clearBuffer = NeedClearGBuffer(), clearColor = Color.black, slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, enableRandomWrite = true, name = "NormalBuffer" };
             m_NormalBuffer = renderGraph.CreateTexture(normalDesc, HDShaderIDs._NormalBufferTexture);
             m_NormalBufferMSAA = renderGraph.CreateTexture(new TextureDesc(normalDesc) { bindTextureMS = true, enableMSAA = true, enableRandomWrite = false, name = "NormalBufferMSAA" }, HDShaderIDs._NormalTextureMS);
 
-            TextureDesc motionVectorDesc = new TextureDesc(Vector2.one) { colorFormat = Builtin.GetMotionVectorFormat(), xrInstancing = true, useDynamicScale = true, name = "Motion Vectors" };
+            TextureDesc motionVectorDesc = new TextureDesc(Vector2.one) { colorFormat = Builtin.GetMotionVectorFormat(), slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, name = "Motion Vectors" };
             m_MotionVectorsBuffer = renderGraph.CreateTexture(motionVectorDesc, HDShaderIDs._CameraMotionVectorsTexture);
             m_MotionVectorsBufferMSAA = renderGraph.CreateTexture(new TextureDesc(motionVectorDesc) { bindTextureMS = true, enableMSAA = true, name = "Motion Vectors MSAA" });
 
@@ -60,6 +66,11 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         RenderGraphMutableResource GetDepthStencilBuffer(bool isMSAA = false)
         {
             return isMSAA ? m_DepthBufferMSAA : m_DepthBuffer;
+        }
+
+        RenderGraphMutableResource GetSSSBuffer(bool isMSAA = false)
+        {
+            return m_SSSBuffer;
         }
 
         RenderGraphMutableResource GetNormalBuffer(bool isMSAA = false)
