@@ -86,14 +86,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         void AllocRT(float scaleFactor)
         {
-            m_AmbientOcclusionTex = RTHandles.Alloc(Vector2.one, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R8_UNorm, useDynamicScale: true, enableRandomWrite: true, name: "Ambient Occlusion");
-            m_BentNormalTex = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R8G8B8A8_SNorm, useDynamicScale: true, enableRandomWrite: true, name: "Bent normals");
-            m_PackedDataTex = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed data");
-            m_PackedDataBlurred = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed blurred data");
-            m_PackedHistory[0] = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed history_1");
-            m_PackedHistory[1] = RTHandles.Alloc(Vector2.one * scaleFactor, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed history_2");
+            m_AmbientOcclusionTex = RTHandles.Alloc(Vector2.one, TextureXR.slices, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R8_UNorm, dimension: TextureXR.dimension, useDynamicScale: true, enableRandomWrite: true, name: "Ambient Occlusion");
+            m_BentNormalTex = RTHandles.Alloc(Vector2.one * scaleFactor, TextureXR.slices, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R8G8B8A8_SNorm, dimension: TextureXR.dimension, useDynamicScale: true, enableRandomWrite: true, name: "Bent normals");
+            m_PackedDataTex = RTHandles.Alloc(Vector2.one * scaleFactor, TextureXR.slices, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, dimension: TextureXR.dimension, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed data");
+            m_PackedDataBlurred = RTHandles.Alloc(Vector2.one * scaleFactor, TextureXR.slices, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, dimension: TextureXR.dimension, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed blurred data");
+            m_PackedHistory[0] = RTHandles.Alloc(Vector2.one * scaleFactor, TextureXR.slices, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, dimension: TextureXR.dimension, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed history_1");
+            m_PackedHistory[1] = RTHandles.Alloc(Vector2.one * scaleFactor, TextureXR.slices, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, dimension: TextureXR.dimension, useDynamicScale: true, enableRandomWrite: true, name: "AO Packed history_2");
 
-            m_FinalHalfRes = RTHandles.Alloc(Vector2.one * 0.5f, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, useDynamicScale: true, enableRandomWrite: true, name: "Final Half Res AO Packed");
+            m_FinalHalfRes = RTHandles.Alloc(Vector2.one * 0.5f, TextureXR.slices, filterMode: FilterMode.Point, colorFormat: GraphicsFormat.R32_UInt, dimension: TextureXR.dimension, useDynamicScale: true, enableRandomWrite: true, name: "Final Half Res AO Packed");
         }
 
         void EnsureRTSize(AmbientOcclusion settings)
