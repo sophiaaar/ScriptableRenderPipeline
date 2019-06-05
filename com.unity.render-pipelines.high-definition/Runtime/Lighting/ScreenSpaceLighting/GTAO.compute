@@ -31,20 +31,20 @@
 
 float IntegrateArcUniform(float horizon1, float horizon2)
 {
-    return (1.0f - cos(horizon1) + (1.0f - cos(horizon2)));
+    return (1.0f - cos(horizon1) + (1.0 - cos(horizon2)));
 }
 
 float IntegrateArcCosWeighted(float horzion1, float horizon2, float n, float cosN)
 {
-    float h1 = horzion1 * 2.0f; 
-    float h2 = horizon2 * 2.0f;
+    float h1 = horzion1 * 2.0; 
+    float h2 = horizon2 * 2.0;
     float sinN = sin(n);
-    return 0.25f * ((-cos(h1 - n) + cosN + h1 * sinN) + (-cos(h2 - n) + cosN + h2 * sinN));
+    return 0.25 * ((-cos(h1 - n) + cosN + h1 * sinN) + (-cos(h2 - n) + cosN + h2 * sinN));
 }
 
 float UpdateHorizon(float maxH, float candidateH, float distSq)
 {
-    float falloff = saturate((1.0f - (distSq * _AOInvRadiusSq)));
+    float falloff = saturate((1.0 - (distSq * _AOInvRadiusSq)));
 
     return (candidateH > maxH) ? lerp(maxH, candidateH, falloff) : maxH;        // TODO_FCC: Thickness heuristic here.
 }
@@ -63,8 +63,8 @@ float2 GetDirection(uint2 positionSS)
 
 #if TEMPORAL_ROTATION
     // Temporal rotations
-    float rotations[] = { 60.0f, 300.0f, 180.0f, 240.0f, 120.0f, 0.0f };
-    float rotation = (rotations[_AOTemporalRotationIdx] / 360.0f);
+    float rotations[] = { 60.0, 300.0, 180.0, 240.0, 120.0, 0.0 };
+    float rotation = (rotations[_AOTemporalRotationIdx] / 360.0);
 
     noise += rotation; 
 #endif
@@ -81,11 +81,11 @@ float2 GetDirection(uint2 positionSS)
 float GetOffset(uint2 positionSS)
 {
     // Spatial offset
-    float offset = 0.25f * ((positionSS.y - positionSS.x) & 0x3);
+    float offset = 0.25 * ((positionSS.y - positionSS.x) & 0x3);
 
     // Temporal offset
 #if ENABLE_TEMPORAL_OFFSET
-    float offsets[] = { 0.0f, 0.5f, 0.25f, 0.75f };
+    float offsets[] = { 0.0, 0.5, 0.25, 0.75 };
     offset += offsets[_AOTemporalOffsetIdx];
 #endif
     return frac(offset);
@@ -195,17 +195,14 @@ void GTAO_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
 
 #if INTEGRAL_TYPE == INTEGRAL_COSINE
 #if !WEIGHT_WITH_PROJ_N_LENGTH
-    float integral = 1 * IntegrateArcCosWeighted(maxHorizons.x, maxHorizons.y, n, cosN);
+    float integral = 1 * IntegrateArcCosWeighted(maxHorizons.x, maxHorizons.y, N, cosN);
 #else
-    float integral = projNLen * IntegrateArcCosWeighted(maxHorizons.x, maxHorizons.y, n, cosN);
+    float integral = projNLen * IntegrateArcCosWeighted(maxHorizons.x, maxHorizons.y, N, cosN);
 #endif
 #elif INTEGRAL_TYPE == INTEGRAL_UNIFORM
     float integral = projNLen * IntegrateArcUniform(maxHorizons.x, maxHorizons.y);
 #endif 
 
-    //// Bent normals stuff
-    //float bentNormalAngle = (maxHorizons.x + maxHorizons.y) * 0.5f;
-    //_BentNormalsTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = abs(_AOMipOffset - mipOffset).xyxy;
     if (currDepth == UNITY_RAW_FAR_CLIP_VALUE)
     {
         integral = 1;

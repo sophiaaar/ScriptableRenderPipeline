@@ -16,7 +16,7 @@ TEXTURE2D_X_UINT(_AOPackedData);
 void AOUpsample(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
     // Gather half res samples + depths.
-    float2 uv = (dispatchThreadId.xy + 0.5f) * _ScreenSize.zw;
+    float2 uv = (dispatchThreadId.xy + 0.5) * _ScreenSize.zw;
     uint4 currDatas = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, ClampAndScaleUVForBilinear(uv, _AOBufferSize.zw));
     float4 currAOs, currDepths;
     UnpackGatheredData(currDatas, currAOs, currDepths);
@@ -31,16 +31,16 @@ void AOUpsample(uint3 dispatchThreadId : SV_DispatchThreadID)
     float totalWeight = 0;
     for (int i = 0; i < 4; ++i)
     {
-        float w = 1.0f / (EPSILON + DELTA_SCALE * abs(linearFullResDepth - LinearEyeDepth(currDepths[i], _ZBufferParams)) / linearFullResDepth);
+        float w = rcp((EPSILON + DELTA_SCALE * abs(linearFullResDepth - LinearEyeDepth(currDepths[i], _ZBufferParams)) / linearFullResDepth));
         totalWeight += w;
         final += w * currAOs[i];
     }
     final /= totalWeight;
 #else
-    float final = dot(currAOs, 0.25f);
+    float final = dot(currAOs, 0.25);
 
 #endif 
 
     // Unpack
-    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = 1.0f - pow(final, _AOIntensity);
+    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = 1.0 - pow(final, _AOIntensity);
 }

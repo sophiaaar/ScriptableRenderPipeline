@@ -10,7 +10,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
     {
         SerializedDataParameter m_Intensity;
         SerializedDataParameter m_StepCount;
-        SerializedDataParameter m_RadiusParameter;
+        SerializedDataParameter m_Radius;
         SerializedDataParameter m_FullResolution;
         SerializedDataParameter m_MaximumRadiusInPixels;
         SerializedDataParameter m_DirectLightingStrength;
@@ -27,7 +27,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             m_Intensity = Unpack(o.Find(x => x.intensity));
             m_StepCount = Unpack(o.Find(x => x.stepCount));
-            m_RadiusParameter = Unpack(o.Find(x => x.radius));
+            m_Radius = Unpack(o.Find(x => x.radius));
             m_FullResolution = Unpack(o.Find(x => x.fullResolution));
             m_MaximumRadiusInPixels = Unpack(o.Find(x => x.maximumRadiusInPixels));
 
@@ -52,7 +52,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             PropertyField(m_Intensity);
             PropertyField(m_StepCount);
-            PropertyField(m_RadiusParameter);
+            PropertyField(m_Radius);
             PropertyField(m_MaximumRadiusInPixels);            
             PropertyField(m_FullResolution);
 

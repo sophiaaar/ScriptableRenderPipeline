@@ -110,11 +110,6 @@ float GetDepthSample(float2 positionSS, bool lowerRes)
 #endif
 }
 
-float GTAOFastSqrt(float x)
-{
-    return asfloat(0x1FBD1DF5) + (asint(x) >> 1);
-}
-
 float GTAOFastAcos(float x)
 {
     float outVal = -0.156583 * abs(x) + HALF_PI;
