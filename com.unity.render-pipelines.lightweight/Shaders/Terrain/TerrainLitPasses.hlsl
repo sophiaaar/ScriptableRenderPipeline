@@ -176,7 +176,7 @@ void HeightBasedSplatModify(inout half4 splatControl, in half4 masks[4])
     weightedHeights = (max(0, weightedHeights + transition) + 1e-5) * splatControl;
     
     // Normalize
-    float sumHeight = dot(weightedHeights, half4(1, 1, 1, 1));
+    half sumHeight = dot(weightedHeights, half4(1, 1, 1, 1));
     splatControl = weightedHeights / sumHeight.xxxx;
 #endif
 }
@@ -295,15 +295,6 @@ half4 SplatmapFragment(Varyings IN) : SV_TARGET
     masks[1] = 1.0h;
     masks[2] = 1.0h;
     masks[3] = 1.0h;
-    
-#ifdef _TERRAIN_BLEND_HEIGHT
-    // The Blue channel is used for height, and we need a default height in the channel
-    // before actually going through the height-based weight modification.
-    masks[0].b = _MaskMapRemapScale0.b + _MaskMapRemapOffset0.b;
-    masks[1].b = _MaskMapRemapScale1.b + _MaskMapRemapOffset1.b;
-    masks[2].b = _MaskMapRemapScale2.b + _MaskMapRemapOffset2.b;
-    masks[3].b = _MaskMapRemapScale3.b + _MaskMapRemapOffset3.b;
-#endif
     
 #ifdef _MASKMAP
     masks[0] = lerp(masks[0], SAMPLE_TEXTURE2D(_Mask0, sampler_Mask0, IN.uvSplat01.xy), hasMask.x);
