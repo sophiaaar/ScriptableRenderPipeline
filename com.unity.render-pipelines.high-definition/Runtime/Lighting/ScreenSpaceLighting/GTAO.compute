@@ -124,7 +124,7 @@ float HorizonLoop(float3 positionVS, float3 V, float2 rayStart, float2 rayDir, f
     float maxHorizon = -1;
     float t = rayOffset * rayStep + rayStep;
 
-    const int startWithLowerRes = min(max(0, _AOStepCount / 2 - 2), 3);
+    const uint startWithLowerRes = min(max(0, _AOStepCount / 2 - 2), 3);
     for (uint i = 0; i < _AOStepCount; i++)
     {
         float2 samplePos = max(1, min(rayStart + t * rayDir, _AOBufferSize.xy - 1));

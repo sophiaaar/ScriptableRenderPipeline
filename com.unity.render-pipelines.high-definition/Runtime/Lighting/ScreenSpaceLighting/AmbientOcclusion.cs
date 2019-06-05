@@ -15,10 +15,10 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public ClampedIntParameter stepCount = new ClampedIntParameter(6, 2, 32);
 
         [Tooltip("Sampling radius. Bigger the radius, wider AO will be achieved, risking to lose fine details and increasing cost of the effect due to increasing cache misses.")]
-        public ClampedFloatParameter radius = new ClampedFloatParameter(1.5f, 0.25f, 5.0f);
+        public ClampedFloatParameter radius = new ClampedFloatParameter(2.0f, 0.25f, 5.0f);
 
         [Tooltip("The effect runs at full resolution. This increases quality, but also decreases performance significantly.")]
-        public BoolParameter fullResolution = new BoolParameter(true);
+        public BoolParameter fullResolution = new BoolParameter(false);
 
         [Tooltip("This poses a maximum radius in pixels that we consider. It is very important to keep this as tight as possible to preserve good performance.")]
         public ClampedIntParameter maximumRadiusInPixels = new ClampedIntParameter(40, 16, 256);

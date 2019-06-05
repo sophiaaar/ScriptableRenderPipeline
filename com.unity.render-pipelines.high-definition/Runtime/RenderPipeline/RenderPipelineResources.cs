@@ -153,18 +153,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public Shader decalNormalBufferPS;
 
             // Ambient occlusion
-            [Reload("Runtime/Lighting/ScreenSpaceLighting/AmbientOcclusionDownsample1.compute")]
-            public ComputeShader aoDownsample1CS;
-            [Reload("Runtime/Lighting/ScreenSpaceLighting/AmbientOcclusionDownsample2.compute")]
-            public ComputeShader aoDownsample2CS;
-            [Reload("Runtime/Lighting/ScreenSpaceLighting/AmbientOcclusionRender.compute")]
-            public ComputeShader aoRenderCS;
-            [Reload("Runtime/Lighting/ScreenSpaceLighting/AmbientOcclusionUpsample.compute")]
-            public ComputeShader aoUpsampleCS;
-            [Reload("Runtime/RenderPipeline/RenderPass/MSAA/AmbientOcclusionResolve.shader")]
-            public Shader aoResolvePS;
-
-
             [Reload("Runtime/Lighting/ScreenSpaceLighting/GTAO.compute")]
             public ComputeShader GTAOCS;
             [Reload("Runtime/Lighting/ScreenSpaceLighting/GTAODenoise.compute")]
