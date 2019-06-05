@@ -26,6 +26,7 @@ CBUFFER_END
 // If this is set to 0 best quality is achieved when full res, but performance is significantly lower.
 // If set to 1, when full res, it may lead to extra aliasing and loss of detail, but still significant higher quality than half res.
 #define HALF_RES_DEPTH_WHEN_FULL_RES 1 // Make this an option.
+#define HALF_RES_DEPTH_WHEN_FULL_RES_FOR_CENTRAL 0 
 
 // This increases the quality when running with half resolution buffer, however it adds a bit of cost. Note that it will not have artifact as we already don't allow samples to be at the edge of the depth buffer.
 #define MIN_DEPTH_GATHERED_FOR_CENTRAL 1
@@ -49,7 +50,7 @@ float GetDepthForCentral(float2 positionSS)
 
 #ifdef FULL_RES
 
-#if HALF_RES_DEPTH_WHEN_FULL_RES
+#if HALF_RES_DEPTH_WHEN_FULL_RES_FOR_CENTRAL
 
 #if MIN_DEPTH_GATHERED_FOR_CENTRAL
 

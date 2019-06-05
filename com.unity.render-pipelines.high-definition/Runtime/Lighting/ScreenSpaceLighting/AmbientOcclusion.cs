@@ -20,7 +20,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         [Tooltip("The effect runs at full resolution. This increases quality, but also decreases performance significantly.")]
         public BoolParameter fullResolution = new BoolParameter(false);
 
-        [Tooltip("This poses a maximum radius in pixels that we consider. It is very important to keep this as tight as possible to preserve good performance.")]
+        [Tooltip("This poses a maximum radius in pixels that we consider. It is very important to keep this as tight as possible to preserve good performance. Note that this is the value used for 1080p when *not* running the effect at full resolution, it will be scaled accordingly for other resolutions.")]
         public ClampedIntParameter maximumRadiusInPixels = new ClampedIntParameter(40, 16, 256);
 
 
@@ -215,12 +215,15 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 1.0f / invHalfTanFOV
                 );
 
+            float maxRadInPixels = settings.maximumRadiusInPixels.value * (runningRes.y / 540.0f);
+
+            float pixelRatioVsRefResolution = (runningRes.x * runningRes.y) /  (540.0f * 960.0f);
 
             Vector4 aoParams2 = new Vector4(
                 RTHandles.rtHandleProperties.currentRenderTargetSize.x,
                 RTHandles.rtHandleProperties.currentRenderTargetSize.y,
                 1.0f / ((float)settings.stepCount.value + 1.0f),
-                settings.maximumRadiusInPixels.value
+                maxRadInPixels * pixelRatioVsRefResolution
             );
 
             var cs = m_Resources.shaders.GTAOCS;

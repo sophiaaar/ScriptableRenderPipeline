@@ -21,6 +21,8 @@ void AOUpsample(uint3 dispatchThreadId : SV_DispatchThreadID)
     float4 currAOs, currDepths;
     UnpackGatheredData(currDatas, currAOs, currDepths);
 
+#if BILATERAL
+
     // Get full res texture.
     float fullResDepth = LoadCameraDepth(dispatchThreadId.xy);
     float linearFullResDepth = LinearEyeDepth(fullResDepth, _ZBufferParams);
@@ -34,11 +36,11 @@ void AOUpsample(uint3 dispatchThreadId : SV_DispatchThreadID)
         final += w * currAOs[i];
     }
     final /= totalWeight;
+#else
+    float final = dot(currAOs, 0.25f);
 
-#if BILATERAL == 0
-    final = dot(currAOs, 0.25f);
-#endif
+#endif 
 
     // Unpack
-    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] =  1.0f - pow(final, _AOIntensity);
+    _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = 1.0f - pow(final, _AOIntensity);
 }
