@@ -989,15 +989,16 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             lightData.shadowIndex = shadowIndex;
             if (shadowIndex != -1)
             {
-                m_CurrentSunLight = lightComponent;
-                m_CurrentSunLightAdditionalLightData = additionalLightData;
-                m_CurrentSunLightDirectionalLightData = lightData;
-                m_CurrentShadowSortedSunLightIndex = sortedIndex;
                 if (additionalLightData.WillRenderScreenSpaceShadow())
                 {
                     lightData.screenSpaceShadowIndex = screenSpaceShadowIndex;
                     screenSpaceShadowIndex++;
                 }
+                m_CurrentSunLight = lightComponent;
+                m_CurrentSunLightAdditionalLightData = additionalLightData;
+                m_CurrentSunLightDirectionalLightData = lightData;
+                m_CurrentShadowSortedSunLightIndex = sortedIndex;
+
             }
 
             // Value of max smoothness is from artists point of view, need to convert from perceptual smoothness to roughness

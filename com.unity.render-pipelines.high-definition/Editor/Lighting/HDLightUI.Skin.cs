@@ -107,6 +107,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             public readonly GUIContent numRayTracingSamples = new GUIContent("Num samples", "This defines the number of samples that will be used to evaluate this shadow.");
             public readonly GUIContent filterTracedShadow = new GUIContent("Enable filtering", "This defines if the ray traced shadow should be filtered.");
             public readonly GUIContent filterSizeTraced = new GUIContent("Filter size", "This defines the size of the filter used for ray traced shadows.");
+            public readonly GUIContent sunLightConeAngle = new GUIContent("Sun angle", "This defines the size of the sun in the sky.");
 #endif
             public readonly GUIContent evsmExponent = new GUIContent("EVSM Exponent", "Exponent used for depth warping. Increasing this could reduce light leak and result in a change in appearance of the shadow.");
             public readonly GUIContent evsmLightLeakBias = new GUIContent("Light Leak Bias", "Increasing this value light leaking, but it eats up a bit of the softness of the shadow.");

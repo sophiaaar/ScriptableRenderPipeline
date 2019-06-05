@@ -44,6 +44,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             public SerializedProperty numRayTracingSamples;
             public SerializedProperty filterTracedShadow;
             public SerializedProperty filterSizeTraced;
+            public SerializedProperty sunLightConeAngle;
 #endif
             public SerializedProperty evsmExponent;
             public SerializedProperty evsmLightLeakBias;
@@ -144,6 +145,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                     numRayTracingSamples = o.Find(x => x.numRayTracingSamples),
                     filterTracedShadow = o.Find(x => x.filterTracedShadow),
                     filterSizeTraced = o.Find(x => x.filterSizeTraced),
+                    sunLightConeAngle = o.Find(x => x.sunLightConeAngle),
 #endif
                     evsmExponent = o.Find(x => x.evsmExponent),
                     evsmVarianceBias = o.Find(x => x.evsmVarianceBias),

@@ -190,6 +190,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         public bool filterTracedShadow = true;
         [Range(1, 32)]
         public int filterSizeTraced = 16;
+        [Range(0.0f, 2.0f)]
+        public float sunLightConeAngle = 0.5f;
 #endif
 
         [Range(0.0f, 42.0f)]
@@ -315,7 +317,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
 
             // We will evaluate a ray traced shadow if we a ray traced area shadow
-            if (useRayTracedShadows && lightTypeExtent == LightTypeExtent.Rectangle)
+            if ((useRayTracedShadows && lightTypeExtent == LightTypeExtent.Rectangle)
+                || (useRayTracedShadows && legacyLight.type == LightType.Directional))
             {
                 m_WillRenderRayTracedShadow = true;
             }
