@@ -33,7 +33,6 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             m_DirectLightingStrength = Unpack(o.Find(x => x.directLightingStrength));
 
-
             m_EnableRaytracing = Unpack(o.Find(x => x.enableRaytracing));
             m_RayLength = Unpack(o.Find(x => x.rayLength));
             m_EnableFilter = Unpack(o.Find(x => x.enableFilter));

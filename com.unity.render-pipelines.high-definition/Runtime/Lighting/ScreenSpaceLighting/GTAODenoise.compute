@@ -30,7 +30,6 @@ float Blur(float2 centralPos, out float centralDepth)
 
     uint4 data_12_15 = GATHER_TEXTURE2D_X(_AOPackedData, s_linear_clamp_sampler, ClampAndScaleUVForBilinear((centralPos + float2(0.0f, 0.0f) + temporalOffset)  * _AOBufferSize.zw, _AOBufferSize.zw));
 
-
     float4 UnpackedAOs, UnpackedDepths;
     UnpackGatheredData(data_12_15, UnpackedAOs, UnpackedDepths);
     centralDepth = UnpackedDepths.y;
@@ -208,7 +207,6 @@ void TEMPORAL_DENOISE_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
     float4 currAOs, currDepths;
     UnpackGatheredData(currDatas, currAOs, currDepths);
 
-
     float motionVecWeighting = saturate(motionVecLength * 100.0);
     float velWeight = 1.0f - abs(prevMotionVecLen - motionVecWeighting);
 
@@ -226,7 +224,6 @@ void TEMPORAL_DENOISE_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     prevAO = clamp(prevAO, minAO, maxAO);
 
-
     float depth_similarity = saturate(pow(prevDepth / currDepths.y, 1) + 0.01f);
 
     float newAO = (lerp(currAO, prevAO, feedback * depth_similarity * velWeight));
@@ -239,8 +236,6 @@ void TEMPORAL_DENOISE_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
 #else
     _OcclusionTexture[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = 1.0f - PositivePow(newAO, _AOIntensity);
 #endif
-
-    
 }
 #endif
 
