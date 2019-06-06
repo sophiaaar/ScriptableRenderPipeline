@@ -580,7 +580,7 @@ namespace UnityEditor.VFX
                     var currentIndex = elementToVFXBufferMotionVector[(context as VFXMotionVector).encapsulatedOutput];
                     temporaryBufferMappings.Add(new VFXMappingTemporary() { pastFrameIndex = 0u, perCameraBuffer = true, mapping = new VFXMapping("elementToVFXBuffer", currentIndex) });
                 }
-                else if (context.contextType == VFXContextType.kOutput && (context is IVFXSubRenderer) && (context as IVFXSubRenderer).hasMotionVector)
+                else if (context.contextType == VFXContextType.Output && (context is IVFXSubRenderer) && (context as IVFXSubRenderer).hasMotionVector)
                 {
                     var currentIndex = elementToVFXBufferMotionVector[context];
                     temporaryBufferMappings.Add(new VFXMappingTemporary() { pastFrameIndex = 1u, perCameraBuffer = true, mapping = new VFXMapping("elementToVFXBufferPrevious", currentIndex) });
