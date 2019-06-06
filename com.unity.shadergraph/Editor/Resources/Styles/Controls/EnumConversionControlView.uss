@@ -10,8 +10,10 @@ EnumConversionControlView {
 .unity-base-field {
     width: 80px;
 	flex:1;
-    margin-top: 1px;
-    margin-bottom: 1px;
+    margin-left: 0;
+    margin-right: 0px;
+    margin-top: 0px;
+    margin-bottom: 0px;
 }
 
 .unity-base-field__input {
@@ -23,7 +25,9 @@ EnumConversionControlView {
 }
 
 EnumConversionControlView > Label {
-    margin-left: 4px;
-    margin-right: 4px;
+    margin-left: 2px;
+    margin-right: 2px;
+    padding-left: 2px;
+    padding-right: 2px;
     -unity-text-align : middle-left;
 }
