@@ -5,19 +5,24 @@ namespace UnityEngine.Experimental.Rendering
     public static class TextureXR
     {
         // Limit memory usage of default textures
-        const int kMaxSliceCount = 2;
+        public const int kMaxSliceCount = 2;
 
         // Must be in sync with shader define in TextureXR.hlsl
         public static bool useTexArray
         {
             get
             {
-                // XRTODO: Vulkan, PSVR, Mac with metal only for OS 10.14+, etc
                 switch (SystemInfo.graphicsDeviceType)
                 {
                     case GraphicsDeviceType.Direct3D11:
                     case GraphicsDeviceType.Direct3D12:
                         return SystemInfo.graphicsDeviceType != GraphicsDeviceType.XboxOne;
+
+                    case GraphicsDeviceType.PlayStation4:
+                        return true;
+
+                    case GraphicsDeviceType.Vulkan:
+                        return true;
                 }
 
                 return false;
@@ -62,6 +67,14 @@ namespace UnityEngine.Experimental.Rendering
             return Texture2D.blackTexture;
         }
 
+        public static Texture GetBlackUIntTexture()
+        {
+            if (useTexArray)
+                return blackUIntTexture2DArray;
+
+            return blackUIntTexture;
+        }
+
         public static Texture GetWhiteTexture()
         {
             if (useTexArray)
@@ -92,6 +105,23 @@ namespace UnityEngine.Experimental.Rendering
                 }
 
                 return m_ClearTexture;
+            }
+        }
+
+        private static Texture m_BlackUIntTexture;
+        private static Texture blackUIntTexture
+        {
+            get
+            {
+                if (m_BlackUIntTexture == null)
+                {
+                    // Uint textures can't be used in Sampling operations so we can't use the Texture2D class because
+                    // it assumes that we will use the texture for sampling operations and crash because of invalid format.
+                    m_BlackUIntTexture = new RenderTexture(1, 1, 0, GraphicsFormat.R32_UInt) { name = "Black UInt Texture" };
+                    Graphics.Blit(Texture2D.blackTexture, m_BlackUIntTexture as RenderTexture);
+                }
+
+                return m_BlackUIntTexture;
             }
         }
 
@@ -128,6 +158,34 @@ namespace UnityEngine.Experimental.Rendering
                     m_WhiteTexture2DArray = CreateTexture2DArrayFromTexture2D(Texture2D.whiteTexture, "White Texture2DArray");
 
                 return m_WhiteTexture2DArray;
+            }
+        }
+
+        static Texture m_BlackUIntTexture2DArray;
+        public static Texture blackUIntTexture2DArray
+        {
+            get
+            {
+                if (m_BlackUIntTexture2DArray == null)
+                {
+                    // Uint textures can't be used in Sampling operations so we can't use the Texture2DArray class because
+                    // it assumes that we will use the texture for sampling operations and crash because of invalid format.
+                    m_BlackUIntTexture2DArray = new RenderTexture(1, 1, 0, GraphicsFormat.R32_UInt)
+                    {
+                        dimension = TextureDimension.Tex2DArray,
+                        volumeDepth = kMaxSliceCount,
+                        useMipMap = false,
+                        autoGenerateMips = false,
+                        enableRandomWrite = true,
+                        name = "Black UInt Texture Array"
+                    };
+
+                    // Can't use CreateTexture2DArrayFromTexture2D here because we need to create the texture using GraphicsFormat
+                    for (int i = 0; i < kMaxSliceCount; ++i)
+                        Graphics.Blit(blackTexture2DArray, m_BlackUIntTexture2DArray as RenderTexture, i, i);
+                }
+
+                return m_BlackUIntTexture2DArray;
             }
         }
     }

@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor.Experimental.UIElements.GraphView;
 using UnityEngine;
 using UnityEditor.Graphing;
+using UnityEditor.ShaderGraph.Drawing.Colors;
 
 namespace UnityEditor.ShaderGraph
 {
@@ -41,7 +41,7 @@ namespace UnityEditor.ShaderGraph
 
         [NonSerialized]
         bool m_HasError;
-        
+
         [NonSerialized]
         private List<ISlot> m_Slots = new List<ISlot>();
 
@@ -91,7 +91,7 @@ namespace UnityEditor.ShaderGraph
 
         public virtual bool canDeleteNode
         {
-            get { return true; }
+            get { return owner != null && guid != owner.activeOutputNodeGuid; }
         }
 
         public DrawState drawState
@@ -158,7 +158,7 @@ namespace UnityEditor.ShaderGraph
             get { return m_HasError; }
             protected set { m_HasError = value; }
         }
-        
+
         string m_DefaultVariableName;
         string m_NameForDefaultVariableName;
         Guid m_GuidForDefaultVariableName;
@@ -176,6 +176,27 @@ namespace UnityEditor.ShaderGraph
                 return m_DefaultVariableName;
             }
         }
+
+        #region Custom Colors
+
+        [SerializeField]
+        CustomColorData m_CustomColors = new CustomColorData();
+
+        public bool TryGetColor(string provider, ref Color color)
+        {
+            return m_CustomColors.TryGetColor(provider, out color);
+        }
+
+        public void ResetColor(string provider)
+        {
+            m_CustomColors.Remove(provider);
+        }
+
+        public void SetColor(string provider, Color color)
+        {
+            m_CustomColors.Set(provider, color);
+        }
+        #endregion
 
         protected AbstractMaterialNode()
         {
@@ -446,7 +467,7 @@ namespace UnityEditor.ShaderGraph
         }
 
         public int version { get; set; }
-
+        public virtual bool canCopyNode => true;
         //True if error
         protected virtual bool CalculateNodeHasError(ref string errorMessage)
         {
@@ -481,7 +502,7 @@ namespace UnityEditor.ShaderGraph
             var slot = FindSlot<MaterialSlot>(slotId);
             if (slot == null)
                 throw new ArgumentException(string.Format("Attempting to use MaterialSlot({0}) on node of type {1} where this slot can not be found", slotId, this), "slotId");
-            return string.Format("_{0}_{1}", GetVariableNameForNode(), NodeUtils.GetHLSLSafeName(slot.shaderOutputName));
+            return string.Format("_{0}_{1}_{2}", GetVariableNameForNode(), NodeUtils.GetHLSLSafeName(slot.shaderOutputName), unchecked((uint)slotId));
         }
 
         public virtual string GetVariableNameForNode()
@@ -504,7 +525,7 @@ namespace UnityEditor.ShaderGraph
             slot.owner = this;
 
             OnSlotsChanged();
-            
+
             if (foundSlot == null)
                 return;
 
@@ -614,6 +635,7 @@ namespace UnityEditor.ShaderGraph
             m_SerializableSlots = null;
             foreach (var s in m_Slots)
                 s.owner = this;
+
             UpdateNodeAfterDeserialization();
         }
 
