@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 - The `Custom Function Node` now uses an object field to reference its source when using `File` mode.
+- To enable master nodes to generate correct motion vectors for time-based vertex modification, time is now implemented as an input to the graph rather than as a global uniform.
 
 ### Fixed
 - Fixed an error in `Custom Function Node` port naming.
