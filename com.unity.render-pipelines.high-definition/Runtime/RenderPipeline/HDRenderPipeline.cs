@@ -924,6 +924,37 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
         }
 
+        private static readonly bool isVFXCommandBufferSupported = k_VFXManagerPrepareCamera != null && k_VFXManagerProcessCameraCommand != null;
+        private static readonly System.Reflection.MethodInfo k_VFXManagerPrepareCamera = typeof(VFX.VFXManager).GetMethod("PrepareCamera");
+        private static readonly System.Reflection.MethodInfo k_VFXManagerProcessCameraCommand = typeof(VFX.VFXManager).GetMethod("ProcessCameraCommand");
+
+        private static void VFXPrepareCamera(Camera camera)
+        {
+            if (isVFXCommandBufferSupported)
+            {
+                //Visual Effect Graph is not yet a required package but calling this method when there isn't any VisualEffect component has no effect (but needed for Camera sorting in Visual Effect Graph context)
+                //UnityEngine.Experimental.VFX.VFXManager.PrepareCamera(camera); 
+                k_VFXManagerPrepareCamera.Invoke(null, new[] { camera });
+            }
+            else
+            {
+                VFX.VFXManager.ProcessCamera(camera);
+            }
+        }
+
+        private static void VFXProcessCamera(Camera camera, CommandBuffer cmd)
+        {
+            if (isVFXCommandBufferSupported)
+            {
+                //UnityEngine.Experimental.VFX.VFXManager.ProcessCameraCommand(camera, cmd);
+                k_VFXManagerProcessCameraCommand.Invoke(null, new object[] { camera, cmd });
+            }
+            else
+            {
+                //Nothing (previous approach)
+            }
+        }
+
         FrameSettings currentFrameSettings;
         protected override void Render(ScriptableRenderContext renderContext, Camera[] cameras)
         {
@@ -1032,7 +1063,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     //  for various reasons (full screen pass through, custom render, or just invalid parameters)
                     //  and in that case the associated ending call is never called.
                     UnityEngine.Rendering.RenderPipeline.BeginCameraRendering(renderContext, camera);
-                    UnityEngine.Experimental.VFX.VFXManager.PrepareCamera(camera); //Visual Effect Graph is not yet a required package but calling this method when there isn't any VisualEffect component has no effect (but needed for Camera sorting in Visual Effect Graph context)
+                    VFXPrepareCamera(camera);
 
                     // Reset pooled variables
                     cameraSettings.Clear();
@@ -1590,7 +1621,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             SetupCameraProperties(hdCamera, renderContext, cmd);
 
             PushGlobalParams(hdCamera, cmd);
-            UnityEngine.Experimental.VFX.VFXManager.ProcessCameraCommand(camera, cmd);
+            VFXProcessCamera(camera, cmd);
 
             // TODO: Find a correct place to bind these material textures
             // We have to bind the material specific global parameters in this mode
