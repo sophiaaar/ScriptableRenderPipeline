@@ -320,6 +320,28 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             }
             EditorGUI.showMixedValue = false;
         }
+        
+        public static bool IsHDRPShader(Shader shader)
+        {
+            if (shader.IsShaderGraph())
+            {
+                string shaderPath = AssetDatabase.GetAssetPath(shader);
+                switch (GraphUtil.GetOutputNodeType(shaderPath).Name)
+                {
+                    case nameof(HDLitMasterNode):
+                    case nameof(HDUnlitMasterNode):
+                    case nameof(FabricMasterNode):
+                    case nameof(HairMasterNode):
+                    case nameof(StackLitMasterNode):
+                        return true;
+                    default:
+                        return false;
+                } 
+            }
+            else
+                return shader.name.Contains("HDRP");
+        }
+
     }
 
     public static partial class SerializedPropertyExtention
