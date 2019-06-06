@@ -215,8 +215,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 1.0f / invHalfTanFOV
                 );
 
-            float maxRadInPixels = settings.maximumRadiusInPixels.value * (runningRes.y / 540.0f);
-
             float radInPixels = Mathf.Max(16, settings.maximumRadiusInPixels.value * ((runningRes.x * runningRes.y) /  (540.0f * 960.0f)));
 
             Vector4 aoParams2 = new Vector4(
