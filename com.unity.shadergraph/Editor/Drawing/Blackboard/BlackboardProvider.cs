@@ -52,6 +52,7 @@ namespace UnityEditor.ShaderGraph.Drawing
 
         public BlackboardProvider(GraphData graph)
         {
+            
             m_Graph = graph;
             m_PropertyRows = new Dictionary<Guid, BlackboardRow>();
 
@@ -63,6 +64,8 @@ namespace UnityEditor.ShaderGraph.Drawing
                 addItemRequested = AddItemRequested,
                 moveItemRequested = MoveItemRequested
             };
+
+            blackboard.styleSheets.Add(Resources.Load<StyleSheet>("Styles/Blackboard"));
 
             m_PathLabel = blackboard.hierarchy.ElementAt(0).Q<Label>("subTitleLabel");
             m_PathLabel.RegisterCallback<MouseDownEvent>(OnMouseDownEvent);
@@ -82,6 +85,8 @@ namespace UnityEditor.ShaderGraph.Drawing
             foreach (var property in graph.properties)
                 AddProperty(property);
             blackboard.Add(m_Section);
+
+            blackboard.AddToClassList("sgblackboard");
         }
 
         void OnDragUpdatedEvent(DragUpdatedEvent evt)
