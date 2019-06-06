@@ -101,6 +101,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             {
                 RenderDirectionalLightScreenSpaceShadow(cmd, hdCamera, m_FrameCount);
                 RenderAreaShadows(hdCamera, cmd, m_FrameCount);
+                EvaluateShadowDebugView(cmd, hdCamera);
                 cmd.SetGlobalTexture(HDShaderIDs._ScreenSpaceShadowsTexture, m_ScreenSpaceShadowTextureArray);
             }
 #else
@@ -451,16 +452,31 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     cmd.DispatchCompute(shadowFilter, secondDenoiseKernel, numTilesX, numTilesY, 1);
                 }
             }
+            return true;
+        }
+
+        void EvaluateShadowDebugView(CommandBuffer cmd, HDCamera hdCamera)
+        {
+            ComputeShader shadowFilter = m_Asset.renderPipelineRayTracingResources.shadowFilterCS;
 
             // If this is the right debug mode and the index we are asking for is in the range
             HDRenderPipeline hdrp = (RenderPipelineManager.currentPipeline as HDRenderPipeline);
             if (FullScreenDebugMode.ScreenSpaceShadows == hdrp.m_CurrentDebugDisplaySettings.data.fullScreenDebugMode)
             {
+                // Texture dimensions
+                int texWidth = hdCamera.actualWidth;
+                int texHeight = hdCamera.actualHeight;
+
+                // Evaluate the dispatch parameters
+                int areaTileSize = 8;
+                int numTilesX = (texWidth + (areaTileSize - 1)) / areaTileSize;
+                int numTilesY = (texHeight + (areaTileSize - 1)) / areaTileSize;
+
                 // Clear the output texture
                 HDUtils.SetRenderTarget(cmd, m_DenoiseBuffer0, clearFlag: ClearFlag.Color);
 
                 // If the screen space shadows we are asked to deliver is available output it to the intermediate texture
-                if(m_ScreenSpaceShadowIndex > hdrp.m_CurrentDebugDisplaySettings.data.screenSpaceShadowIndex)
+                if (m_ScreenSpaceShadowIndex > hdrp.m_CurrentDebugDisplaySettings.data.screenSpaceShadowIndex)
                 {
                     int targetKernel = shadowFilter.FindKernel("WriteShadowTextureDebug");
                     cmd.SetComputeIntParam(shadowFilter, HDShaderIDs._RaytracingShadowSlot, (int)hdrp.m_CurrentDebugDisplaySettings.data.screenSpaceShadowIndex);
@@ -472,8 +488,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Push the full screen debug texture
                 hdrp.PushFullScreenDebugTexture(hdCamera, cmd, m_DenoiseBuffer0, FullScreenDebugMode.ScreenSpaceShadows);
             }
-
-            return true;
         }
     }
 #endif
