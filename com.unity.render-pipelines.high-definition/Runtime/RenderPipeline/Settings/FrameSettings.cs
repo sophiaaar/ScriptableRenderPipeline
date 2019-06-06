@@ -105,6 +105,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         AfterPostprocess = 17,
         [FrameSettingsField(0, autoName: LowResTransparent)]
         LowResTransparent = 18,
+        [FrameSettingsField(0, autoName: EnableZTestAfterPostProcess)]
+        EnableZTestAfterPostProcess = 19,
 
         //lighting settings from 20 to 39
         [FrameSettingsField(1, autoName: Shadow)]
@@ -220,6 +222,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 (uint)FrameSettingsField.Postprocess,
                 (uint)FrameSettingsField.AfterPostprocess,
                 (uint)FrameSettingsField.LowResTransparent,
+                (uint)FrameSettingsField.EnableZTestAfterPostProcess,
                 (uint)FrameSettingsField.OpaqueObjects,
                 (uint)FrameSettingsField.TransparentObjects,
                 (uint)FrameSettingsField.RealtimePlanarReflection,

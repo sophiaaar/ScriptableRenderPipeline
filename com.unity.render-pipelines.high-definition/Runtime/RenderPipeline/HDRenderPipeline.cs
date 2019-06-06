@@ -3637,7 +3637,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 hdCamera.SetupGlobalParams(cmd, m_Time, m_LastTime, m_FrameCount);
 
                 // Here we share GBuffer albedo buffer since it's not needed anymore
-                if (taaEnabled)
+                // Note: We bind the jittered depth if the ZTest after post process option is enabled
+                if (taaEnabled && !m_FrameSettings.IsEnabled(FrameSettingsField.EnableZTestAfterPostProcess))
                     HDUtils.SetRenderTarget(cmd, GetAfterPostProcessOffScreenBuffer(), clearFlag: ClearFlag.Color, clearColor: Color.black);
                 else
                     HDUtils.SetRenderTarget(cmd, GetAfterPostProcessOffScreenBuffer(), m_SharedRTManager.GetDepthStencilBuffer(), clearFlag: ClearFlag.Color, clearColor: Color.black);

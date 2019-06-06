@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering.HDPipeline;
+using UnityEngine.Rendering;
 
 // Include material common properties names
 using static UnityEngine.Experimental.Rendering.HDPipeline.HDMaterialProperties;
@@ -94,6 +95,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             
             // SSR
             public static GUIContent receivesSSRText = new GUIContent("Receive SSR", "When enabled, this Material can receive screen space reflections.");
+
+            public static string afterPostProcessZTestInfoBox = "When using the After Post Process rendering pass, if the TAA is enabled the material won't be able to do the ZTest. You can enable the ZTest for After Post Process materials in the Frame Settings but the depth will be jittered";
         }
    
         // Properties common to Unlit and Lit
@@ -420,6 +423,14 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
             if (surfaceTypeValue == SurfaceType.Transparent)
             {
+                if (HDRenderQueue.k_RenderQueue_AfterPostProcessTransparent.Contains(renderQueue))
+                {
+                    if (!zTest.hasMixedValue && materials[0].GetTransparentZTest() != CompareFunction.Disabled)
+                    {
+                        ShowAfterPostProcessZTestInfoBox();
+                    }
+                }
+
                 EditorGUI.indentLevel++;
 
                 if (renderQueueHasMultipleDifferentValue)
@@ -479,6 +490,18 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 
                 EditorGUI.indentLevel--;
             }
+            else // SurfaceType.Opaque
+            {
+                if (HDRenderQueue.k_RenderQueue_AfterPostProcessOpaque.Contains(renderQueue))
+                {
+                    ShowAfterPostProcessZTestInfoBox();
+                }
+            }
+        }
+        
+        void ShowAfterPostProcessZTestInfoBox()
+        {
+            EditorGUILayout.HelpBox(Styles.afterPostProcessZTestInfoBox, MessageType.Info);
         }
 
         void SurfaceTypePopup()
