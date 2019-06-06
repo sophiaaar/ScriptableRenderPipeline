@@ -168,7 +168,7 @@ MonoBehaviour:
     max: 32
   radius:
     m_OverrideState: 1
-    m_Value: 2
+    m_Value: 1.63
     min: 0.25
     max: 5
   fullResolution:
@@ -176,7 +176,12 @@ MonoBehaviour:
     m_Value: 0
   maximumRadiusInPixels:
     m_OverrideState: 1
-    m_Value: 32
+    m_Value: 256
+    min: 16
+    max: 256
+  thicknessModifier:
+    m_OverrideState: 0
+    m_Value: 40
     min: 16
     max: 256
   directLightingStrength:
