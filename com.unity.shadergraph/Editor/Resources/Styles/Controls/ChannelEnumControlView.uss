@@ -4,7 +4,6 @@ ChannelEnumControlView {
 
 ChannelEnumControlView > .unity-popup-field {
     width: 76px;
-    flex: 0;
     margin-left: 0;
     margin-right: 8px;
     margin-top: 4px;
