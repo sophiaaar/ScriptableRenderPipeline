@@ -51,11 +51,7 @@ namespace UnityEditor.VFX
         protected bool onlyAmbientLighting = false;
 
         [VFXSetting(VFXSettingAttribute.VisibleFlags.InInspector), SerializeField]
-<<<<<<< HEAD:com.unity.render-pipelines.high-definition/Editor/VFXGraph/Outputs/VFXAbstractParticleHDRPLitOutput.cs
         protected UnityEngine.Experimental.Rendering.HDPipeline.DiffusionProfileSettings diffusionProfileAsset = null;
-=======
-        protected UnityEngine.Experimental.Rendering.HDPipeline.DiffusionProfileSettings diffusionProfileAsset;
->>>>>>> make hdrp dependent on VFX to be able to put the files in the right place.:com.unity.render-pipelines.high-definition/Editor/VFX/Outputs/VFXAbstractParticleHDRPLitOutput.cs
 
         [VFXSetting(VFXSettingAttribute.VisibleFlags.InInspector), SerializeField]
         protected bool multiplyThicknessWithAlpha = false;

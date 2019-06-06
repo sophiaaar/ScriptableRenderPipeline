@@ -56,7 +56,7 @@ namespace UnityEditor.VFX
         }
         public bool NeedsDeadListCount() { return HasIndirectDraw() && (taskType == VFXTaskType.ParticleQuadOutput || taskType == VFXTaskType.ParticleHexahedronOutput); } // Should take the capacity into account to avoid false positive
 
-        protected VFXAbstractSortedOutput() : base(VFXContextType.kOutput, VFXDataType.kParticle, VFXDataType.kNone) {}
+        protected VFXAbstractSortedOutput() : base(VFXContextType.Output, VFXDataType.Particle, VFXDataType.None) {}
 
         public override bool codeGeneratorCompute { get { return false; } }
 

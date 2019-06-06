@@ -9,24 +9,13 @@ using UnityEngine.Experimental.VFX;
 
 namespace UnityEditor.VFX
 {
-    abstract class VFXAbstractParticleOutput : VFXContext, IVFXSubRenderer
+    abstract class VFXAbstractParticleOutput : VFXAbstractRenderedOutput, IVFXSubRenderer
     {
         public enum ColorMappingMode
         {
             Default,
             GradientMapped
         }
-<<<<<<< HEAD
-=======
-        public enum BlendMode
-        {
-            Additive,
-            Alpha,
-            Masked,
-            AlphaPremultiplied,
-            Opaque,
-        }
->>>>>>> Ugly fix to remove veg depency in hdrp
 
         public enum UVMode
         {
@@ -90,6 +79,13 @@ namespace UnityEditor.VFX
         protected override bool isBlendModeOpaque { get { return blendMode == BlendMode.Opaque || blendMode == BlendMode.Masked; } }
 
         protected bool usesFlipbook { get { return supportsUV && (uvMode == UVMode.Flipbook || uvMode == UVMode.FlipbookBlend || uvMode == UVMode.FlipbookMotionBlend); } }
+
+        protected virtual bool needsExposureWeight { get { return true; } }
+
+        private bool hasExposure { get { return needsExposureWeight && subOutput.supportsExposure; } }
+
+        [VFXSetting(VFXSettingAttribute.VisibleFlags.InInspector), SerializeField]
+        protected bool useExposureWeight = false;
 
         protected override IEnumerable<VFXNamedExpression> CollectGPUExpressions(IEnumerable<VFXNamedExpression> slotExpressions)
         {
