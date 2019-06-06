@@ -94,6 +94,12 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             var baseType = typeof(BaseShaderPreprocessor);
             var assembly = baseType.Assembly;
 
+#if UNITY_EDITOR && UNITY_2019_2_OR_NEWER
+            return UnityEditor.TypeCache.GetTypesDerivedFrom<BaseShaderPreprocessor>()
+                .Select(Activator.CreateInstance)
+                .Cast<BaseShaderPreprocessor>()
+                .ToList();
+#else
             var types = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(a => a.GetTypes()
                     .Where(t => t.IsSubclassOf(baseType))
@@ -102,6 +108,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                 ).ToList();
 
             return types;
+#endif
         }
 
         static readonly GUIContent s_OverrideTooltip = EditorGUIUtility.TrTextContent("", "Override this setting in component.");
