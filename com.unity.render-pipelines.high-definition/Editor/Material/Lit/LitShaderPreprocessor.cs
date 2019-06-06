@@ -14,14 +14,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             // CAUTION: Pass Name and Lightmode name must match in master node and .shader.
             // HDRP use LightMode to do drawRenderer and pass name is use here for stripping!
             bool isGBufferPass = snippet.passName == "GBuffer";
-            bool isForwardPass = snippet.passName == "Forward";
             bool isDepthOnlyPass = snippet.passName == "DepthOnly";
             bool isMotionPass = snippet.passName == "MotionVectors";
-            bool isTransparentPrepass = snippet.passName == "TransparentDepthPrepass";
-            bool isTransparentPostpass = snippet.passName == "TransparentDepthPostpass";
-            bool isTransparentBackface = snippet.passName == "TransparentBackface";
-            bool isDistortionPass = snippet.passName == "DistortionVectors";
-            bool isTransparentForwardPass = isTransparentPostpass || isTransparentBackface || isTransparentPrepass || isDistortionPass;
 
             // Using Contains to include the Tessellation variants
             bool isBuiltInLit = shader.name.Contains("HDRP/Lit") || shader.name.Contains("HDRP/LayeredLit") || shader.name.Contains("HDRP/TerrainLit");
@@ -71,48 +65,12 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
                     if (hdrpAsset.currentPlatformRenderPipelineSettings.supportedLitShaderMode == RenderPipelineSettings.SupportedLitShaderMode.DeferredOnly && inputData.shaderKeywordSet.IsEnabled(m_WriteNormalBuffer))
                         return true;
                 }
-
-                if (!inputData.shaderKeywordSet.IsEnabled(m_Transparent)) // Opaque
-                {
-                    // If opaque, we never need transparent specific passes (even in forward only mode)
-                    if (isTransparentForwardPass)
-                        return true;
-
-                    if (hdrpAsset.currentPlatformRenderPipelineSettings.supportedLitShaderMode == RenderPipelineSettings.SupportedLitShaderMode.DeferredOnly)
-                    {
-                        // When we are in deferred, we only support tile lighting
-                        if (inputData.shaderKeywordSet.IsEnabled(m_ClusterLighting))
-                            return true;
-                        
-                        if (isForwardPass && !inputData.shaderKeywordSet.IsEnabled(m_DebugDisplay))
-                            return true;
-                    }
-
-                    // TODO: Should we remove Cluster version if we know MSAA is disabled ? This prevent to manipulate LightLoop Settings (useFPTL option)
-                    // For now comment following code
-                    // if (inputData.shaderKeywordSet.IsEnabled(m_ClusterLighting) && !hdrpAsset.currentPlatformRenderPipelineSettings.supportMSAA)
-                    //    return true;
-                }
             }
 
-            // We strip passes for transparent passes outside of isBuiltInLit because we want Hair, Fabric
-            // and StackLit shader graphs to be taken in account.
             if (inputData.shaderKeywordSet.IsEnabled(m_Transparent))
             {
                 // If transparent, we never need GBuffer pass.
                 if (isGBufferPass)
-                    return true;
-
-                // If transparent we don't need the depth only pass
-                if (isDepthOnlyPass)
-                    return true;
-
-                // If transparent we don't need the motion vector pass
-                if (isMotionPass)
-                    return true;
-
-                // If we are transparent we use cluster lighting and not tile lighting
-                if (inputData.shaderKeywordSet.IsEnabled(m_TileLighting))
                     return true;
             }
 
