@@ -96,7 +96,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             // SSR
             public static GUIContent receivesSSRText = new GUIContent("Receive SSR", "When enabled, this Material can receive screen space reflections.");
 
-            public static string afterPostProcessZTestInfoBox = "When using the After Post Process rendering pass, if the TAA is enabled the material won't be able to do the ZTest. You can enable the ZTest for After Post Process materials in the Frame Settings but the depth will be jittered";
+            public static string afterPostProcessZTestInfoBox = "When using the After Post Process rendering pass, if the TAA is enabled this material won't be able to do the ZTest. You can force the ZTest for After Post Process materials by enabling the \"ZTest After Post Process TAA\" option in the frame settings (but note that the depth will be jittered)";
         }
    
         // Properties common to Unlit and Lit
