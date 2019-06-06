@@ -215,12 +215,13 @@ void TEMPORAL_DENOISE_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
 
     // TODO: This require a better investigation. Values in this are pretty much set without too much thought. 
     float nudge = lerp(10, 2, motionVecWeighting) * abs(dot(currAOs, 0.25) - currAO);
+    nudge *= velWeight;
     minAO -= nudge;
     maxAO += nudge;
 
     float diff = abs(currAOs.y - prevAO) / Max3(prevAO, currAO, 0.2);
     float weight = 1.0 - diff;
-    float feedback = lerp(0.5, 0.9, weight * weight);
+    float feedback = lerp(0.85, 0.95, weight * weight);
 
     prevAO = clamp(prevAO, minAO, maxAO);
 
