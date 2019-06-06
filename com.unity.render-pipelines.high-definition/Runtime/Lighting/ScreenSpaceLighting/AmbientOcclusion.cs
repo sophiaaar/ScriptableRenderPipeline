@@ -217,13 +217,13 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
             float maxRadInPixels = settings.maximumRadiusInPixels.value * (runningRes.y / 540.0f);
 
-            float pixelRatioVsRefResolution = Mathf.Max(16, (runningRes.x * runningRes.y) /  (540.0f * 960.0f));
+            float radInPixels = Mathf.Max(16, settings.maximumRadiusInPixels.value * ((runningRes.x * runningRes.y) /  (540.0f * 960.0f)));
 
             Vector4 aoParams2 = new Vector4(
                 RTHandles.rtHandleProperties.currentRenderTargetSize.x,
                 RTHandles.rtHandleProperties.currentRenderTargetSize.y,
                 1.0f / ((float)settings.stepCount.value + 1.0f),
-                maxRadInPixels * pixelRatioVsRefResolution
+                 radInPixels
             );
 
             var cs = m_Resources.shaders.GTAOCS;
