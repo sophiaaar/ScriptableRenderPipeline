@@ -2,6 +2,8 @@
 
 Texture2D _CameraDepthTexture;
 
+void VFXTransformPSInputs(inout VFX_VARYING_PS_INPUTS input) {}
+
 void VFXEncodeVelocity(float2 velocity, out float4 outBuffer)
 {
 	outBuffer = (float4)0.0f; //TODO
@@ -99,7 +101,7 @@ float4 VFXApplyFog(float4 color,float4 posSS,float3 posWS)
     return color; // TODO
 }
 
-float4 VFXApplyPreExposure(float4 color)
+float4 VFXApplyPreExposure(float4 color, VFX_VARYING_PS_INPUTS input)
 {
     return color;
 }

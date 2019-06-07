@@ -95,6 +95,7 @@ ${VFXEnd}
 #endif
 	)
 	{
+		VFXTransformPSInputs(i);
 		${VFXComputeNormalWS}
 		outColor = VFXGetPixelOutputForward(i,normalWS,uvData);
 		

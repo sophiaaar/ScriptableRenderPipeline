@@ -63,7 +63,7 @@ namespace UnityEditor.VFX
                 externalProcessor = shader,
                 values = mappings.ToArray(),
                 parameters = contextData.parameters,
-                type = VFXTaskType.Output
+                type = (UnityEngine.Experimental.VFX.VFXTaskType)VFXTaskType.Output
             };
 
             mappings.Clear();

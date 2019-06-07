@@ -6,6 +6,8 @@
 Texture2D _CameraDepthTexture;
 float3 _LightDirection;
 
+void VFXTransformPSInputs(inout VFX_VARYING_PS_INPUTS input) {}
+
 void VFXEncodeVelocity(float2 velocity, out float4 outBuffer)
 {
 	//TODO : LWRP doesn't support motion vector & TAA yet
@@ -120,7 +122,7 @@ float4 VFXApplyFog(float4 color,float4 posCS,float3 posWS)
    return color;
 }
 
-float4 VFXApplyPreExposure(float4 color)
+float4 VFXApplyPreExposure(float4 color, VFX_VARYING_PS_INPUTS input)
 {
     return color;
 }

@@ -24,6 +24,14 @@ float4 VFXTransformPositionWorldToPreviousClip(float3 posWS)
     return mul(_PrevViewProjMatrix, float4(posWS, 1.0f));
 }
 
+void VFXTransformPSInputs(inout VFX_VARYING_PS_INPUTS input)
+{
+#if IS_TRANSPARENT_PARTICLE && defined(VFX_VARYING_POSCS)
+    // We need to readapt the SS position as our screen space positions are for a low res buffer, but we try to access a full res buffer.
+    input.VFX_VARYING_POSCS.xy = _OffScreenRendering > 0 ? (input.VFX_VARYING_POSCS.xy * _OffScreenDownsampleFactor) : input.VFX_VARYING_POSCS.xy;
+#endif
+}
+
 float4 VFXTransformPositionWorldToClip(float3 posWS)
 {
 #if VFX_WORLD_SPACE
@@ -124,8 +132,13 @@ float4 VFXApplyFog(float4 color,float4 posCS,float3 posWS)
     return color;
 }
 
-float4 VFXApplyPreExposure(float4 color)
+float4 VFXApplyPreExposure(float4 color, VFX_VARYING_PS_INPUTS input)
 {
-    color.xyz = color.xyz * GetCurrentExposureMultiplier();
+#ifdef VFX_VARYING_EXPOSUREWEIGHT
+	float exposure = lerp(1.0f, GetCurrentExposureMultiplier(),input.VFX_VARYING_EXPOSUREWEIGHT);
+#else
+    float exposure = GetCurrentExposureMultiplier();
+#endif
+	color.xyz *= exposure;
     return color;
 }
