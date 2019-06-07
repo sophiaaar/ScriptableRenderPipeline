@@ -1,5 +1,3 @@
-#if false
-
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor.VFX.Block;
@@ -12,7 +10,7 @@ namespace UnityEditor.VFX
     {
         public override string name { get { return "Distortion Mesh Output"; } }
         public override string codeGeneratorTemplate { get { return RenderPipeTemplate("VFXParticleDistortionMesh"); } }
-        public override TaskType type { get { return TaskType.ParticleMeshOutput; } }
+        public override VFXTaskType taskType { get { return VFXTaskType.ParticleMeshOutput; } }
         public override bool supportsUV { get { return true; } }
         public override CullMode defaultCullMode { get { return CullMode.Back;  } }
 
@@ -74,5 +72,3 @@ namespace UnityEditor.VFX
         }
     }
 }
-
-#endif

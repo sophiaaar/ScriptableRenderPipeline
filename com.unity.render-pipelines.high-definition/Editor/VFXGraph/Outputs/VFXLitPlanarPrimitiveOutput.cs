@@ -10,7 +10,7 @@ namespace UnityEditor.VFX
     {
         public override string name { get { return "Lit " + primitiveType.ToString() + " Output"; } }
         public override string codeGeneratorTemplate { get { return RenderPipeTemplate("VFXParticleLitPlanarPrimitive"); } }
-        public override TaskType type { get { return GetTaskType(primitiveType); } }
+        public override VFXTaskType taskType { get { return VFXPlanarPrimitiveHelper.GetTaskType(primitiveType); } }
         public override bool supportsUV { get { return true; } }
 
         [VFXSetting(VFXSettingAttribute.VisibleFlags.InInspector), SerializeField]

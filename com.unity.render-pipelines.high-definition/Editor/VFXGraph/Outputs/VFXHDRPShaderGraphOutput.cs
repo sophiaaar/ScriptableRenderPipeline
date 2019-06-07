@@ -56,11 +56,12 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline.VFXSG
 
 
     [VFXInfo]
-    class VFXHDRPShaderGraphOutput : VFXAbstractSortedExternalOutput, ISpecificGenerationOutput
+    class VFXHDRPShaderGraphOutput : VFXAbstractSortedOutput, ISpecificGenerationOutput
     {
+        VFXHDRPShaderGraphOutput() :base(VFXDataType.Particle) { }
         public override string name { get { return "Shader Graph Mesh Output"; } }
         public override string codeGeneratorTemplate { get { return ""; } }
-        public override TaskType type { get { return TaskType.ParticleMeshOutput; } }
+        public override VFXTaskType taskType { get { return VFXTaskType.ParticleMeshOutput; } }
 
         [VFXSetting(VFXSettingAttribute.VisibleFlags.InGraph), SerializeField]
         protected Shader m_ShaderGraph;

@@ -20,7 +20,10 @@ namespace UnityEditor.VFX
 
         [VFXSetting, Header("Render States")]
         public BlendMode blendMode = BlendMode.Alpha;
-        protected override bool isBlendModeOpaque { get { return blendMode == BlendMode.Opaque || blendMode == BlendMode.Masked; } }
+
+        public override bool isBlendModeOpaque { get { return blendMode == BlendMode.Opaque || blendMode == BlendMode.Masked; } }
+
+        protected VFXAbstractRenderedOutput(VFXDataType dataType):base(dataType) { }
 
         public VFXSRPSubOutput subOutput => m_CurrentSubOutput;
         private VFXSRPSubOutput CreateDefaultSubOutput()

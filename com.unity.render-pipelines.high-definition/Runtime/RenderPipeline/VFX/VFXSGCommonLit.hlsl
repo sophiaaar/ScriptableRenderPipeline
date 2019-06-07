@@ -1,9 +1,9 @@
-#include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/BuiltinUtilities.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/EntityLighting.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Sampling/SampleUVMapping.hlsl"
+#include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/BuiltinUtilities.hlsl"
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/MaterialUtilities.hlsl"
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Decal/DecalUtilities.hlsl"
 #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Lit/LitDecalData.hlsl"
-//#include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/BuiltinUtilities.hlsl"
 #include "Packages/com.unity.shadergraph/ShaderGraphLibrary/Functions.hlsl"
 
 ByteAddressBuffer attributeBuffer;
@@ -144,6 +144,11 @@ struct FragInputForSG
     float3 WorldSpacePosition;
     float3 TangentSpacePosition;
 };
+
+#define VFX_VARYING_PS_INPUTS FragInputForSG
+#define VFX_VARYING_POSCS posCS
+#include "Packages/com.unity.visualeffectgraph/Shaders/RenderPipeline/HDRP/VFXCommon.cginc"
+#include "Packages/com.unity.visualeffectgraph/Shaders/VFXCommon.cginc"
 
 
 FragInputForSG InitializeFragStructs(inout FragInputs input, PositionInputs posInput, float3 V, out SurfaceData surfaceData, out BuiltinData builtinData)

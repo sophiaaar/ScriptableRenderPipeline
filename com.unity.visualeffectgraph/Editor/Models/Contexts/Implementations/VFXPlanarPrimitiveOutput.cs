@@ -25,7 +25,7 @@ namespace UnityEditor.VFX
                 if (useGeometryShader)
                     return VFXTaskType.ParticlePointOutput;
 
-                return (VFXTaskType)VFXAbstractParticleExternalOutput.GetTaskType(primitiveType);
+                return VFXPlanarPrimitiveHelper.GetTaskType(primitiveType);
             }
         }
         public override bool supportsUV { get { return true; } }

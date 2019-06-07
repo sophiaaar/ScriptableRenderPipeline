@@ -280,10 +280,16 @@ struct VaryingVFXAttribute
             var defines = new Dictionary<string, int>();
             var killPasses = new HashSet<string>();
 
-            document.InsertShaderLine(0, "#define UNITY_VERTEX_INPUT_INSTANCE_ID VaryingVFXAttribute vfxAttributes; nointerpolation uint instanceID : SV_InstanceID;");
-            document.InsertShaderLine(1, "#include \"Packages/com.unity.visualeffectgraph/Shaders/RenderPipeline/HDRP/VFXDefines.hlsl\"");
-            document.InsertShaderLine(2, "#include \"Packages/com.unity.visualeffectgraph/Shaders/RenderPipeline/HDRP/VFXCommon.cginc\"");
-            document.InsertShaderLine(3, "#include \"Packages/com.unity.visualeffectgraph/Shaders/VFXCommon.cginc\"");
+            int cptLine = 0;
+            document.InsertShaderLine(cptLine++, "#define UNITY_VERTEX_INPUT_INSTANCE_ID VaryingVFXAttribute vfxAttributes; nointerpolation uint instanceID : SV_InstanceID;");
+            document.InsertShaderLine(cptLine++, "#include \"Packages/com.unity.visualeffectgraph/Shaders/RenderPipeline/HDRP/VFXDefines.hlsl\"");
+            //document.InsertShaderLine(cptLine++, @"#include ""Packages/com.unity.render-pipelines.high-definition/Runtime/ShaderLibrary/ShaderVariables.hlsl""");
+            //document.InsertShaderLine(cptLine++,@"#include ""Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl""");
+            /*document.shaderCode.Add(@"#include ""Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl""");
+            document.shaderCode.Add(@"#include ""Packages/com.unity.render-pipelines.core/ShaderLibrary/NormalSurfaceGradient.hlsl""");
+            document.shaderCode.Add(@"#include ""Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl""");*/
+            //document.shaderCode.Add(@"#include ""Packages/com.unity.shadergraph/ShaderGraphLibrary/ShaderVariablesFunctions.hlsl""");
+            //document.shaderCode.Add(@"#include ""Packages/com.unity.shadergraph/ShaderGraphLibrary/Functions.hlsl""");
 
             document.RemoveShaderCodeContaining("#pragma shader_feature_local"); // remove all feature local that are used by the GUI to change some values
 
@@ -526,13 +532,18 @@ struct VaryingVFXAttribute
 
                 pass.InsertShaderCode(0, GenerateVaryingVFXAttribute(graph,vfxInfos, varyingAttributes));
 
-                foreach( var define in passDefines)
+                int cptPassIndex = 0;
+                
+
+                foreach ( var define in passDefines)
                     pass.InsertShaderCode(0, string.Format("#define {0} {1}", define.Key, define.Value));
+
 
 
                 string getSurfaceDataFunction = GenerateParticleGetSurfaceAndBuiltinData(graph, ref vfxInfos, currentPass, pass, guiVariables, defines, varyingAttributes);
 
-                pass.ReplaceInclude("Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Lit/LitData.hlsl", getSurfaceDataFunction);
+                pass.ReplaceInclude("Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Lit/LitData.hlsl", @"#include ""Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/VFX/VFXSGCommonLit.hlsl""
+"+getSurfaceDataFunction);
 
                 pass.InsertShaderCode(-1, sb.ToString());
                 pass.RemoveShaderCodeContaining("#pragma vertex Vert");
@@ -647,7 +658,6 @@ struct VaryingVFXAttribute
                 shaderGraphCode = sb.ToString();
             }
             getSurfaceDataFunction.Append(@"
-#include ""Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/VFX/VFXSGCommonLit.hlsl""
 
 void ParticleGetSurfaceAndBuiltinData(FragInputs input, uint index,VaryingVFXAttribute vfxAttributes,float3 V, inout PositionInputs posInput, out SurfaceData surfaceData, out BuiltinData builtinData)
 {

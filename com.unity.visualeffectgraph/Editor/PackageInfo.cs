@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Testing.VisualEffectGraph.Tests")]
 [assembly: InternalsVisibleTo("Unity.Testing.VisualEffectGraph.Tests-testable")]
 [assembly: InternalsVisibleTo("Unity.RenderPipelines.HighDefinition.Editor")]
-[assembly: InternalsVisibleTo("Unity.RenderPipelines.HighDefinition.Editor.testable")]
+[assembly: InternalsVisibleTo("Unity.RenderPipelines.HighDefinition.Editor-testable")]
 
 namespace UnityEditor.VFX
 {
