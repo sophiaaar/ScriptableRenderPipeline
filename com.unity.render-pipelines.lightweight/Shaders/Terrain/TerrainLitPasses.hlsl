@@ -314,7 +314,7 @@ VaryingsLean ShadowPassVertex(AttributesLean v)
 half4 ShadowPassFragment(VaryingsLean IN) : SV_TARGET
 {
 #ifdef _ALPHATEST_ON
-	ClipSurfaceMask(IN.texcoord);
+	ClipHoles(IN.texcoord);
 #endif	
     return 0;
 }
