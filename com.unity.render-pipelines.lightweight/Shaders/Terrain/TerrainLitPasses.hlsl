@@ -20,13 +20,13 @@ UNITY_INSTANCING_BUFFER_START(Terrain)
 UNITY_INSTANCING_BUFFER_END(Terrain)
 
 #ifdef _ALPHATEST_ON
-TEXTURE2D(_TerrainSurfaceMaskTexture);
-SAMPLER(sampler_TerrainSurfaceMaskTexture);
+TEXTURE2D(_TerrainHolesTexture);
+SAMPLER(sampler_TerrainHolesTexture);
 
-void ClipSurfaceMask(float2 uv)
+void ClipHoles(float2 uv)
 {
-	float surfMask = SAMPLE_TEXTURE2D(_TerrainSurfaceMaskTexture, sampler_TerrainSurfaceMaskTexture, uv).r;
-	clip(surfMask == 0.0f ? -1 : 1);
+	float hole = SAMPLE_TEXTURE2D(_TerrainHolesTexture, sampler_TerrainHolesTexture, uv).r;
+	clip(hole == 0.0f ? -1 : 1);
 }
 #endif
 
@@ -231,7 +231,7 @@ Varyings SplatmapVert(Attributes v)
 half4 SplatmapFragment(Varyings IN) : SV_TARGET
 {
 #ifdef _ALPHATEST_ON
-	ClipSurfaceMask(IN.uvMainAndLM.xy);
+	ClipHoles(IN.uvMainAndLM.xy);
 #endif	
 	
     half3 normalTS = half3(0.0h, 0.0h, 1.0h);
@@ -336,7 +336,7 @@ VaryingsLean DepthOnlyVertex(AttributesLean v)
 half4 DepthOnlyFragment(VaryingsLean IN) : SV_TARGET
 {
 #ifdef _ALPHATEST_ON
-	ClipSurfaceMask(IN.texcoord);
+	ClipHoles(IN.texcoord);
 #endif
     return 0;
 }

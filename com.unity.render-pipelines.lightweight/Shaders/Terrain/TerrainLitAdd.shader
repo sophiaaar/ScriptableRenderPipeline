@@ -2,7 +2,7 @@
 {
     Properties
     {
-		[HideInInspector] _TerrainSurfaceMaskTexture("Surface Mask Map (RGB)", 2D) = "white" {}
+		[HideInInspector] _TerrainHolesTexture("Holes Map (RGB)", 2D) = "white" {}
         // used in fallback on old cards & base map
         [HideInInspector] _BaseMap("BaseMap (RGB)", 2D) = "white" {}
         [HideInInspector] _BaseColor("Main Color", Color) = (1,1,1,1)

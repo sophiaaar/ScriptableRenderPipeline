@@ -52,13 +52,13 @@ float _DistortionBlurRemapMin;
 float _DistortionBlurRemapMax;
 
 #ifdef _ALPHATEST_ON
-TEXTURE2D(_TerrainSurfaceMaskTexture);
-SAMPLER(sampler_TerrainSurfaceMaskTexture);
+TEXTURE2D(_TerrainHolesTexture);
+SAMPLER(sampler_TerrainHolesTexture);
 
-void ClipSurfaceMask(float2 uv)
+void ClipHoles(float2 uv)
 {
-	float surfMask = SAMPLE_TEXTURE2D(_TerrainSurfaceMaskTexture, sampler_TerrainSurfaceMaskTexture, uv).r;
-	DoAlphaTest(surfMask, 0.5);
+	float hole = SAMPLE_TEXTURE2D(_TerrainHolesTexture, sampler_TerrainHolesTexture, uv).r;
+	DoAlphaTest(hole, 0.5);
 }
 #endif
 
@@ -155,7 +155,7 @@ void GetSurfaceAndBuiltinData(inout FragInputs input, float3 V, inout PositionIn
 #endif
 
 #ifdef _ALPHATEST_ON
-	ClipSurfaceMask(input.texCoord0);
+	ClipHoles(input.texCoord0);
 #endif	
 
     // terrain lightmap uvs are always taken from uv0
