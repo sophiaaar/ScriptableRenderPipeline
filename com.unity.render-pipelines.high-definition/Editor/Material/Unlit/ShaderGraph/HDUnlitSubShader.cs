@@ -8,7 +8,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
 {
     class HDUnlitSubShader : IHDUnlitSubShader
     {
-        Pass m_PassMETA = new Pass()
+        static internal Pass passMETA { get { return m_PassMETA; } }
+        static internal Pass m_PassMETA = new Pass()
         {
             Name = "META",
             LightMode = "META",
@@ -43,7 +44,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             UseInPreview = false
         };
 
-        Pass m_SceneSelectionPass = new Pass()
+        static internal Pass passSceneSelection { get { return m_SceneSelectionPass; } }
+        static internal Pass m_SceneSelectionPass = new Pass()
         {
             Name = "SceneSelectionPass",
             LightMode = "SceneSelectionPass",
@@ -74,7 +76,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             UseInPreview = false,
         };
 
-        Pass m_PassDepthForwardOnly = new Pass()
+        static internal Pass passDepthForwardOnly { get { return m_PassDepthForwardOnly; } }
+        static internal Pass m_PassDepthForwardOnly = new Pass()
         {
             Name = "DepthForwardOnly",
             LightMode = "DepthForwardOnly",
@@ -116,7 +119,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             }
         };
 
-        Pass m_PassMotionVectors = new Pass()
+        static internal Pass passMotionVectors { get { return m_PassMotionVectors; } }
+        static internal Pass m_PassMotionVectors = new Pass()
         {
             Name = "MotionVectors",
             LightMode = "MotionVectors",
@@ -160,7 +164,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             }
         };
 
-        Pass m_PassDistortion = new Pass()
+        static internal Pass passDistortion { get { return m_PassDistortion; } }
+        static internal Pass m_PassDistortion = new Pass()
         {
             Name = "DistortionVectors",
             LightMode = "DistortionVectors",
@@ -216,7 +221,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             }
         };
 
-        Pass m_PassShadowCaster = new Pass()
+        static internal Pass passShadowCaster { get { return m_PassShadowCaster; } }
+        static internal Pass m_PassShadowCaster = new Pass()
         {
             Name = "ShadowCaster",
             LightMode = "ShadowCaster",
@@ -243,7 +249,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline
             UseInPreview = false,
         };
 
-        Pass m_PassForwardOnly = new Pass()
+        static internal Pass passForwardOnly { get { return m_PassForwardOnly; } }
+        static internal Pass m_PassForwardOnly = new Pass()
         {
             Name = "ForwardOnly",
             LightMode = "ForwardOnly",

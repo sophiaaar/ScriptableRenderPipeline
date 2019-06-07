@@ -12,20 +12,105 @@ using UnityEditor.ShaderGraph;
 using UnityEditor.VFX;
 using UnityEngine.Experimental.Rendering.HDPipeline;
 using UnityEngine.Experimental.VFX;
+using UnityEditor.ShaderGraph.Drawing.Controls;
 
 namespace UnityEditor.Experimental.Rendering.HDPipeline.VFXSG
 {
     public static class VFXSGHDRPShaderGenerator
     {
+        public class Graph
+        {
+            internal GraphData graphData;
+            internal List<MaterialSlot> slots;
+
+            internal struct Function
+            {
+                internal List<AbstractMaterialNode> nodes;
+                internal ShaderGraphRequirements requirements;
+                internal List<MaterialSlot> slots;
+            }
+
+            internal struct Pass
+            {
+                internal Function vertex;
+                internal Function pixel;
+            }
+
+            internal Pass[] passes;
+
+
+
+            internal class PassInfo
+            {
+                public PassInfo(string name, FunctionInfo pixel, FunctionInfo vertex)
+                {
+                    this.name = name;
+                    this.pixel = pixel;
+                    this.vertex = vertex;
+                }
+                public readonly string name;
+                public readonly FunctionInfo pixel;
+                public readonly FunctionInfo vertex;
+            }
+            internal class FunctionInfo
+            {
+                public FunctionInfo(List<int> activeSlots)
+                {
+                    this.activeSlots = activeSlots;
+                }
+                public readonly List<int> activeSlots;
+            }
+
+            internal readonly static PassInfo[] litPassInfos = new PassInfo[]
+                {
+                //GBuffer
+                new PassInfo("GBuffer",new FunctionInfo(HDLitSubShader.passGBuffer.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passGBuffer.VertexShaderSlots)),
+                //ShadowCaster
+                new PassInfo("ShadowCaster",new FunctionInfo(HDLitSubShader.passShadowCaster.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passShadowCaster.VertexShaderSlots)),
+                new PassInfo("DepthOnly",new FunctionInfo(HDLitSubShader.passDepthOnly.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passDepthOnly.VertexShaderSlots)),
+                new PassInfo("SceneSelectionPass",new FunctionInfo(HDLitSubShader.passSceneSelection.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passSceneSelection.VertexShaderSlots)),
+                new PassInfo("META",new FunctionInfo(HDLitSubShader.passMETA.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passMETA.VertexShaderSlots)),
+                new PassInfo("MotionVectors",new FunctionInfo(HDLitSubShader.passMotionVector.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passMotionVector.VertexShaderSlots)),
+                new PassInfo("DistortionVectors",new FunctionInfo(HDLitSubShader.passDistortion.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passDistortion.VertexShaderSlots)),
+                new PassInfo("TransparentDepthPrepass",new FunctionInfo(HDLitSubShader.passTransparentPrepass.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passTransparentPrepass.VertexShaderSlots)),
+                new PassInfo("TransparentBackface",new FunctionInfo(HDLitSubShader.passTransparentBackface.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passTransparentBackface.VertexShaderSlots)),
+                new PassInfo("Forward",new FunctionInfo(HDLitSubShader.passForward.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passForward.VertexShaderSlots)),
+                new PassInfo("TransparentDepthPostpass",new FunctionInfo(HDLitSubShader.passTransparentDepthPostpass.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passTransparentDepthPostpass.VertexShaderSlots)),
+                };
+
+            internal readonly static PassInfo[] unlitPassInfos = new PassInfo[]
+                {
+                new PassInfo("ShadowCaster",new FunctionInfo(HDUnlitSubShader.passShadowCaster.PixelShaderSlots),new FunctionInfo(HDUnlitSubShader.passShadowCaster.VertexShaderSlots)),
+                new PassInfo("DepthForwardOnly",new FunctionInfo(HDUnlitSubShader.passDepthForwardOnly.PixelShaderSlots),new FunctionInfo(HDUnlitSubShader.passDepthForwardOnly.VertexShaderSlots)),
+                new PassInfo("SceneSelectionPass",new FunctionInfo(HDUnlitSubShader.passSceneSelection.PixelShaderSlots),new FunctionInfo(HDUnlitSubShader.passSceneSelection.VertexShaderSlots)),
+                new PassInfo("META",new FunctionInfo(HDUnlitSubShader.passMETA.PixelShaderSlots),new FunctionInfo(HDUnlitSubShader.passMETA.VertexShaderSlots)),
+                new PassInfo("MotionVectors",new FunctionInfo(HDUnlitSubShader.passMotionVectors.PixelShaderSlots),new FunctionInfo(HDUnlitSubShader.passMotionVectors.VertexShaderSlots)),
+                new PassInfo("DistortionVectors",new FunctionInfo(HDUnlitSubShader.passDistortion.PixelShaderSlots),new FunctionInfo(HDUnlitSubShader.passDistortion.VertexShaderSlots)),
+                new PassInfo("ForwardOnly",new FunctionInfo(HDUnlitSubShader.passForwardOnly.PixelShaderSlots),new FunctionInfo(HDUnlitSubShader.passForwardOnly.VertexShaderSlots)),
+                };
+        }
+
         public static Graph LoadShaderGraph(Shader shader)
         {
             string shaderGraphPath = AssetDatabase.GetAssetPath(shader);
 
             if (Path.GetExtension(shaderGraphPath).Equals(".shadergraph", StringComparison.InvariantCultureIgnoreCase))
             {
-                return LoadShaderGraph(shaderGraphPath);
+                MasterNodeInfo masterNodeInfo;
+                return LoadShaderGraph(shaderGraphPath, out masterNodeInfo);
             }
+            return null;
+        }
 
+        static Graph LoadShaderGraph(Shader shader, out MasterNodeInfo masterNodeInfo)
+        {
+            string shaderGraphPath = AssetDatabase.GetAssetPath(shader);
+
+            if (Path.GetExtension(shaderGraphPath).Equals(".shadergraph", StringComparison.InvariantCultureIgnoreCase))
+            {
+                return LoadShaderGraph(shaderGraphPath, out masterNodeInfo);
+            }
+            masterNodeInfo = new MasterNodeInfo();
             return null;
         }
 
@@ -40,7 +125,7 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline.VFXSG
             return shaderProperties.GetConfiguredTexutres().ToDictionary(t=>t.name,t=>(Texture)EditorUtility.InstanceIDToObject(t.textureId));
         }
 
-        public static Graph LoadShaderGraph(string shaderFilePath)
+        static Graph LoadShaderGraph(string shaderFilePath, out MasterNodeInfo masterNodeInfo)
         {
             var textGraph = File.ReadAllText(shaderFilePath, Encoding.UTF8);
 
@@ -48,6 +133,12 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline.VFXSG
             graph.graphData = JsonUtility.FromJson<GraphData>(textGraph);
             graph.graphData.OnEnable();
             graph.graphData.ValidateGraph();
+
+            if (!s_MasterNodeInfos.TryGetValue(graph.graphData.outputNode.GetType(), out masterNodeInfo))
+                return null;
+
+
+            
 
             graph.slots = new List<MaterialSlot>();
             foreach (var activeNode in ((AbstractMaterialNode)graph.graphData.outputNode).ToEnumerable())
@@ -57,12 +148,16 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline.VFXSG
                 else
                     graph.slots.AddRange(activeNode.GetOutputSlots<MaterialSlot>());
             }
-            for (int currentPass = 0; currentPass < Graph.passInfos.Length; ++currentPass)
+
+            var passInfos = masterNodeInfo.passInfos;
+            graph.passes = new Graph.Pass[passInfos.Length];
+
+            for (int currentPass = 0; currentPass < passInfos.Length; ++currentPass)
             {
                 graph.passes[currentPass].pixel.nodes = ListPool<AbstractMaterialNode>.Get();
-                NodeUtils.DepthFirstCollectNodesFromNode(graph.passes[currentPass].pixel.nodes, ((AbstractMaterialNode)graph.graphData.outputNode), NodeUtils.IncludeSelf.Include, Graph.passInfos[currentPass].pixel.activeSlots);
+                NodeUtils.DepthFirstCollectNodesFromNode(graph.passes[currentPass].pixel.nodes, ((AbstractMaterialNode)graph.graphData.outputNode), NodeUtils.IncludeSelf.Include, passInfos[currentPass].pixel.activeSlots);
                 graph.passes[currentPass].vertex.nodes = ListPool<AbstractMaterialNode>.Get();
-                NodeUtils.DepthFirstCollectNodesFromNode(graph.passes[currentPass].vertex.nodes, ((AbstractMaterialNode)graph.graphData.outputNode), NodeUtils.IncludeSelf.Include, Graph.passInfos[currentPass].vertex.activeSlots);
+                NodeUtils.DepthFirstCollectNodesFromNode(graph.passes[currentPass].vertex.nodes, ((AbstractMaterialNode)graph.graphData.outputNode), NodeUtils.IncludeSelf.Include, passInfos[currentPass].vertex.activeSlots);
 
                 graph.passes[currentPass].pixel.requirements = ShaderGraphRequirements.FromNodes(graph.passes[currentPass].pixel.nodes, ShaderStageCapability.Fragment, false);
                 graph.passes[currentPass].vertex.requirements = ShaderGraphRequirements.FromNodes(graph.passes[currentPass].vertex.nodes, ShaderStageCapability.Vertex, false);
@@ -70,8 +165,8 @@ namespace UnityEditor.Experimental.Rendering.HDPipeline.VFXSG
                 graph.passes[currentPass].pixel.requirements.requiresPosition |= NeededCoordinateSpace.View | NeededCoordinateSpace.World;
                 graph.passes[currentPass].vertex.requirements.requiresPosition |= NeededCoordinateSpace.Object;
 
-                graph.passes[currentPass].pixel.slots = graph.slots.Where(t => Graph.passInfos[currentPass].pixel.activeSlots.Contains(t.id)).ToList();
-                graph.passes[currentPass].vertex.slots = graph.slots.Where(t => Graph.passInfos[currentPass].vertex.activeSlots.Contains(t.id)).ToList();
+                graph.passes[currentPass].pixel.slots = graph.slots.Where(t => passInfos[currentPass].pixel.activeSlots.Contains(t.id)).ToList();
+                graph.passes[currentPass].vertex.slots = graph.slots.Where(t => passInfos[currentPass].vertex.activeSlots.Contains(t.id)).ToList();
             }
 
             return graph;
@@ -238,9 +333,55 @@ struct VaryingVFXAttribute
             return sb.ToString();
         }
 
+
+        delegate void PrepareMasterNodeDelegate(Graph graph, Dictionary<string, string> guiVariables, ShaderDocument document, Dictionary<string, int> defines);
+
+        struct MasterNodeInfo
+        {
+            public MasterNodeInfo(string mainShaderPath, string litDataIncludePath, string VFXSGcommon, PrepareMasterNodeDelegate prepareMasterNode, bool hasNormalWS,bool hasRefraction, Graph.PassInfo[] passInfos)
+            {
+                this.mainShaderPath = mainShaderPath;
+                this.litDataIncludePath = litDataIncludePath;
+                this.prepareMasterNode = prepareMasterNode;
+                this.VFXSGcommon = VFXSGcommon;
+                this.hasNormalWS = hasNormalWS;
+                this.hasRefraction = hasRefraction;
+                this.passInfos = passInfos;
+            }
+            public readonly string mainShaderPath;
+            public readonly string litDataIncludePath;
+            public readonly string VFXSGcommon;
+            public readonly bool hasNormalWS;
+            public readonly bool hasRefraction;
+            public readonly PrepareMasterNodeDelegate prepareMasterNode;
+            public readonly Graph.PassInfo[] passInfos;
+        }
+
+        static readonly Dictionary<System.Type, MasterNodeInfo> s_MasterNodeInfos = new Dictionary<Type, MasterNodeInfo>
+        {
+            {typeof(HDLitMasterNode), new MasterNodeInfo(
+                "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Lit/Lit.shader",
+                "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Lit/LitData.hlsl",
+                "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/VFX/VFXSGCommonLit.hlsl",
+                PrepareHDLitMasterNode,
+                true,
+                true,
+                Graph.litPassInfos) },
+            {typeof(HDUnlitMasterNode), new MasterNodeInfo(
+                "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Unlit/Unlit.shader",
+                "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Unlit/UnlitData.hlsl",
+                "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/VFX/VFXSGCommonUnlit.hlsl",
+                PrepareHDUnlitMasterNode,
+                false,
+                false,
+                Graph.unlitPassInfos) },
+        };
+
+
         internal static string NewGenerateShader(Shader shaderGraph, ref VFXInfos vfxInfos)
         {
-            Graph graph = LoadShaderGraph(shaderGraph);
+            MasterNodeInfo masterNodeInfo;
+            Graph graph = LoadShaderGraph(shaderGraph, out masterNodeInfo);
             if (graph == null) return null;
 
             Dictionary<string, string> guiVariables = new Dictionary<string, string>()
@@ -275,7 +416,7 @@ struct VaryingVFXAttribute
             };
 
             ShaderDocument document = new ShaderDocument();
-            document.Parse(File.ReadAllText("Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Lit/Lit.shader"));
+            document.Parse(File.ReadAllText(masterNodeInfo.mainShaderPath));
 
             var defines = new Dictionary<string, int>();
             var killPasses = new HashSet<string>();
@@ -286,6 +427,29 @@ struct VaryingVFXAttribute
 
             document.RemoveShaderCodeContaining("#pragma shader_feature_local"); // remove all feature local that are used by the GUI to change some values
 
+            masterNodeInfo.prepareMasterNode(graph, guiVariables, document, defines);
+
+            List<VaryingAttribute> varyingAttributes = ComputeVaryingAttribute(graph, vfxInfos);
+
+
+            foreach (var pass in document.passes)
+            {
+                int currentPass = Array.FindIndex(masterNodeInfo.passInfos, t => t.name == pass.name);
+                if (currentPass == -1)
+                    continue;
+
+                GeneratePath(vfxInfos, graph, guiVariables, defines, varyingAttributes, pass, currentPass, ref masterNodeInfo);
+            }
+            foreach (var define in defines)
+                document.InsertShaderCode(0, string.Format("#define {0} {1}", define.Key, define.Value));
+
+            document.ReplaceParameterVariables(guiVariables);
+
+            return document.ToString(false).Replace("$precision", "float").Replace("\r", "");
+        }
+
+        private static void PrepareHDLitMasterNode(Graph graph, Dictionary<string, string> guiVariables, ShaderDocument document, Dictionary<string, int> defines)
+        {
             var masterNode = graph.graphData.outputNode as HDLitMasterNode;
 
             if (masterNode != null)
@@ -489,27 +653,127 @@ struct VaryingVFXAttribute
                     }
                 }
             }
-
-            List<VaryingAttribute> varyingAttributes = ComputeVaryingAttribute(graph,vfxInfos);
-
-
-            foreach (var pass in document.passes)
-            {
-                int currentPass = Array.FindIndex(Graph.passInfos, t => t.name == pass.name);
-                if (currentPass == -1)
-                    continue;
-
-                GeneratePath(vfxInfos, graph, guiVariables, defines, varyingAttributes, pass, currentPass);
-            }
-            foreach (var define in defines)
-                document.InsertShaderCode(0, string.Format("#define {0} {1}", define.Key, define.Value));
-
-            document.ReplaceParameterVariables(guiVariables);
-
-            return document.ToString(false).Replace("$precision","float").Replace("\r", "");
         }
 
-        private static void GeneratePath(VFXInfos vfxInfos, Graph graph, Dictionary<string, string> guiVariables, Dictionary<string, int> defines, List<VaryingAttribute> varyingAttributes, PassPart pass, int currentPass)
+        private static void PrepareHDUnlitMasterNode(Graph graph, Dictionary<string, string> guiVariables, ShaderDocument document, Dictionary<string, int> defines)
+        {
+            var masterNode = graph.graphData.outputNode as HDUnlitMasterNode;
+
+            if (masterNode != null)
+            {
+                if (masterNode.doubleSided.isOn)
+                {
+                    defines["_DOUBLESIDED_ON"] = 1;
+                    guiVariables["_CullMode"] = "Off";
+                    guiVariables["_CullModeForward"] = "Off";
+                }
+
+                // Taken from BaseUI.cs
+                int stencilRef = (int)StencilLightingUsage.RegularLighting; // Forward case
+                int stencilWriteMask = (int)HDRenderPipeline.StencilBitMask.LightingMask;
+                int stencilRefDepth = 0;
+                int stencilWriteMaskDepth = 0;
+                int stencilRefGBuffer = (int)StencilLightingUsage.RegularLighting;
+                int stencilWriteMaskGBuffer = (int)HDRenderPipeline.StencilBitMask.LightingMask;
+                int stencilRefMV = (int)HDRenderPipeline.StencilBitMask.ObjectMotionVectors;
+                int stencilWriteMaskMV = (int)HDRenderPipeline.StencilBitMask.ObjectMotionVectors;
+
+                stencilWriteMaskDepth |= (int)HDRenderPipeline.StencilBitMask.DoesntReceiveSSR | (int)HDRenderPipeline.StencilBitMask.DecalsForwardOutputNormalBuffer;
+                stencilWriteMaskGBuffer |= (int)HDRenderPipeline.StencilBitMask.DoesntReceiveSSR | (int)HDRenderPipeline.StencilBitMask.DecalsForwardOutputNormalBuffer;
+                stencilWriteMaskMV |= (int)HDRenderPipeline.StencilBitMask.DoesntReceiveSSR | (int)HDRenderPipeline.StencilBitMask.DecalsForwardOutputNormalBuffer;
+
+                // As we tag both during motion vector pass and Gbuffer pass we need a separate state and we need to use the write mask
+                guiVariables["_StencilRef"] = stencilRef.ToString();
+                guiVariables["_StencilWriteMask"] = stencilWriteMask.ToString();
+                guiVariables["_StencilRefDepth"] = stencilRefDepth.ToString();
+                guiVariables["_StencilWriteMaskDepth"] = stencilWriteMaskDepth.ToString();
+                guiVariables["_StencilRefGBuffer"] = stencilRefGBuffer.ToString();
+                guiVariables["_StencilWriteMaskGBuffer"] = stencilWriteMaskGBuffer.ToString();
+                guiVariables["_StencilRefMV"] = stencilRefMV.ToString();
+                guiVariables["_StencilWriteMaskMV"] = stencilWriteMaskMV.ToString();
+                guiVariables["_StencilRefDistortionVec"] = ((int)HDRenderPipeline.StencilBitMask.DistortionVectors).ToString();
+                guiVariables["_StencilWriteMaskDistortionVec"] = ((int)HDRenderPipeline.StencilBitMask.DistortionVectors).ToString();
+
+
+                if (masterNode.surfaceType == SurfaceType.Opaque)
+                {
+                    guiVariables["_SrcBlend"] = "One";
+                    guiVariables["_DstBlend"] = "Zero";
+                    guiVariables["_ZWrite"] = "On";
+                    guiVariables["_ZTestDepthEqualForOpaque"] = "Equal";
+                }
+                else
+                {
+                    guiVariables["_ZTestDepthEqualForOpaque"] = "LEqual";
+                    defines["_SURFACE_TYPE_TRANSPARENT"] = 1;
+
+                    if (masterNode.transparencyFog.isOn)
+                        defines["_ENABLE_FOG_ON_TRANSPARENT"] = 1;
+
+                    foreach (var subshader in document.subShaders)
+                    {
+                        subshader.AddTag("Queue", "Transparent+" + masterNode.sortPriority.ToString());
+                    }
+
+                    guiVariables["_ZWrite"] = "Off";
+
+                    var blendMode = masterNode.alphaMode;
+
+                    if (blendMode == AlphaMode.Alpha)
+                        defines["_BLENDMODE_ALPHA"] = 1;
+                    if (blendMode == AlphaMode.Additive)
+                        defines["_BLENDMODE_ADD"] = 1;
+                    if (blendMode == AlphaMode.Premultiply)
+                        defines["_BLENDMODE_PRE_MULTIPLY"] = 1;
+
+                    // When doing off-screen transparency accumulation, we change blend factors as described here: https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch23.html
+                    switch (blendMode)
+                    {
+                        // PremultipliedAlpha
+                        // color: src * src_a + dst * (1 - src_a)
+                        // src is supposed to have been multiplied by alpha in the texture on artists side.
+                        case AlphaMode.Premultiply:
+                        // Alpha
+                        // color: src * src_a + dst * (1 - src_a)
+                        // src * src_a is done in the shader as it allow to reduce precision issue when using _BLENDMODE_PRESERVE_SPECULAR_LIGHTING (See Material.hlsl)
+                        case AlphaMode.Alpha:
+                            guiVariables["_SrcBlend"] = "One";
+                            guiVariables["_DstBlend"] = "OneMinusSrcAlpha";
+                            if (masterNode.renderingPass == HDRenderQueue.RenderQueueType.LowTransparent)
+                            {
+                                guiVariables["_AlphaSrcBlend"] = "Zero";
+                                guiVariables["_AlphaDstBlend"] = "OneMinusSrcAlpha";
+                            }
+                            else
+                            {
+                                guiVariables["_AlphaSrcBlend"] = "One";
+                                guiVariables["_AlphaDstBlend"] = "OneMinusSrcAlpha";
+                            }
+                            break;
+
+                        // Additive
+                        // color: src * src_a + dst
+                        // src * src_a is done in the shader
+                        case AlphaMode.Additive:
+                            guiVariables["_SrcBlend"] = "One";
+                            guiVariables["_DstBlend"] = "One";
+                            if (masterNode.renderingPass == HDRenderQueue.RenderQueueType.LowTransparent)
+                            {
+                                guiVariables["_AlphaSrcBlend"] = "Zero";
+                                guiVariables["_AlphaDstBlend"] = "One";
+                            }
+                            else
+                            {
+                                guiVariables["_AlphaSrcBlend"] = "One";
+                                guiVariables["_AlphaDstBlend"] = "One";
+                            }
+                            break;
+                    }
+                }
+            }
+        }
+
+        private static void GeneratePath(VFXInfos vfxInfos, Graph graph, Dictionary<string, string> guiVariables, Dictionary<string, int> defines, List<VaryingAttribute> varyingAttributes, PassPart pass, int currentPass, ref MasterNodeInfo masterNodeInfo)
         {
             Dictionary<string, int> passDefines = new Dictionary<string, int>();
             for (int i = 0; i < 4; ++i)
@@ -535,9 +799,9 @@ struct VaryingVFXAttribute
             foreach (var define in passDefines)
                 pass.InsertShaderCode(0, string.Format("#define {0} {1}", define.Key, define.Value));
 
-            string getSurfaceDataFunction = GenerateParticleGetSurfaceAndBuiltinData(graph, ref vfxInfos, currentPass, pass, guiVariables, defines, varyingAttributes);
+            string getSurfaceDataFunction = GenerateParticleGetSurfaceAndBuiltinData(graph, ref vfxInfos, currentPass, pass, guiVariables, defines, varyingAttributes,ref masterNodeInfo);
 
-            pass.ReplaceInclude("Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Lit/LitData.hlsl", getSurfaceDataFunction);
+            pass.ReplaceInclude(masterNodeInfo.litDataIncludePath, getSurfaceDataFunction);
             pass.InsertShaderCode(-1, sb.ToString());
             pass.RemoveShaderCodeContaining("#pragma vertex Vert");
 
@@ -582,10 +846,10 @@ struct VaryingVFXAttribute
             }
         }
 
-        static string GenerateParticleGetSurfaceAndBuiltinData(Graph graph, ref VFXInfos vfxInfos, int currentPass, PassPart pass,Dictionary<string, string> guiVariables,Dictionary<string, int> defines , List<VaryingAttribute> varyingAttributes)
+        static string GenerateParticleGetSurfaceAndBuiltinData(Graph graph, ref VFXInfos vfxInfos, int currentPass, PassPart pass,Dictionary<string, string> guiVariables,Dictionary<string, int> defines , List<VaryingAttribute> varyingAttributes,ref MasterNodeInfo masterNodeInfo)
         {
             var getSurfaceDataFunction = new ShaderStringBuilder();
-            getSurfaceDataFunction.AppendLine(@"#include ""Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/VFX/VFXSGCommonLit.hlsl""");
+            getSurfaceDataFunction.AppendLine(@"#include """+ masterNodeInfo.VFXSGcommon + @"""");
 
             getSurfaceDataFunction.Append(vfxInfos.parameters);
             string slotAssignations;
@@ -654,8 +918,6 @@ void ParticleGetSurfaceAndBuiltinData(FragInputs input, uint index,VaryingVFXAtt
         float3 doubleSidedConstants = float3(1.0, 1.0, 1.0);
     #endif
     ApplyDoubleSidedFlipOrMirror(input, doubleSidedConstants);
-    
-    surfaceData.geomNormalWS = input.worldToTangent[2];
 ");
             getSurfaceDataFunction.AppendLine("    " + vfxInfos.loadAttributes.Replace("\n", "\n    "));
 
@@ -732,19 +994,27 @@ void ParticleGetSurfaceAndBuiltinData(FragInputs input, uint index,VaryingVFXAtt
             //define the specular occlusion
             AddCodeIfSlotExist(graph, getSurfaceDataFunction, "SpecularOcclusion", "surfaceData.specularOcclusion = {0}", "", graph.passes[currentPass].pixel.slots);
 
-            getSurfaceDataFunction.AppendLine(@"
+            if (masterNodeInfo.hasNormalWS)
+            {
+                getSurfaceDataFunction.AppendLine(@"
     float3 bentNormalTS;
     bentNormalTS = normalTS;
     float3 bentNormalWS;
     GetNormalWS(input, normalTS, surfaceData.normalWS, doubleSidedConstants);
 ");
-            //define the bendNormal if it exists
-            AddCodeIfSlotExist(graph, getSurfaceDataFunction, "BentNormal", "    bentNormalTS = {0};", "    bentNormalWS = surfaceData.normalWS;", graph.passes[currentPass].pixel.slots);
+                //define the bendNormal if it exists
+                AddCodeIfSlotExist(graph, getSurfaceDataFunction, "BentNormal", "    bentNormalTS = {0};", "    bentNormalWS = surfaceData.normalWS;", graph.passes[currentPass].pixel.slots);
 
-            getSurfaceDataFunction.AppendLine(@"
+                getSurfaceDataFunction.AppendLine(@"
     GetNormalWS(input, bentNormalTS, bentNormalWS, doubleSidedConstants);
 ");
 
+            }
+            else
+            {
+                getSurfaceDataFunction.AppendLine(@"
+    float3 bentNormalWS = (float3)0;");
+            }
             //define Specular AA
             var SAAVariance = GetSlotValue("SpecularAAScreenSpaceVariance", graph.passes[currentPass].pixel.slots, graph);
             var SAAThreshold = GetSlotValue("SpecularAAThreshold", graph.passes[currentPass].pixel.slots, graph);
@@ -752,14 +1022,17 @@ void ParticleGetSurfaceAndBuiltinData(FragInputs input, uint index,VaryingVFXAtt
             {
                 getSurfaceDataFunction.AppendLine("surfaceData.perceptualSmoothness = GeometricNormalFiltering(surfaceData.perceptualSmoothness, input.worldToTangent[2], {0}, {1});", SAAVariance, SAAThreshold);
             }
-            //define refraction parameter
-            var refractionIndex = GetSlotValue("RefractionIndex", graph.passes[currentPass].pixel.slots, graph);
-            var refractionColor = GetSlotValue("RefractionColor", graph.passes[currentPass].pixel.slots, graph);
-            var refractionDistance = GetSlotValue("RefractionDistance", graph.passes[currentPass].pixel.slots, graph);
 
-            if (refractionIndex != null && refractionColor != null && refractionDistance != null)
+            if (masterNodeInfo.hasRefraction)
             {
-                getSurfaceDataFunction.AppendLine(@"
+                //define refraction parameter
+                var refractionIndex = GetSlotValue("RefractionIndex", graph.passes[currentPass].pixel.slots, graph);
+                var refractionColor = GetSlotValue("RefractionColor", graph.passes[currentPass].pixel.slots, graph);
+                var refractionDistance = GetSlotValue("RefractionDistance", graph.passes[currentPass].pixel.slots, graph);
+
+                if (refractionIndex != null && refractionColor != null && refractionDistance != null)
+                {
+                    getSurfaceDataFunction.AppendLine(@"
 #ifdef _HAS_REFRACTION
 if (_EnableSSRefraction)
 {{
@@ -780,6 +1053,7 @@ else
 }}
 #endif
 ", refractionIndex, refractionColor, refractionDistance);
+                }
             }
 
             getSurfaceDataFunction.AppendLine(@"
@@ -789,17 +1063,24 @@ else
 
             AddCodeIfSlotExist(graph, getSurfaceDataFunction, "Tangent", "TransformTangentToWorld({0}, input.worldToTangent);", null, graph.passes[currentPass].pixel.slots);
 
-            getSurfaceDataFunction.AppendLine(@"
+
+            string specularOcclusionSlot = GetSlotValue("SpecularOcclusion", graph.passes[currentPass].pixel.slots,graph);
+
+            if (specularOcclusionSlot != null)
+            {
+                getSurfaceDataFunction.AppendLine(@"
  #if defined(_SPECULAR_OCCLUSION_CUSTOM)");
-            AddCodeIfSlotExist(graph, getSurfaceDataFunction, "SpecularOcclusion", "surfaceData.specularOcclusion = {0}", "", graph.passes[currentPass].pixel.slots);
-            getSurfaceDataFunction.AppendLine(@"
+                AddCodeIfSlotExist(graph, getSurfaceDataFunction, "SpecularOcclusion", "surfaceData.specularOcclusion = {0}", "", graph.passes[currentPass].pixel.slots);
+                getSurfaceDataFunction.AppendLine(@"
  #elif defined(_SPECULAR_OCCLUSION_FROM_AO_BENT_NORMAL)
     // If we have bent normal and ambient occlusion, process a specular occlusion
     surfaceData.specularOcclusion = GetSpecularOcclusionFromBentAO(V, bentNormalWS, surfaceData.normalWS, surfaceData.ambientOcclusion, PerceptualSmoothnessToPerceptualRoughness(surfaceData.perceptualSmoothness));
  #elif defined(_AMBIENT_OCCLUSION) && defined(_SPECULAR_OCCLUSION_FROM_AO)
     surfaceData.specularOcclusion = GetSpecularOcclusionFromAmbientOcclusion(ClampNdotV(dot(surfaceData.normalWS, V)), surfaceData.ambientOcclusion, PerceptualSmoothnessToRoughness(surfaceData.perceptualSmoothness));
  #endif
-
+");
+            }
+            getSurfaceDataFunction.AppendLine(@"
     PostInit(input, surfaceData, builtinData, posInput,bentNormalWS,alpha,V);
 }
 void ApplyVertexModification(AttributesMesh input, float3 normalWS, inout float3 positionRWS, float4 time)
@@ -929,65 +1210,6 @@ PackedVaryingsType ParticleVert(AttributesMesh inputMesh)
 }
 ");
             shader.AppendLine("#pragma vertex ParticleVert");
-        }
-
-        public class Graph
-        {
-            internal GraphData graphData;
-            internal List<MaterialSlot> slots;
-
-            internal struct Function
-            {
-                internal List<AbstractMaterialNode> nodes;
-                internal ShaderGraphRequirements requirements;
-                internal List<MaterialSlot> slots;
-            }
-
-            internal struct Pass
-            {
-                internal Function vertex;
-                internal Function pixel;
-            }
-
-            internal Pass[] passes = new Pass[passInfos.Length];
-
-            internal class PassInfo
-            {
-                public PassInfo(string name, FunctionInfo pixel, FunctionInfo vertex)
-                {
-                    this.name = name;
-                    this.pixel = pixel;
-                    this.vertex = vertex;
-                }
-                public readonly string name;
-                public readonly FunctionInfo pixel;
-                public readonly FunctionInfo vertex;
-            }
-            internal class FunctionInfo
-            {
-                public FunctionInfo(List<int> activeSlots)
-                {
-                    this.activeSlots = activeSlots;
-                }
-                public readonly List<int> activeSlots;
-            }
-
-            internal readonly static PassInfo[] passInfos = new PassInfo[]
-                {
-                //GBuffer
-                new PassInfo("GBuffer",new FunctionInfo(HDLitSubShader.passGBuffer.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passGBuffer.VertexShaderSlots)),
-                //ShadowCaster
-                new PassInfo("ShadowCaster",new FunctionInfo(HDLitSubShader.passShadowCaster.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passShadowCaster.VertexShaderSlots)),
-                new PassInfo("DepthOnly",new FunctionInfo(HDLitSubShader.passDepthOnly.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passDepthOnly.VertexShaderSlots)),
-                new PassInfo("SceneSelectionPass",new FunctionInfo(HDLitSubShader.passSceneSelection.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passSceneSelection.VertexShaderSlots)),
-                new PassInfo("META",new FunctionInfo(HDLitSubShader.passMETA.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passMETA.VertexShaderSlots)),
-                new PassInfo("MotionVectors",new FunctionInfo(HDLitSubShader.passMotionVector.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passMotionVector.VertexShaderSlots)),
-                new PassInfo("DistortionVectors",new FunctionInfo(HDLitSubShader.passDistortion.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passDistortion.VertexShaderSlots)),
-                new PassInfo("TransparentDepthPrepass",new FunctionInfo(HDLitSubShader.passTransparentPrepass.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passTransparentPrepass.VertexShaderSlots)),
-                new PassInfo("TransparentBackface",new FunctionInfo(HDLitSubShader.passTransparentBackface.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passTransparentBackface.VertexShaderSlots)),
-                new PassInfo("Forward",new FunctionInfo(HDLitSubShader.passForward.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passForward.VertexShaderSlots)),
-                new PassInfo("TransparentDepthPostpass",new FunctionInfo(HDLitSubShader.passTransparentDepthPostpass.PixelShaderSlots),new FunctionInfo(HDLitSubShader.passTransparentDepthPostpass.VertexShaderSlots)),
-                };
         }
     }
 }
