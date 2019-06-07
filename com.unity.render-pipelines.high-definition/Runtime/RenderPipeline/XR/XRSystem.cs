@@ -91,6 +91,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             TextureXR.maxViews = (XRGraphics.stereoRenderingMode == XRGraphics.StereoRenderingMode.SinglePassInstanced) ? 2 : 1;
 
+            // Figure out how to make this work for composite
+            TextureXR.maxViews = 2;
+
 #if USE_XR_SDK
             SubsystemManager.GetInstances(displayList);
 
@@ -234,7 +237,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             // XRTODO: instanced views support with XR SDK
             // must be array and same target, different viewport possible but same size, also same culling ID
-            return renderPass.GetRenderParameterCount() == 2;
+            return false;
+            //return renderPass.GetRenderParameterCount() == 2;
 
             // check viewCount > 1, valid texture array format and valid slice index
             // limit to 2 for now (until code fully fixed)

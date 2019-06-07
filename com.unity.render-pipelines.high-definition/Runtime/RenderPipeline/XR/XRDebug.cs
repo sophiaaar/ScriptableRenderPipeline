@@ -105,47 +105,65 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             if (debugVolume == null)
                 CreateDebugVolume();
 
-            Rect fullViewport = camera.pixelRect;
-
-            // Split into 4 tiles covering the original viewport
-            int tileCountX = 2;
-            int tileCountY = 2;
+            // Split into tiles of different size covering the original viewport
             float splitRatio = 2.0f;
-
             if (XRDebugMenu.animateCompositeTiles)
-                splitRatio = 2.0f + Mathf.Sin(Time.time);
+                splitRatio += Mathf.Sin(Time.time);
 
-            // Use frustum planes to split the projection into 4 parts
+            // Use frustum planes to split the projection into tiles
             var frustumPlanes = camera.projectionMatrix.decomposeProjection;
 
-            for (int tileY = 0; tileY < tileCountY; ++tileY)
+            (Rect viewport, Matrix4x4 proj) CreateCompositeTileView(int tileX, int tileY, int tileCountX, float splitRatioX, float splitRatioY)
             {
+                float spliRatioX1 = Mathf.Pow((tileX + 0.0f) / tileCountX, splitRatioX);
+                float spliRatioX2 = Mathf.Pow((tileX + 1.0f) / tileCountX, splitRatioX);
+                float spliRatioY1 = Mathf.Pow((tileY + 0.0f) / 2, splitRatioY);
+                float spliRatioY2 = Mathf.Pow((tileY + 1.0f) / 2, splitRatioY);
+
+                var planes = frustumPlanes;
+                planes.left = Mathf.Lerp(frustumPlanes.left, frustumPlanes.right, spliRatioX1);
+                planes.right = Mathf.Lerp(frustumPlanes.left, frustumPlanes.right, spliRatioX2);
+                planes.bottom = Mathf.Lerp(frustumPlanes.bottom, frustumPlanes.top, spliRatioY1);
+                planes.top = Mathf.Lerp(frustumPlanes.bottom, frustumPlanes.top, spliRatioY2);
+
+                Rect fullViewport = camera.pixelRect;
+                float tileOffsetX = spliRatioX1 * fullViewport.width;
+                float tileOffsetY = spliRatioY1 * fullViewport.height;
+                float tileSizeX = spliRatioX2 * fullViewport.width - tileOffsetX;
+                float tileSizeY = spliRatioY2 * fullViewport.height - tileOffsetY;
+
+                Rect viewport = new Rect(fullViewport.x + tileOffsetX, fullViewport.y + tileOffsetY, tileSizeX, tileSizeY);
+                Matrix4x4 proj = camera.orthographic ? Matrix4x4.Ortho(planes.left, planes.right, planes.bottom, planes.top, planes.zNear, planes.zFar) : Matrix4x4.Frustum(planes);
+
+                return (viewport, proj);
+            }
+
+            // Top row: 3x multi-pass
+            {
+                int tileCountX = 3;
                 for (int tileX = 0; tileX < tileCountX; ++tileX)
                 {
                     var xrPass = XRPass.Create(framePasses.Count, camera.targetTexture);
 
-                    float spliRatioX1 = Mathf.Pow((tileX + 0.0f) / tileCountX, splitRatio);
-                    float spliRatioX2 = Mathf.Pow((tileX + 1.0f) / tileCountX, splitRatio);
-                    float spliRatioY1 = Mathf.Pow((tileY + 0.0f) / tileCountY, splitRatio);
-                    float spliRatioY2 = Mathf.Pow((tileY + 1.0f) / tileCountY, splitRatio);
-
-                    var planes = frustumPlanes;
-                    planes.left   = Mathf.Lerp(frustumPlanes.left,   frustumPlanes.right, spliRatioX1);
-                    planes.right  = Mathf.Lerp(frustumPlanes.left,   frustumPlanes.right, spliRatioX2);
-                    planes.bottom = Mathf.Lerp(frustumPlanes.bottom, frustumPlanes.top,   spliRatioY1);
-                    planes.top    = Mathf.Lerp(frustumPlanes.bottom, frustumPlanes.top,   spliRatioY2);
-
-                    float tileOffsetX = spliRatioX1 * fullViewport.width;
-                    float tileOffsetY = spliRatioY1 * fullViewport.height;
-                    float tileSizeX = spliRatioX2 * fullViewport.width - tileOffsetX;
-                    float tileSizeY = spliRatioY2 * fullViewport.height - tileOffsetY;
-
-                    Rect viewport = new Rect(fullViewport.x + tileOffsetX, fullViewport.y + tileOffsetY, tileSizeX, tileSizeY);
-                    Matrix4x4 proj = camera.orthographic ? Matrix4x4.Ortho(planes.left, planes.right, planes.bottom, planes.top, planes.zNear, planes.zFar) : Matrix4x4.Frustum(planes);
-
+                    (Rect viewport, Matrix4x4 proj) = CreateCompositeTileView(tileX, tileY: 0, tileCountX, splitRatio, splitRatio);
                     xrPass.AddView(proj, camera.worldToCameraMatrix, viewport);
+
                     AddPassToFrame(camera, xrPass);
                 }
+            }
+
+            // Bottom row: 2x single-pass instancing
+            {
+                int tileCountX = 2;
+                var xrPass = XRPass.Create(framePasses.Count, camera.targetTexture);
+
+                for (int tileX = 0; tileX < tileCountX; ++tileX)
+                {
+                    (Rect viewport, Matrix4x4 proj) = CreateCompositeTileView(tileX, tileY: 1, tileCountX, 1.0f, splitRatio);
+                    xrPass.AddView(proj, camera.worldToCameraMatrix, viewport);
+                }
+
+                AddPassToFrame(camera, xrPass);
             }
 
             if (debugVolume.GetComponent<Volume>().profile.TryGet<Vignette>(out Vignette vignette))

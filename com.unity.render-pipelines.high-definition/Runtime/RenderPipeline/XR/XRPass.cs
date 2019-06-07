@@ -196,21 +196,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 // Required for some legacy shaders (text for example)
                 cmd.SetViewProjectionMatrices(GetViewMatrix(), GetProjMatrix());
 
-#if USE_XR_SDK
-                if (display != null && instancingEnabled)
-                {
-                    if (viewCount == 2)
-                    {
-                        cmd.EnableShaderKeyword("STEREO_INSTANCING_ON");
-                        cmd.SetInstanceMultiplier(2);
-                    }
-                    else
-                    {
-                        throw new NotImplementedException();
-                    }
-                }
-#endif
-
                 if (camera.stereoEnabled)
                 {
                     // Reset scissor and viewport for C++ stereo code
@@ -225,25 +210,36 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     else
                         renderContext.StartMultiEye(camera);
                 }
+                else if (instancingEnabled)
+                {
+                    if (viewCount == 2)
+                    {
+                        cmd.EnableShaderKeyword("STEREO_INSTANCING_ON");
+                        cmd.SetInstanceMultiplier(2);
+                    }
+                    else
+                    {
+                        throw new NotImplementedException();
+                    }
+                }
             }
         }
 
         internal void StopLegacyStereo(Camera camera, CommandBuffer cmd, ScriptableRenderContext renderContext)
         {
-
-#if USE_XR_SDK
-            if (display != null)
+            if (enabled)
             {
-                cmd.DisableShaderKeyword("STEREO_INSTANCING_ON");
-                cmd.SetInstanceMultiplier(1);
-            }
-#endif
-
-            if (enabled && camera.stereoEnabled)
-            {
-                renderContext.ExecuteCommandBuffer(cmd);
-                cmd.Clear();
-                renderContext.StopMultiEye(camera);
+                if (camera.stereoEnabled)
+                {
+                    renderContext.ExecuteCommandBuffer(cmd);
+                    cmd.Clear();
+                    renderContext.StopMultiEye(camera);
+                }
+                else
+                {
+                    cmd.DisableShaderKeyword("STEREO_INSTANCING_ON");
+                    cmd.SetInstanceMultiplier(1);
+                }
             }
         }
 
@@ -282,18 +278,18 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     }
                     else if (viewCount == 2)
                     {
-                        cmd.SetRenderTarget(new RenderTargetIdentifier(BuiltinRenderTextureType.CameraTarget));
-                        Rect blitRect = new Rect(hdCamera.camera.pixelRect);
+                        //cmd.SetRenderTarget(new RenderTargetIdentifier(BuiltinRenderTextureType.CameraTarget));
+                        //Rect blitRect = new Rect(hdCamera.camera.pixelRect);
 
-                        // Left eye
-                        blitRect.width /= 2;
-                        cmd.SetViewport(blitRect);
-                        XRSystem.BlitArraySlice(cmd, tempRenderTexture, 0);
+                        //// Left eye
+                        //blitRect.width /= 2;
+                        //cmd.SetViewport(blitRect);
+                        //XRSystem.BlitArraySlice(cmd, tempRenderTexture, 0);
 
-                        // Rigt eye
-                        blitRect.x += blitRect.width;
-                        cmd.SetViewport(blitRect);
-                        XRSystem.BlitArraySlice(cmd, tempRenderTexture, 1);
+                        //// Rigt eye
+                        //blitRect.x += blitRect.width;
+                        //cmd.SetViewport(blitRect);
+                        //XRSystem.BlitArraySlice(cmd, tempRenderTexture, 1);
                     }
                     else
                     {
@@ -303,6 +299,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             }
             else
 #endif // USE_XR_SDK
+            if (hdCamera.camera.stereoEnabled)
             {
                 renderContext.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
@@ -312,6 +309,21 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     renderContext.StereoEndRender(hdCamera.camera, legacyMultipassEye, legacyMultipassEye == 1);
                 else
                     renderContext.StereoEndRender(hdCamera.camera);
+            }
+            else
+            {
+                //cmd.SetRenderTarget(new RenderTargetIdentifier(BuiltinRenderTextureType.CameraTarget));
+                //Rect blitRect = new Rect(hdCamera.camera.pixelRect);
+
+                //// Left eye
+                //blitRect.width /= 2;
+                //cmd.SetViewport(blitRect);
+                //XRSystem.BlitArraySlice(cmd, destination, 0);
+
+                //// Rigt eye
+                //blitRect.x += blitRect.width;
+                //cmd.SetViewport(blitRect);
+                //XRSystem.BlitArraySlice(cmd, destination, 1);
             }
         }
     }
