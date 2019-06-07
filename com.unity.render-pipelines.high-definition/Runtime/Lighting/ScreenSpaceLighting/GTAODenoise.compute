@@ -13,14 +13,21 @@ TEXTURE2D_X_UINT(_AOPackedData);
 
 #ifdef SPATIAL
 
+#define DEBUG_VISUALIZE_BILATERAL_WEIGHTS 0
+
+#define DEPTH_SCALE 1
+#define BILATERAL_EPSILON 0.01
+
 // TODO: This pass really could really use some quality improvement. 
 
 RW_TEXTURE2D_X(uint, _AOPackedBlurred);
 
 float BilateralWeight(float sampleDepth, float linearCentralDepth)
 {
-    float delta = abs(LinearEyeDepth(sampleDepth, _ZBufferParams) - linearCentralDepth);
-    float w = 1.0 / (0.01 + 0.1 * delta);
+    float linearSample = LinearEyeDepth(sampleDepth, _ZBufferParams);
+    float delta = abs(linearSample - linearCentralDepth);
+    float w = saturate(1.0f - (DEPTH_SCALE * delta + BILATERAL_EPSILON));
+
     return w;
 }
 
@@ -116,6 +123,10 @@ float Blur(float2 centralPos, out float centralDepth)
 
 
     total /= totalWeight;
+
+#if DEBUG_VISUALIZE_BILATERAL_WEIGHTS
+    return totalWeight / 16.0f;
+#endif
     return total;
 }
 
