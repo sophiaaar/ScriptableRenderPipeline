@@ -374,24 +374,45 @@ namespace UnityEditor.ShaderGraph.Drawing
         {
             if (graphGroup.userData is GroupData groupData)
             {
-                var anyChanged = false;
+                var anyChangedNodes = false;
+                var anyChangedStickyNotes = false;
                 foreach (var materialNodeView in element.OfType<IShaderNodeView>())
                 {
                     if (materialNodeView.node != null && materialNodeView.node.groupGuid != groupData.guid)
                     {
-                        anyChanged = true;
+                        anyChangedNodes = true;
                         break;
                     }
                 }
 
-                if (!anyChanged)
+                foreach (var stickyNote in element.OfType<StickyNote>())
+                {
+                    if (stickyNote.userData.groupGuid != groupData.guid)
+                    {
+                        anyChangedStickyNotes = true;
+                        break;
+                    }
+                }
+
+                if (!anyChangedNodes && !anyChangedStickyNotes)
                     return;
 
                 m_Graph.owner.RegisterCompleteObjectUndo(groupData.title);
 
-                foreach (var materialNodeView in element.OfType<IShaderNodeView>())
+                if (anyChangedNodes)
                 {
-                    m_Graph.SetNodeGroup(materialNodeView.node, groupData);
+                    foreach (var materialNodeView in element.OfType<IShaderNodeView>())
+                    {
+                        m_Graph.SetNodeGroup(materialNodeView.node, groupData);
+                    }
+                }
+
+                if (anyChangedStickyNotes)
+                {
+                    foreach (var stickyNote in element.OfType<StickyNote>())
+                    {
+                        m_Graph.SetStickyNoteGroup(stickyNote.userData, groupData);
+                    }
                 }
             }
         }
@@ -481,7 +502,6 @@ namespace UnityEditor.ShaderGraph.Drawing
                 m_GraphView.RemoveElement(note);
             }
 
-
             foreach (GroupData groupData in m_Graph.removedGroups)
             {
                 var group = m_GraphView.graphElements.ToList().OfType<ShaderGroup>().First(g => g.userData == groupData);
@@ -498,10 +518,14 @@ namespace UnityEditor.ShaderGraph.Drawing
                 AddStickyNote(stickyNote);
             }
 
-            foreach (var stickyNoteData in m_Graph.noteChanges)
+            foreach (var stickyNoteData in m_Graph.stickyNoteChanges)
             {
-                var note = m_GraphView.graphElements.ToList().OfType<StickyNote>().First(n => n.userData == stickyNoteData);
-                note.title = stickyNoteData.title;
+                var stickyNote = m_GraphView.graphElements.ToList().OfType<StickyNote>().First(n => n.userData == stickyNoteData);
+                stickyNote.title = stickyNoteData.title;
+                stickyNote.contents = stickyNoteData.content;
+                stickyNote.textSize = (StickyNote.TextSize)stickyNoteData.textSize;
+                stickyNote.theme = (StickyNote.Theme)stickyNoteData.theme;
+                stickyNote.userData.groupGuid = stickyNoteData.groupGuid;
             }
 
             foreach (var node in m_Graph.addedNodes)
@@ -546,8 +570,6 @@ namespace UnityEditor.ShaderGraph.Drawing
             {
                 SetGroupPosition(shaderGroup);
             }
-
-
 
             var nodesToUpdate = m_NodeViewHashSet;
             nodesToUpdate.Clear();
@@ -672,6 +694,7 @@ namespace UnityEditor.ShaderGraph.Drawing
                 }
             }
 
+            // This should also work for sticky notes
             m_AddNodeGraphElements.Clear();
             m_GraphView.graphElements.ToList(m_AddNodeGraphElements);
 
@@ -705,9 +728,31 @@ namespace UnityEditor.ShaderGraph.Drawing
             stickyNote.userData = stickyNoteData;
             stickyNote.title = stickyNoteData.title;
             stickyNote.contents = stickyNoteData.content;
+            stickyNote.textSize = (StickyNote.TextSize)stickyNoteData.textSize;
+            stickyNote.theme = (StickyNote.Theme)stickyNoteData.theme;
+            stickyNote.userData.groupGuid = stickyNoteData.groupGuid;
             stickyNote.SetPosition(new Rect(stickyNote.userData.position, new Vector2(200, 125)));
 
             m_GraphView.AddElement(stickyNote);
+
+
+
+            // Add Sticky Note to group
+            // In here groupguid is always 0000000000000000000000000
+            m_AddNodeGraphElements.Clear();
+            m_GraphView.graphElements.ToList(m_AddNodeGraphElements);
+
+            if (stickyNoteData.groupGuid != Guid.Empty)
+            {
+                foreach (var element in m_AddNodeGraphElements)
+                {
+                    if (element is ShaderGroup groupView && groupView.userData.guid == stickyNoteData.groupGuid)
+                    {
+                        groupView.AddElement(stickyNote);
+                    }
+                }
+            }
+
         }
 
         static void RepositionNode(GeometryChangedEvent evt)

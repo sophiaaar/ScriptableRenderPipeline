@@ -33,12 +33,21 @@ namespace UnityEditor.ShaderGraph
         }
 
         [SerializeField]
-        string m_Text;
+        int m_TextSize;
 
-        public string text
+        public int textSize
         {
-            get => m_Text;
-            set => m_Text = value;
+            get => m_TextSize;
+            set => m_TextSize = value;
+        }
+
+        [SerializeField]
+        int m_Theme;
+
+        public int theme
+        {
+            get => m_Theme;
+            set => m_Theme = value;
         }
 
         [SerializeField]
@@ -48,6 +57,14 @@ namespace UnityEditor.ShaderGraph
         {
             get => m_Position;
             set => m_Position = value;
+        }
+
+        [NonSerialized]
+        Guid m_GroupGuid;
+        public Guid groupGuid
+        {
+            get { return m_GroupGuid; }
+            set { m_GroupGuid = value; }
         }
 
         public StickyNoteData(string title, string content, Vector2 position)

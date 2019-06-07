@@ -183,7 +183,6 @@ namespace UnityEditor.ShaderGraph.Drawing
 
         public void AddStickyNote(Vector2 position)
         {
-            Debug.Log(position);
             position = contentViewContainer.WorldToLocal(position);
             string title = "New Note";
             string content = "Write something here";

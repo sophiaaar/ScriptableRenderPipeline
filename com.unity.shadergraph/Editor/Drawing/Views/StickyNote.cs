@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace UnityEditor.ShaderGraph.Drawing
 {
-    interface IVFXResizable
+    interface IResizable
     {
         void OnStartResize();
         void OnResized();
@@ -99,9 +99,9 @@ namespace UnityEditor.ShaderGraph.Drawing
             Vector2 mousePos = resizedBase.WorldToLocal(e.mousePosition);
             if (!m_DragStarted)
             {
-                if (resizedTarget is IVFXResizable)
+                if (resizedTarget is IResizable)
                 {
-                    (resizedTarget as IVFXResizable).OnStartResize();
+                    (resizedTarget as IResizable).OnStartResize();
                 }
                 m_DragStarted = true;
             }
@@ -155,9 +155,9 @@ namespace UnityEditor.ShaderGraph.Drawing
                 VisualElement resizedTarget = resizedElement.parent;
                 if (resizedTarget.style.width != m_StartSize.x || resizedTarget.style.height != m_StartSize.y)
                 {
-                    if (resizedTarget is IVFXResizable)
+                    if (resizedTarget is IResizable)
                     {
-                        (resizedTarget as IVFXResizable).OnResized();
+                        (resizedTarget as IResizable).OnResized();
                     }
                 }
                 target.UnregisterCallback<MouseMoveEvent>(OnMouseMove);
@@ -232,7 +232,7 @@ namespace UnityEditor.ShaderGraph.Drawing
         public Change change {get; protected set; }
     }
 
-    class StickyNote : GraphElement, IVFXResizable
+    class StickyNote : GraphElement, IResizable
     {
         GraphData m_Graph;
         public new StickyNoteData userData
@@ -610,19 +610,29 @@ namespace UnityEditor.ShaderGraph.Drawing
 
         void NotifyChange(StickyNodeChangeEvent.Change change)
         {
+            m_Graph.owner.RegisterCompleteObjectUndo($"Change Sticky Note {change.ToString()}");
             if (change == StickyNodeChangeEvent.Change.title)
             {
-                m_Graph.owner.RegisterCompleteObjectUndo($"Change {change.ToString()}");
                 userData.title = title;
-                m_Graph.ChangeStickyNoteTitle(userData);
-                //
+                m_Graph.ChangeStickyNote(userData);
             }
-//            if (OnChange != null)
-//            {
-//
-//
-//                //OnChange(change);
-//            }
+            else if (change == StickyNodeChangeEvent.Change.contents)
+            {
+                userData.content = contents;
+                m_Graph.ChangeStickyNote(userData);
+            }
+            else if (change == StickyNodeChangeEvent.Change.textSize)
+            {
+                userData.textSize = (int)textSize;
+                m_Graph.ChangeStickyNote(userData);
+            }
+            else if (change == StickyNodeChangeEvent.Change.theme)
+            {
+                userData.theme = (int)theme;
+                m_Graph.ChangeStickyNote(userData);
+            }
+
+            //m_Graph.ChangeStickyNote(userData);
         }
 
         public System.Action<StickyNodeChangeEvent.Change> OnChange;
