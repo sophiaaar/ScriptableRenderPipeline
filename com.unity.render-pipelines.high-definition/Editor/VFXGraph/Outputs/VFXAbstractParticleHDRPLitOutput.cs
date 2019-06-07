@@ -379,9 +379,10 @@ namespace UnityEditor.VFX
             base.OnEnable();
         }
 
+        //TODOPAUL : reintegrate this
+        //if (hasMotionVector && !isBlendModeOpaque)
+        //    writer.WriteLine("Blend 1 Off"); //Disable blending for velocity target
 
-            if (hasMotionVector && !isBlendModeOpaque)
-                writer.WriteLine("Blend 1 Off"); //Disable blending for velocity target
         public override IEnumerable<KeyValuePair<string, VFXShaderWriter>> additionalReplacements
         {
             get
