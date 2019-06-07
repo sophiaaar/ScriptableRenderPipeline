@@ -318,8 +318,8 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 }
 
                 RenderSubsurfaceScattering(parameters, resources, cmd);
-                    }
-                }
+            }
+        }
 
         // Combines specular lighting and diffuse lighting with subsurface scattering.
         // In the case our frame is MSAA, for the moment given the fact that we do not have read/write access to the stencil buffer of the MSAA target; we need to keep this pass MSAA
@@ -328,29 +328,29 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             // TODO: For MSAA, at least initially, we can only support Jimenez, because we can't
             // create MSAA + UAV render targets.
-                using (new ProfilingSample(cmd, "HTile for SSS", CustomSamplerId.HTileForSSS.GetSampler()))
-                {
-                    // Currently, Unity does not offer a way to access the GCN HTile even on PS4 and Xbox One.
-                    // Therefore, it's computed in a pixel shader, and optimized to only contain the SSS bit.
+            using (new ProfilingSample(cmd, "HTile for SSS", CustomSamplerId.HTileForSSS.GetSampler()))
+            {
+                // Currently, Unity does not offer a way to access the GCN HTile even on PS4 and Xbox One.
+                // Therefore, it's computed in a pixel shader, and optimized to only contain the SSS bit.
 
-                    // Clear the HTile texture. TODO: move this to ClearBuffers(). Clear operations must be batched!
+                // Clear the HTile texture. TODO: move this to ClearBuffers(). Clear operations must be batched!
                 HDUtils.SetRenderTarget(cmd, resources.hTileBuffer, ClearFlag.Color, Color.clear);
 
                 HDUtils.SetRenderTarget(cmd, resources.depthStencilBuffer); // No need for color buffer here
                 cmd.SetRandomWriteTarget(1, resources.hTileBuffer); // This need to be done AFTER SetRenderTarget
-                    // Generate HTile for the split lighting stencil usage. Don't write into stencil texture (shaderPassId = 2)
-                    // Use ShaderPassID 1 => "Pass 2 - Export HTILE for stencilRef to output"
+                // Generate HTile for the split lighting stencil usage. Don't write into stencil texture (shaderPassId = 2)
+                // Use ShaderPassID 1 => "Pass 2 - Export HTILE for stencilRef to output"
                 CoreUtils.DrawFullScreen(cmd, parameters.copyStencilForSplitLighting, null, 2);
-                    cmd.ClearRandomWriteTargets();
-                }
+                cmd.ClearRandomWriteTargets();
+            }
 
-                unsafe
-                {
-                    // Warning: Unity is not able to losslessly transfer integers larger than 2^24 to the shader system.
-                    // Therefore, we bitcast uint to float in C#, and bitcast back to uint in the shader.
+            unsafe
+            {
+                // Warning: Unity is not able to losslessly transfer integers larger than 2^24 to the shader system.
+                // Therefore, we bitcast uint to float in C#, and bitcast back to uint in the shader.
                 uint textureingModeFlags = parameters.texturingModeFlags;
                 cmd.SetComputeFloatParam(parameters.subsurfaceScatteringCS, HDShaderIDs._TexturingModeFlags, *(float*)&textureingModeFlags);
-                }
+            }
 
             cmd.SetComputeVectorArrayParam(parameters.subsurfaceScatteringCS, HDShaderIDs._WorldScales, parameters.worldScales);
             cmd.SetComputeVectorArrayParam(parameters.subsurfaceScatteringCS, HDShaderIDs._FilterKernels, parameters.filterKernels);
@@ -363,7 +363,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             cmd.SetComputeTextureParam(parameters.subsurfaceScatteringCS, parameters.subsurfaceScatteringCSKernel, HDShaderIDs._SSSBufferTexture, resources.sssBuffer);
 
             if (parameters.needTemporaryBuffer)
-                {
+            {
                 cmd.SetComputeTextureParam(parameters.subsurfaceScatteringCS, parameters.subsurfaceScatteringCSKernel, HDShaderIDs._CameraFilteringBuffer, resources.cameraFilteringBuffer);
 
                 // Perform the SSS filtering pass
@@ -373,12 +373,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 // Additively blend diffuse and specular lighting into the color buffer.
                 HDUtils.DrawFullScreen(cmd, parameters.combineLighting, resources.colorBuffer);
-                }
-                else
-                {
+            }
+            else
+            {
                 cmd.SetComputeTextureParam(parameters.subsurfaceScatteringCS, parameters.subsurfaceScatteringCSKernel, HDShaderIDs._CameraColorTexture, resources.colorBuffer);
 
-                    // Perform the SSS filtering pass which performs an in-place update of 'colorBuffer'.
+                // Perform the SSS filtering pass which performs an in-place update of 'colorBuffer'.
                 cmd.DispatchCompute(parameters.subsurfaceScatteringCS, parameters.subsurfaceScatteringCSKernel, parameters.numTilesX, parameters.numTilesY, parameters.numTilesZ);
             }
         }
