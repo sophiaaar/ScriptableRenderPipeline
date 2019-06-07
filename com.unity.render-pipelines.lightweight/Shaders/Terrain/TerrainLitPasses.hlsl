@@ -159,18 +159,15 @@ void HeightBasedSplatModify(inout half4 splatControl, in half4 masks[4])
 {
 #ifndef TERRAIN_SPLAT_ADDPASS   // disable for multi-pass
     half4 defaultHeight = half4(masks[0].b, masks[1].b, masks[2].b, masks[3].b);
-    defaultHeight *= half4(_MaskMapRemapScale0.b, _MaskMapRemapScale1.b, _MaskMapRemapScale2.b, _MaskMapRemapScale3.b);
-    defaultHeight += half4(_MaskMapRemapOffset0.b, _MaskMapRemapOffset1.b, _MaskMapRemapOffset2.b, _MaskMapRemapOffset3.b);
     half maxHeight = max(defaultHeight.r, max(defaultHeight.g, max(defaultHeight.b, defaultHeight.a)));
-
+    
     // Ensure that the transition height is not zero.
     half transition = max(_HeightTransition, 1e-5);
 
     // The goal here is to have all but the highest layer at negative heights,
     // then we add the transition so that if the next highest layer is near transition it will have a positive value.
     // Then we clamp this to zero and normalize everything so that highest layer has a value of 1.
-    half4 weightedHeights = { masks[0].z, masks[1].z, masks[2].z, masks[3].z };
-    weightedHeights = weightedHeights - maxHeight.xxxx;
+    half4 weightedHeights = defaultHeight - maxHeight.xxxx;
     // We need to add an epsilon here for active layers (hence the blendMask again) 
     // so that at least a layer shows up if everything's too low.
     weightedHeights = (max(0, weightedHeights + transition) + 1e-5) * splatControl;
@@ -303,17 +300,6 @@ half4 SplatmapFragment(Varyings IN) : SV_TARGET
     masks[3] = lerp(masks[3], SAMPLE_TEXTURE2D(_Mask3, sampler_Mask0, IN.uvSplat23.zw), hasMask.w); 
 #endif
 
-#ifdef _TERRAIN_BLEND_HEIGHT
-    HeightBasedSplatModify(splatControl, masks);
-#endif 
-
-    SplatmapMix(IN.uvMainAndLM, IN.uvSplat01, IN.uvSplat23, splatControl, weight, mixedDiffuse, defaultSmoothness, normalTS);
-    half3 albedo = mixedDiffuse.rgb;
-    
-    half4 defaultMetallic = half4(_Metallic0, _Metallic1, _Metallic2, _Metallic3);
-    half4 defaultOcclusion = half4(_MaskMapRemapScale0.g, _MaskMapRemapScale1.g, _MaskMapRemapScale2.g, _MaskMapRemapScale3.g) +
-                            half4(_MaskMapRemapOffset0.g, _MaskMapRemapOffset1.g, _MaskMapRemapOffset2.g, _MaskMapRemapOffset3.g);
-    
     masks[0] *= _MaskMapRemapScale0.rgba;
     masks[0] += _MaskMapRemapOffset0.rgba;
     masks[1] *= _MaskMapRemapScale1.rgba;
@@ -322,6 +308,17 @@ half4 SplatmapFragment(Varyings IN) : SV_TARGET
     masks[2] += _MaskMapRemapOffset2.rgba;
     masks[3] *= _MaskMapRemapScale3.rgba;
     masks[3] += _MaskMapRemapOffset3.rgba;
+
+#ifdef _TERRAIN_BLEND_HEIGHT
+    HeightBasedSplatModify(splatControl, masks);
+#endif
+
+    SplatmapMix(IN.uvMainAndLM, IN.uvSplat01, IN.uvSplat23, splatControl, weight, mixedDiffuse, defaultSmoothness, normalTS);
+    half3 albedo = mixedDiffuse.rgb;
+    
+    half4 defaultMetallic = half4(_Metallic0, _Metallic1, _Metallic2, _Metallic3);
+    half4 defaultOcclusion = half4(_MaskMapRemapScale0.g, _MaskMapRemapScale1.g, _MaskMapRemapScale2.g, _MaskMapRemapScale3.g) +
+                            half4(_MaskMapRemapOffset0.g, _MaskMapRemapOffset1.g, _MaskMapRemapOffset2.g, _MaskMapRemapOffset3.g);
     
     half4 maskSmoothness = half4(masks[0].a, masks[1].a, masks[2].a, masks[3].a);
     defaultSmoothness = lerp(defaultSmoothness, maskSmoothness, hasMask);

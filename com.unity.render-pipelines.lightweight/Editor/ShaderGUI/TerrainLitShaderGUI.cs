@@ -28,7 +28,7 @@ namespace UnityEditor.Rendering.LWRP
             public readonly GUIContent height = new GUIContent("B: Height");
             public readonly GUIContent heightParametrization = new GUIContent("Parametrization");
             public readonly GUIContent heightAmplitude = new GUIContent("Amplitude (cm)");
-            public readonly GUIContent heightBase = new GUIContent("Base");
+            public readonly GUIContent heightBase = new GUIContent("Base (cm)");
             public readonly GUIContent heightMin = new GUIContent("Min (cm)");
             public readonly GUIContent heightMax = new GUIContent("Max (cm)");
             public readonly GUIContent heightCm = new GUIContent("B: Height (cm)");
@@ -269,11 +269,11 @@ namespace UnityEditor.Rendering.LWRP
                         {
                             // (height - heightBase) * amplitude
                             float amplitude = Mathf.Max(maskMapRemapMax.z - maskMapRemapMin.z, Mathf.Epsilon); // to avoid divide by zero
-                            float heightBase = -maskMapRemapMin.z / amplitude;
+                            float heightBase = maskMapRemapMin.z / amplitude;
                             amplitude = EditorGUILayout.FloatField(styles.heightAmplitude, amplitude * 100) / 100;
-                            heightBase = EditorGUILayout.FloatField(styles.heightBase, heightBase);
-                            maskMapRemapMin.z = -heightBase * amplitude;
-                            maskMapRemapMax.z = (1 - heightBase) * amplitude;
+                            heightBase = EditorGUILayout.FloatField(styles.heightBase, heightBase * 100) / 100;
+                            maskMapRemapMin.z = heightBase * amplitude;
+                            maskMapRemapMax.z = (1.0f - heightBase) * amplitude;
                         }
                         else
                         {
@@ -300,8 +300,13 @@ namespace UnityEditor.Rendering.LWRP
 
                     // There's a possibility that someone could slide max below the existing min value
                     // so we'll just protect against that by locking the min value down a little bit.
+                    // In the case of height (Z), we are trying to set min to no lower than zero value unless
+                    // max goes negative.  Zero is a good sensible value for the minimum.  For AO (Y), we
+                    // don't need this extra protection step because the UI blocks us from going negative
+                    // anyway.  In both cases, pushing the slider below the min value will lock them together, 
+                    // but min will be "left behind" if you go back up.
                     maskMapRemapMin.y = Mathf.Min(maskMapRemapMin.y, maskMapRemapMax.y);
-                    maskMapRemapMin.z = Mathf.Min(maskMapRemapMin.z, maskMapRemapMax.z);
+                    maskMapRemapMin.z = Mathf.Min(Mathf.Max(0, maskMapRemapMin.z), maskMapRemapMax.z);
 
                     if (TextureHasAlpha(terrainLayer.diffuseTexture))
                     {
