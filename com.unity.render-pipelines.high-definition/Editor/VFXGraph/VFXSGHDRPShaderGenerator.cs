@@ -283,16 +283,8 @@ struct VaryingVFXAttribute
             int cptLine = 0;
             document.InsertShaderLine(cptLine++, "#define UNITY_VERTEX_INPUT_INSTANCE_ID VaryingVFXAttribute vfxAttributes; nointerpolation uint instanceID : SV_InstanceID;");
             document.InsertShaderLine(cptLine++, "#include \"Packages/com.unity.visualeffectgraph/Shaders/RenderPipeline/HDRP/VFXDefines.hlsl\"");
-            //document.InsertShaderLine(cptLine++, @"#include ""Packages/com.unity.render-pipelines.high-definition/Runtime/ShaderLibrary/ShaderVariables.hlsl""");
-            //document.InsertShaderLine(cptLine++,@"#include ""Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl""");
-            /*document.shaderCode.Add(@"#include ""Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl""");
-            document.shaderCode.Add(@"#include ""Packages/com.unity.render-pipelines.core/ShaderLibrary/NormalSurfaceGradient.hlsl""");
-            document.shaderCode.Add(@"#include ""Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl""");*/
-            //document.shaderCode.Add(@"#include ""Packages/com.unity.shadergraph/ShaderGraphLibrary/ShaderVariablesFunctions.hlsl""");
-            //document.shaderCode.Add(@"#include ""Packages/com.unity.shadergraph/ShaderGraphLibrary/Functions.hlsl""");
 
             document.RemoveShaderCodeContaining("#pragma shader_feature_local"); // remove all feature local that are used by the GUI to change some values
-
 
             var masterNode = graph.graphData.outputNode as HDLitMasterNode;
 
@@ -503,90 +495,11 @@ struct VaryingVFXAttribute
 
             foreach (var pass in document.passes)
             {
-
-                Dictionary<string, int> passDefines = new Dictionary<string, int>();
                 int currentPass = Array.FindIndex(Graph.passInfos, t => t.name == pass.name);
                 if (currentPass == -1)
                     continue;
 
-                for(int i = 0; i < 4; ++i)
-                {
-                    if (graph.passes[currentPass].pixel.requirements.requiresMeshUVs.Contains((UVChannel)i))
-                    {
-                        passDefines["_REQUIRE_UV" + i] = 1;
-                    }
-                    else if(graph.passes[currentPass].vertex.requirements.requiresMeshUVs.Contains((UVChannel)i))
-                        passDefines["ATTRIBUTES_NEED_TEXCOORD" + i] = 1;
-                    
-                }
-                if (graph.passes[currentPass].pixel.requirements.requiresVertexColor)
-                {
-                    passDefines["ATTRIBUTES_NEED_COLOR"] = 1;
-                    passDefines["VARYINGS_NEED_COLOR"] = 1;
-                }
-
-
-
-                var sb = new StringBuilder();
-                GenerateParticleVert(graph, vfxInfos, sb, currentPass,passDefines, varyingAttributes);
-
-                pass.InsertShaderCode(0, GenerateVaryingVFXAttribute(graph,vfxInfos, varyingAttributes));
-
-                int cptPassIndex = 0;
-                
-
-                foreach ( var define in passDefines)
-                    pass.InsertShaderCode(0, string.Format("#define {0} {1}", define.Key, define.Value));
-
-
-
-                string getSurfaceDataFunction = GenerateParticleGetSurfaceAndBuiltinData(graph, ref vfxInfos, currentPass, pass, guiVariables, defines, varyingAttributes);
-
-                pass.ReplaceInclude("Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Lit/LitData.hlsl", @"#include ""Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/VFX/VFXSGCommonLit.hlsl""
-"+getSurfaceDataFunction);
-
-                pass.InsertShaderCode(-1, sb.ToString());
-                pass.RemoveShaderCodeContaining("#pragma vertex Vert");
-
-                // The hard part : replace the pass specific include with its contents where the call to GetSurfaceAndBuiltinData is replaced by a call to ParticleGetSurfaceAndBuiltinData
-                // with an additionnal second parameter ( the instanceID )
-                int index = pass.IndexOfLineMatching(@"\s*#include\s*""Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPass.*\.hlsl""\s*");
-
-                if (index >= 0)
-                {
-                    string line = pass.shaderCode[index];
-                    pass.shaderCode.RemoveAt(index);
-
-                    int firstQuote = line.IndexOf('"');
-                    string filePath = line.Substring(firstQuote + 1, line.LastIndexOf('"') - firstQuote - 1);
-
-                    string passFile = File.ReadAllText(filePath);
-
-                    // Replace calls to GetSurfaceAndBuiltinData to calls to ParticleGetSurfaceAndBuiltinData with an additionnal parameter
-                    int callIndex = passFile.IndexOf("GetSurfaceAndBuiltinData(");
-                    if (callIndex != -1)
-                    {
-                        int endCallIndex = passFile.IndexOf(';', callIndex + 1);
-                        endCallIndex = passFile.LastIndexOf(')', endCallIndex) - 1;
-                        int paramStartIndex = callIndex + "GetSurfaceAndBuiltinData(".Length;
-
-                        string[] parameters = passFile.Substring(paramStartIndex, endCallIndex - paramStartIndex).Split(',');
-
-                        var ssb = new StringBuilder();
-
-                        ssb.Append(passFile.Substring(0, callIndex));
-                        ssb.Append("ParticleGetSurfaceAndBuiltinData(");
-
-                        var args = parameters.Take(1).Concat(Enumerable.Repeat("packedInput.vmesh.instanceID", 1)).Concat(Enumerable.Repeat("packedInput.vmesh.vfxAttributes", 1)).Concat(parameters.Skip(1));
-
-                        ssb.Append(args.Aggregate((a, b) => a + "," + b));
-
-                        ssb.Append(passFile.Substring(endCallIndex));
-
-                        pass.InsertShaderCode(index, ssb.ToString());
-                    }
-
-                }
+                GeneratePath(vfxInfos, graph, guiVariables, defines, varyingAttributes, pass, currentPass);
             }
             foreach (var define in defines)
                 document.InsertShaderCode(0, string.Format("#define {0} {1}", define.Key, define.Value));
@@ -596,18 +509,91 @@ struct VaryingVFXAttribute
             return document.ToString(false).Replace("$precision","float").Replace("\r", "");
         }
 
+        private static void GeneratePath(VFXInfos vfxInfos, Graph graph, Dictionary<string, string> guiVariables, Dictionary<string, int> defines, List<VaryingAttribute> varyingAttributes, PassPart pass, int currentPass)
+        {
+            Dictionary<string, int> passDefines = new Dictionary<string, int>();
+            for (int i = 0; i < 4; ++i)
+            {
+                if (graph.passes[currentPass].pixel.requirements.requiresMeshUVs.Contains((UVChannel)i))
+                {
+                    passDefines["_REQUIRE_UV" + i] = 1;
+                }
+                else if (graph.passes[currentPass].vertex.requirements.requiresMeshUVs.Contains((UVChannel)i))
+                    passDefines["ATTRIBUTES_NEED_TEXCOORD" + i] = 1;
+            }
+            if (graph.passes[currentPass].pixel.requirements.requiresVertexColor)
+            {
+                passDefines["ATTRIBUTES_NEED_COLOR"] = 1;
+                passDefines["VARYINGS_NEED_COLOR"] = 1;
+            }
+
+            var sb = new StringBuilder();
+            GenerateParticleVert(graph, vfxInfos, sb, currentPass, passDefines, varyingAttributes);
+
+            pass.InsertShaderCode(0, GenerateVaryingVFXAttribute(graph, vfxInfos, varyingAttributes));
+
+            foreach (var define in passDefines)
+                pass.InsertShaderCode(0, string.Format("#define {0} {1}", define.Key, define.Value));
+
+            string getSurfaceDataFunction = GenerateParticleGetSurfaceAndBuiltinData(graph, ref vfxInfos, currentPass, pass, guiVariables, defines, varyingAttributes);
+
+            pass.ReplaceInclude("Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Lit/LitData.hlsl", getSurfaceDataFunction);
+            pass.InsertShaderCode(-1, sb.ToString());
+            pass.RemoveShaderCodeContaining("#pragma vertex Vert");
+
+            // The hard part : replace the pass specific include with its contents where the call to GetSurfaceAndBuiltinData is replaced by a call to ParticleGetSurfaceAndBuiltinData
+            // with an additionnal second parameter ( the instanceID )
+            int index = pass.IndexOfLineMatching(@"\s*#include\s*""Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPass.*\.hlsl""\s*");
+
+            if (index >= 0)
+            {
+                string line = pass.shaderCode[index];
+                pass.shaderCode.RemoveAt(index);
+
+                int firstQuote = line.IndexOf('"');
+                string filePath = line.Substring(firstQuote + 1, line.LastIndexOf('"') - firstQuote - 1);
+
+                string passFile = File.ReadAllText(filePath);
+
+                // Replace calls to GetSurfaceAndBuiltinData to calls to ParticleGetSurfaceAndBuiltinData with an additionnal parameter
+                int callIndex = passFile.IndexOf("GetSurfaceAndBuiltinData(");
+                if (callIndex != -1)
+                {
+                    int endCallIndex = passFile.IndexOf(';', callIndex + 1);
+                    endCallIndex = passFile.LastIndexOf(')', endCallIndex) - 1;
+                    int paramStartIndex = callIndex + "GetSurfaceAndBuiltinData(".Length;
+
+                    string[] parameters = passFile.Substring(paramStartIndex, endCallIndex - paramStartIndex).Split(',');
+
+                    var ssb = new StringBuilder();
+
+                    ssb.Append(passFile.Substring(0, callIndex));
+                    ssb.Append("ParticleGetSurfaceAndBuiltinData(");
+
+                    var args = parameters.Take(1).Concat(Enumerable.Repeat("packedInput.vmesh.instanceID", 1)).Concat(Enumerable.Repeat("packedInput.vmesh.vfxAttributes", 1)).Concat(parameters.Skip(1));
+
+                    ssb.Append(args.Aggregate((a, b) => a + "," + b));
+
+                    ssb.Append(passFile.Substring(endCallIndex));
+
+                    pass.InsertShaderCode(index, ssb.ToString());
+                }
+
+            }
+        }
+
         static string GenerateParticleGetSurfaceAndBuiltinData(Graph graph, ref VFXInfos vfxInfos, int currentPass, PassPart pass,Dictionary<string, string> guiVariables,Dictionary<string, int> defines , List<VaryingAttribute> varyingAttributes)
         {
             var getSurfaceDataFunction = new ShaderStringBuilder();
+            getSurfaceDataFunction.AppendLine(@"#include ""Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/VFX/VFXSGCommonLit.hlsl""");
 
             getSurfaceDataFunction.Append(vfxInfos.parameters);
-            string shaderGraphCode;
+            string slotAssignations;
 
             IEnumerable<MaterialSlot> usedSlots;
 
             PropertyCollector shaderProperties = new PropertyCollector();
             {   // inspired by GenerateSurfaceDescriptionFunction
-
                 ShaderStringBuilder functionsString = new ShaderStringBuilder();
                 FunctionRegistry functionRegistry = new FunctionRegistry(functionsString);
 
@@ -616,7 +602,7 @@ struct VaryingVFXAttribute
                 var sg = new ShaderStringBuilder();
 
                 GraphContext graphContext = new GraphContext("SurfaceDescriptionInputs");
-
+                //Generate code for nodes.
                 foreach (var activeNode in graph.passes[currentPass].pixel.nodes.OfType<AbstractMaterialNode>())
                 {
                     if (activeNode is IGeneratesFunction)
@@ -630,11 +616,12 @@ struct VaryingVFXAttribute
                     activeNode.CollectShaderProperties(shaderProperties, GenerationMode.ForReals);
                 }
 
+                //Add node functions first
                 getSurfaceDataFunction.AppendLines(functionsString.ToString());
                 functionRegistry.builder.currentNode = null;
 
-                var sb = new StringBuilder();
-                sb.Append(sg.ToString());
+                var stdSlotAssignation = new StringBuilder();
+                stdSlotAssignation.Append(sg.ToString());
 
                 //Explicitely excluded slots are used later in a custom fashion.
                 usedSlots = graph.passes[currentPass].pixel.slots.Where(t => !customBehaviourSlots.Contains(t.shaderOutputName));
@@ -643,19 +630,11 @@ struct VaryingVFXAttribute
                 {
                     if (input != null)
                     {
-                        var foundEdges = graph.graphData.GetEdges(input.slotReference).ToArray();
-                        if (foundEdges.Any())
-                        {
-                            sb.AppendFormat("surfaceData.{0} = {1};\n", ShaderGraphToSurfaceDescriptionName(NodeUtils.GetHLSLSafeName(input.shaderOutputName)), graph.graphData.outputNode.GetSlotValue(input.id, GenerationMode.ForReals));
-                        }
-                        else
-                        {
-                            sb.AppendFormat("surfaceData.{0} = {1};\n", ShaderGraphToSurfaceDescriptionName(NodeUtils.GetHLSLSafeName(input.shaderOutputName)), input.GetDefaultValue(GenerationMode.ForReals));
-                        }
+                        stdSlotAssignation.AppendFormat("surfaceData.{0} = {1};\n", ShaderGraphToSurfaceDescriptionName(NodeUtils.GetHLSLSafeName(input.shaderOutputName)), GetSlotValue(input, graph));
                     }
                 }
 
-                shaderGraphCode = sb.ToString();
+                slotAssignations = stdSlotAssignation.ToString();
             }
             getSurfaceDataFunction.Append(@"
 
@@ -680,18 +659,18 @@ void ParticleGetSurfaceAndBuiltinData(FragInputs input, uint index,VaryingVFXAtt
 ");
             getSurfaceDataFunction.AppendLine("    " + vfxInfos.loadAttributes.Replace("\n", "\n    "));
 
-
-
             getSurfaceDataFunction.Append(@"
 
     if( !alive) discard;
     ");
+            // override attribute load with value from varyings in case of attriibute values modified in output context
             foreach (var varyingAttribute in varyingAttributes)
             {
-                getSurfaceDataFunction.AppendLine("{0} = vfxAttributes.{0};", varyingAttribute.name); // override attribute load with value from varyings
+                getSurfaceDataFunction.AppendLine("{0} = vfxAttributes.{0};", varyingAttribute.name);
             }
 
 
+            // override attribute load with values from shader graph properties
             foreach (var prop in shaderProperties.properties)
             {
                 string matchingAttribute = vfxInfos.attributes.FirstOrDefault(t => prop.displayName.Equals(t, StringComparison.InvariantCultureIgnoreCase));
@@ -704,9 +683,11 @@ void ParticleGetSurfaceAndBuiltinData(FragInputs input, uint index,VaryingVFXAtt
                 }
             }
 
-            getSurfaceDataFunction.AppendLine("\n    " + shaderGraphCode.Replace("\n", "\n    "));
-
+            getSurfaceDataFunction.AppendLine("\n    " + slotAssignations.Replace("\n", "\n    "));
+            // if shader graph has an Alpha slot, multiply the alpha attribute value by it.
             AddCodeIfSlotExist(graph, getSurfaceDataFunction, "Alpha", "    float alphaSG = {0};\n    alpha *= alphaSG;\n", null, graph.passes[currentPass].pixel.slots);
+
+            //alpha cutoff as soon as we have alpha value
             bool alphaThresholdExist = AddCodeIfSlotExist(graph, getSurfaceDataFunction, "AlphaClipThreshold", "\tfloat alphaCutoff = {0};\nDoAlphaTest(alpha, alphaCutoff);\n", null, graph.passes[currentPass].pixel.slots);
             if( alphaThresholdExist)
             {
@@ -718,8 +699,11 @@ void ParticleGetSurfaceAndBuiltinData(FragInputs input, uint index,VaryingVFXAtt
             {
                 guiVariables["_ZTestGBuffer"] = "LEqual";
             }
+
+            //Apply depth offset if the slot exist
             AddCodeIfSlotExist(graph, getSurfaceDataFunction, "DepthOffset", "    float depthOffset = {0};\n    ApplyDepthOffsetPositionInput(V, depthOffset, GetViewForwardDir(), GetWorldToHClipMatrix(), posInput);\n", null, graph.passes[currentPass].pixel.slots);
 
+            //Add the clear coat feature define if the coatMask slot is linked to something or if its constant value is diferent from 0
             var coatMask = graph.passes[currentPass].pixel.slots.FirstOrDefault(t => t.shaderOutputName == "CoatMask");
             if (coatMask != null)
             {
@@ -733,7 +717,7 @@ void ParticleGetSurfaceAndBuiltinData(FragInputs input, uint index,VaryingVFXAtt
                         defines["_MATERIAL_FEATURE_CLEAR_COAT"] = 1;
                 }
             }
-
+            //define the normal to be the one from the slot if it exist or a good default value
             AddCodeIfSlotExist(graph, getSurfaceDataFunction, "Normal", "    float3 normalTS = {0};\n", "    float3 normalTS = float3(0.0,0.0,1.0);", graph.passes[currentPass].pixel.slots);
 
             getSurfaceDataFunction.AppendLine(@"
@@ -745,6 +729,7 @@ void ParticleGetSurfaceAndBuiltinData(FragInputs input, uint index,VaryingVFXAtt
                 ApplyDecalToSurfaceData(decalSurfaceData, surfaceData);
             }
     #endif");
+            //define the specular occlusion
             AddCodeIfSlotExist(graph, getSurfaceDataFunction, "SpecularOcclusion", "surfaceData.specularOcclusion = {0}", "", graph.passes[currentPass].pixel.slots);
 
             getSurfaceDataFunction.AppendLine(@"
@@ -753,20 +738,21 @@ void ParticleGetSurfaceAndBuiltinData(FragInputs input, uint index,VaryingVFXAtt
     float3 bentNormalWS;
     GetNormalWS(input, normalTS, surfaceData.normalWS, doubleSidedConstants);
 ");
-
+            //define the bendNormal if it exists
             AddCodeIfSlotExist(graph, getSurfaceDataFunction, "BentNormal", "    bentNormalTS = {0};", "    bentNormalWS = surfaceData.normalWS;", graph.passes[currentPass].pixel.slots);
 
             getSurfaceDataFunction.AppendLine(@"
     GetNormalWS(input, bentNormalTS, bentNormalWS, doubleSidedConstants);
 ");
 
+            //define Specular AA
             var SAAVariance = GetSlotValue("SpecularAAScreenSpaceVariance", graph.passes[currentPass].pixel.slots, graph);
             var SAAThreshold = GetSlotValue("SpecularAAThreshold", graph.passes[currentPass].pixel.slots, graph);
             if (SAAVariance != null && SAAThreshold != null)
             {
                 getSurfaceDataFunction.AppendLine("surfaceData.perceptualSmoothness = GeometricNormalFiltering(surfaceData.perceptualSmoothness, input.worldToTangent[2], {0}, {1});", SAAVariance, SAAThreshold);
             }
-
+            //define refraction parameter
             var refractionIndex = GetSlotValue("RefractionIndex", graph.passes[currentPass].pixel.slots, graph);
             var refractionColor = GetSlotValue("RefractionColor", graph.passes[currentPass].pixel.slots, graph);
             var refractionDistance = GetSlotValue("RefractionDistance", graph.passes[currentPass].pixel.slots, graph);
@@ -893,8 +879,6 @@ PackedVaryingsType ParticleVert(AttributesMesh inputMesh)
     size3.z *= scaleZ;
     #endif");
 
-
-
             shader.Append("\t" + vfxInfos.vertexShaderContent.Replace("\n", "\n\t"));
 
             shader.AppendLine(@"
@@ -944,7 +928,6 @@ PackedVaryingsType ParticleVert(AttributesMesh inputMesh)
     return result;
 }
 ");
-
             shader.AppendLine("#pragma vertex ParticleVert");
         }
 
