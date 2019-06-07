@@ -380,7 +380,6 @@ namespace UnityEditor.VFX
                 shaderTags.Write(string.Format("Tags {{ \"Queue\"=\"{0}\" \"IgnoreProjector\"=\"{1}\" \"RenderType\"=\"{2}\" }}", renderQueueStr, !isBlendModeOpaque, renderTypeStr));
 
                 if (hasMotionVector) //TODOPAUL : check after merge
-                
                 {
 #if VFX_HAS_HDRP
                     int stencilWriteMask, stencilRef;
@@ -395,9 +394,6 @@ namespace UnityEditor.VFX
             }
         }
 
-
-            if (hasMotionVector && !isBlendModeOpaque)
-                writer.WriteLine("Blend 1 Off"); //Disable blending for velocity target
         protected virtual VFXShaderWriter renderState
         {
             get

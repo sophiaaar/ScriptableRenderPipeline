@@ -24,6 +24,7 @@ float4 VFXTransformPositionWorldToPreviousClip(float3 posWS)
     return mul(_PrevViewProjMatrix, float4(posWS, 1.0f));
 }
 
+#ifdef VFX_VARYING_PS_INPUTS
 void VFXTransformPSInputs(inout VFX_VARYING_PS_INPUTS input)
 {
 #if IS_TRANSPARENT_PARTICLE && defined(VFX_VARYING_POSCS)
@@ -31,6 +32,7 @@ void VFXTransformPSInputs(inout VFX_VARYING_PS_INPUTS input)
     input.VFX_VARYING_POSCS.xy = _OffScreenRendering > 0 ? (input.VFX_VARYING_POSCS.xy * _OffScreenDownsampleFactor) : input.VFX_VARYING_POSCS.xy;
 #endif
 }
+#endif
 
 float4 VFXTransformPositionWorldToClip(float3 posWS)
 {
@@ -132,6 +134,7 @@ float4 VFXApplyFog(float4 color,float4 posCS,float3 posWS)
     return color;
 }
 
+#ifdef VFX_VARYING_PS_INPUTS
 float4 VFXApplyPreExposure(float4 color, VFX_VARYING_PS_INPUTS input)
 {
 #ifdef VFX_VARYING_EXPOSUREWEIGHT
@@ -142,3 +145,4 @@ float4 VFXApplyPreExposure(float4 color, VFX_VARYING_PS_INPUTS input)
 	color.xyz *= exposure;
     return color;
 }
+#endif
