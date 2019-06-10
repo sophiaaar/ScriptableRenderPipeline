@@ -1,4 +1,5 @@
 * [High Definition Render Pipeline](index)
+* [Features List](HDRP-Features)
 * Getting started
   * [Getting Started with HDRP](Getting-started-with-HDRP)
   * [Upgrading to HDRP](Upgrading-To-HDRP)
@@ -49,9 +50,10 @@
     - [Diffusion Profile](Diffusion-Profile)
   * [Decal Projector](Decal-Projector)
   * Shader List
+    * [Decal Shader](Decal-Shader)
+    * [Layered Lit Shader](Layered-Lit-Shader)
     * [Lit Shader](Lit-Shader)
     * [Unlit Shader](Unlit-Shader)
-    * [Decal Shader](Decal-Shader)
 * Lighting
   * [Reflection in HDRP](Reflection-in-HDRP)
   * [Refraction in HDRP](Refraction-in-HDRP)
@@ -70,10 +72,23 @@
   * [Volumetric Lighting](Volumetric-Lighting)
   * [Physical Light Units and Intensities](Physical-Light-Units)
 * Camera
+  * [HD Camera](HDRP-Camera)
   * [Dynamic Resolution](Dynamic-Resolution)
   * [Motion Vectors](Motion-Vectors)
   * [Multisampling Anti-Aliasing](MSAA)
+* Post-processing
+  * [Post-processing in HDRP](Post-Processing-Main)
+  * Effect List
+    * [Chromatic Aberration](Post-Processing-Chromatic-Aberration)
+    * [Color Adjustments](Post-Processing-Color-Adjustments)
+    * [Color Curves](Post-Processing-Color-Curves)
+    * [Film Grain](Post-Processing-Film-Grain)
+    * [Lens Distortion](Post-Processing-Lens-Distortion)
+    * [Lift, Gamma, Gain](Post-Processing-Lift-Gamma-Gain)
+    * [Panini Projection](Post-Processing-Panini-Projection)
+    * [Split Toning](Post-Processing-Split-Toning)
 * Debugging
+  * [MatCap](MatCap)
   * Render Pipeline Debug
     * [Overview](Render-Pipeline-Debug-Overview)
     * [Camera](Render-Pipeline-Debug-Camera)
