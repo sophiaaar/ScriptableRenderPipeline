@@ -44,7 +44,7 @@ Pass
 	{
 		float4 color : SV_Target0;
 #if WRITE_MOTION_VECTOR_IN_FORWARD
-		float4 outVelocity : SV_Target1;
+		float4 outMotionVector : SV_Target1;
 #endif
 	};
 
@@ -85,8 +85,8 @@ Pass
 		o.color.a = saturate(o.color.a);
 		
 #if WRITE_MOTION_VECTOR_IN_FORWARD
-		${VFXComputeOutputVelocity}
-		o.outVelocity = encodedVelocity;
+		${VFXComputeOutputMotionVector}
+		o.outMotionVector = encodedMotionVector;
 #endif
 		return o;
 	}

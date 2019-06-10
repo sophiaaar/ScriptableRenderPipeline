@@ -8,7 +8,7 @@ float3 _LightDirection;
 
 void VFXTransformPSInputs(inout VFX_VARYING_PS_INPUTS input) {}
 
-void VFXEncodeVelocity(float2 velocity, out float4 outBuffer)
+void VFXEncodeMotionVector(float2 velocity, out float4 outBuffer)
 {
 	//TODO : LWRP doesn't support motion vector & TAA yet
 	outBuffer = (float4)0.0f;

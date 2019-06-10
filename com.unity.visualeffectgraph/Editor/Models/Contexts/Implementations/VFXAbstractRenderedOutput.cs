@@ -21,7 +21,14 @@ namespace UnityEditor.VFX
         [VFXSetting, Header("Render States")]
         public BlendMode blendMode = BlendMode.Alpha;
 
+        [VFXSetting(VFXSettingAttribute.VisibleFlags.InInspector), SerializeField]
+        protected bool generateMotionVector = false;
+
         public bool isBlendModeOpaque { get { return blendMode == BlendMode.Opaque || blendMode == BlendMode.Masked; } }
+
+        public virtual bool hasMotionVector { get { return supportsMotionVector && generateMotionVector; } }
+
+        public virtual bool supportsMotionVector { get { return false; } }
 
         protected VFXAbstractRenderedOutput(VFXDataType dataType) : base(VFXContextType.Output, dataType, VFXDataType.None) { }
 
@@ -94,8 +101,10 @@ namespace UnityEditor.VFX
 
         protected virtual void WriteBlendMode(VFXShaderWriter writer)
         {
+            if (hasMotionVector && !isBlendModeOpaque)
+                writer.WriteLine("Blend 1 Off"); //Disable blending for velocity target in forward
             var blendModeStr = subOutput.GetBlendModeStr();
-            if (!String.IsNullOrEmpty(blendModeStr))
+            if (!string.IsNullOrEmpty(blendModeStr))
                 writer.WriteLine(blendModeStr);
         }
 

@@ -116,13 +116,13 @@ if (asuint(currentFrameIndex) - previousFrameIndex == 1u)
 #endif
 ${VFXEnd}
 
-${VFXBegin:VFXComputeOutputVelocity}
+${VFXBegin:VFXComputeOutputMotionVector}
 float2 velocity = (i.VFX_VARYING_VELOCITY_CPOS.xy/i.VFX_VARYING_VELOCITY_CPOS.w) - (i.VFX_VARYING_VELOCITY_CPOS_PREVIOUS.xy/i.VFX_VARYING_VELOCITY_CPOS_PREVIOUS.w);
 #if UNITY_UV_STARTS_AT_TOP
 	velocity.y = -velocity.y;
 #endif
-float4 encodedVelocity = 0.0f;
-VFXEncodeVelocity(velocity * 0.5f, encodedVelocity);
+float4 encodedMotionVector = 0.0f;
+VFXEncodeMotionVector(velocity * 0.5f, encodedMotionVector);
 ${VFXEnd}
 
 ${VFXBegin:VFXApplyColor}

@@ -4,7 +4,7 @@ Texture2D _CameraDepthTexture;
 
 void VFXTransformPSInputs(inout VFX_VARYING_PS_INPUTS input) {}
 
-void VFXEncodeVelocity(float2 velocity, out float4 outBuffer)
+void VFXEncodeMotionVector(float2 velocity, out float4 outBuffer)
 {
 	outBuffer = (float4)0.0f; //TODO
 }

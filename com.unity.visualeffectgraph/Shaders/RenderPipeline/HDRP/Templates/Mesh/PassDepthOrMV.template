@@ -69,7 +69,7 @@ void frag(ps_input i
 #endif
 
 #if IS_MOTION_VECTORS_PASS
-	, out float4 outVelocity : SV_Target0
+	, out float4 outMotionVector : SV_Target0
 	#ifdef WRITE_NORMAL_BUFFER
 		, out float4 outNormalBuffer : SV_Target1
 	#endif
@@ -96,8 +96,8 @@ void frag(ps_input i
 	#endif
 
 	#if IS_MOTION_VECTORS_PASS
-		${VFXComputeOutputVelocity}
-		outVelocity = encodedVelocity;
+		${VFXComputeOutputMotionVector}
+		outMotionVector = encodedMotionVector;
 	#endif
 
 	#if SCENESELECTIONPASS

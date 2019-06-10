@@ -94,16 +94,11 @@ namespace UnityEditor.VFX
 
         [VFXSetting(VFXSettingAttribute.VisibleFlags.InInspector), SerializeField]
         protected bool useExposureWeight = false;
-        
-        [VFXSetting(VFXSettingAttribute.VisibleFlags.InInspector), SerializeField]
-        protected bool generateMotionVector = false;
 
         // IVFXSubRenderer interface
         public virtual bool hasShadowCasting { get { return castShadows; } }
 
         protected virtual bool needsExposureWeight { get { return true; } }
-        
-        public virtual bool hasMotionVector { get { return supportsMotionVector && generateMotionVector; } }
 
         private bool hasExposure { get { return needsExposureWeight && subOutput.supportsExposure; } }
 
@@ -129,8 +124,6 @@ namespace UnityEditor.VFX
         public override bool codeGeneratorCompute { get { return false; } }
 
         public virtual bool supportsUV { get { return false; } }
-
-        public virtual bool supportsMotionVector { get { return false; } }
 
         public virtual CullMode defaultCullMode { get { return CullMode.Off; } }
         public virtual ZTestMode defaultZTestMode { get { return ZTestMode.LEqual; } }

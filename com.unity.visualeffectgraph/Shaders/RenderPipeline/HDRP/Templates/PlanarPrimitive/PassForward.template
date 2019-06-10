@@ -94,7 +94,7 @@ ${VFXEnd}
 	, bool frontFace : SV_IsFrontFace
 	#endif
 	#if WRITE_MOTION_VECTOR_IN_FORWARD
-	, out float4 outVelocity : SV_Target1
+	, out float4 outMotionVector : SV_Target1
 	#endif
 	)
 	{
@@ -103,8 +103,8 @@ ${VFXEnd}
 		outColor = VFXGetPixelOutputForward(i,normalWS,uvData);
 		
 #if WRITE_MOTION_VECTOR_IN_FORWARD
-		${VFXComputeOutputVelocity}
-		outVelocity = encodedVelocity;
+		${VFXComputeOutputMotionVector}
+		outMotionVector = encodedMotionVector;
 #endif
 	}
 	ENDHLSL
