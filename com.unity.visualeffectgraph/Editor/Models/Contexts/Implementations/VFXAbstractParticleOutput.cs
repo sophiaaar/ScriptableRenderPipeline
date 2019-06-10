@@ -346,6 +346,7 @@ namespace UnityEditor.VFX
         }
 
 #if VFX_HAS_HDRP
+        //TODOPAUL : Remove this when we moved this behavior to SRP
         public static void GetStencilStateForDepthOrMV(bool receiveDecals, bool receiveSSR, bool useObjectVelocity, out int stencilWriteMask, out int stencilRef)
         {
             stencilWriteMask = (int)UnityEngine.Experimental.Rendering.HDPipeline.HDRenderPipeline.StencilBitMask.DecalsForwardOutputNormalBuffer;
@@ -372,7 +373,7 @@ namespace UnityEditor.VFX
                 
                 shaderTags.Write(string.Format("Tags {{ \"Queue\"=\"{0}\" \"IgnoreProjector\"=\"{1}\" \"RenderType\"=\"{2}\" }}", renderQueueStr, !isBlendModeOpaque, renderTypeStr));
 
-                if (hasMotionVector) //TODOPAUL : check after merge
+                if (hasMotionVector) //TODOPAUL : move this to a virtual du be handled by SRP
                 {
 #if VFX_HAS_HDRP
                     int stencilWriteMask, stencilRef;
