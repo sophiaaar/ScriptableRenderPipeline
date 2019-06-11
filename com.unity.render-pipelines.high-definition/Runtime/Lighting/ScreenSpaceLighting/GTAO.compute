@@ -127,7 +127,7 @@ float HorizonLoop(float3 positionVS, float3 V, float2 rayStart, float2 rayDir, f
     const uint startWithLowerRes = min(max(0, _AOStepCount / 2 - 2), 3);
     for (uint i = 0; i < _AOStepCount; i++)
     {
-        float2 samplePos = max(1, min(rayStart + t * rayDir, _AOBufferSize.xy - 1));
+        float2 samplePos = max(1, min(rayStart + t * rayDir, _AOBufferSize.xy - 2));
 
         // Find horizons at these steps:
         float sampleDepth = GetDepthSample(samplePos, i > startWithLowerRes);
