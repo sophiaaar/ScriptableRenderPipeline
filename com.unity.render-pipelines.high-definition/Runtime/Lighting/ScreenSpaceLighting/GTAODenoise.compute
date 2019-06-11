@@ -133,6 +133,7 @@ float Blur(float2 centralPos, out float centralDepth)
 [numthreads(8, 8, 1)]
 void GTAODenoise_Spatial(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
+    UNITY_STEREO_ASSIGN_COMPUTE_EYE_INDEX(dispatchThreadId.z);
 
     uint currData = _AOPackedData[COORD_TEXTURE2D_X(dispatchThreadId.xy)];
 
@@ -191,6 +192,8 @@ RW_TEXTURE2D_X(float, _OcclusionTexture);
 [numthreads(8, 8, 1)]
 void TEMPORAL_DENOISE_KERNEL_NAME(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
+    UNITY_STEREO_ASSIGN_COMPUTE_EYE_INDEX(dispatchThreadId.z);
+
     float2 uv = (dispatchThreadId.xy + 0.5) * _AOBufferSize.zw;
 
     uint currFrameData = _AOPackedBlurred[COORD_TEXTURE2D_X((uv)* _AOBufferSize.xy)];
