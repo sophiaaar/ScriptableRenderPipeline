@@ -15,38 +15,38 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
             return m_RenderGraphResources.CreateTexture(desc, shaderProperty);
         }
 
-        public RenderGraphMutableResource WriteTexture(in RenderGraphMutableResource input)
-        {
-            if (input.type != RenderGraphResourceType.Texture)
-                throw new ArgumentException("Trying to write to a resource that is not a texture.");
-            // TODO: Manage resource "version" for debugging purpose
-            m_RenderPass.resourceWriteList.Add(input);
-            return input;
-        }
-
         public RenderGraphMutableResource UseColorBuffer(in RenderGraphMutableResource input, int index)
         {
             if (input.type != RenderGraphResourceType.Texture)
-                throw new ArgumentException("Trying to write to a resource that is not a texture.");
+                throw new ArgumentException("Trying to write to a resource that is not a texture or is invalid.");
 
             m_RenderPass.SetColorBuffer(input, index);
             return input;
         }
 
-        public RenderGraphMutableResource UseDepthBuffer(in RenderGraphMutableResource input)
+        public RenderGraphMutableResource UseDepthBuffer(in RenderGraphMutableResource input, DepthAccess flags)
         {
             if (input.type != RenderGraphResourceType.Texture)
-                throw new ArgumentException("Trying to write to a resource that is not a texture.");
+                throw new ArgumentException("Trying to write to a resource that is not a texture or is invalid.");
 
-            m_RenderPass.SetDepthBuffer(input);
+            m_RenderPass.SetDepthBuffer(input, flags);
             return input;
         }
 
-        public RenderGraphResource ReadTexture(RenderGraphResource input)
+        public RenderGraphResource ReadTexture(in RenderGraphResource input)
         {
             if (input.type != RenderGraphResourceType.Texture)
-                throw new ArgumentException("Trying to read a resource that is not a texture.");
+                throw new ArgumentException("Trying to read a resource that is not a texture or is invalid.");
             m_RenderPass.resourceReadList.Add(input);
+            return input;
+        }
+
+        public RenderGraphMutableResource WriteTexture(in RenderGraphMutableResource input)
+        {
+            if (input.type != RenderGraphResourceType.Texture)
+                throw new ArgumentException("Trying to write to a resource that is not a texture or is invalid.");
+            // TODO: Manage resource "version" for debugging purpose
+            m_RenderPass.resourceWriteList.Add(input);
             return input;
         }
 
@@ -90,14 +90,6 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
         {
             if (m_Disposed)
                 return;
-
-            if (disposing)
-            {
-                if (!m_RenderPass.HasRenderFunc())
-                {
-                    throw new InvalidOperationException("AddRenderPass was not provided with an execute function.");
-                }
-            }
 
             m_Disposed = true;
         }

@@ -11,10 +11,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         RenderGraphMutableResource      m_NormalBuffer;
         RenderGraphMutableResource      m_MotionVectorsBuffer;
 
-        // Albedo + SSS Profile and mask / Specular occlusion (when no SSS)
-        // This will be used during GBuffer and/or forward passes.
-        RenderGraphMutableResource      m_SSSBuffer;
-
         RenderGraphMutableResource      m_DepthBufferMipChain;
         HDUtils.PackedMipChainInfo      m_DepthBufferMipChainInfo; // This is metadata
 
@@ -50,8 +46,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             m_DepthAsColorBufferMSAA = renderGraph.CreateTexture(new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R32_SFloat, clearBuffer = true, clearColor = Color.black, bindTextureMS = true, enableMSAA = true, slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, name = "DepthAsColorMSAA" }, HDShaderIDs._DepthTextureMS);
             m_DepthBufferMipChain = renderGraph.CreateTexture(new TextureDesc(ComputeDepthBufferMipChainSize) { colorFormat = GraphicsFormat.R32_SFloat, enableRandomWrite = true, slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, name = "CameraDepthBufferMipChain" }, HDShaderIDs._CameraDepthTexture);
 
-            m_SSSBuffer = renderGraph.CreateTexture(new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R8G8B8A8_SRGB, slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, clearBuffer = NeedClearGBuffer(), clearColor = Color.clear, name = "SSSBuffer" });
-
             TextureDesc normalDesc = new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R8G8B8A8_UNorm, clearBuffer = NeedClearGBuffer(), clearColor = Color.black, slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, enableRandomWrite = true, name = "NormalBuffer" };
             m_NormalBuffer = renderGraph.CreateTexture(normalDesc, HDShaderIDs._NormalBufferTexture);
             m_NormalBufferMSAA = renderGraph.CreateTexture(new TextureDesc(normalDesc) { bindTextureMS = true, enableMSAA = true, enableRandomWrite = false, name = "NormalBufferMSAA" }, HDShaderIDs._NormalTextureMS);
@@ -66,11 +60,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         RenderGraphMutableResource GetDepthStencilBuffer(bool isMSAA = false)
         {
             return isMSAA ? m_DepthBufferMSAA : m_DepthBuffer;
-        }
-
-        RenderGraphMutableResource GetSSSBuffer(bool isMSAA = false)
-        {
-            return m_SSSBuffer;
         }
 
         RenderGraphMutableResource GetNormalBuffer(bool isMSAA = false)

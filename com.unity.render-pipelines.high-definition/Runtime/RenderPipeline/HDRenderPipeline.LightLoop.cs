@@ -24,7 +24,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             using (var builder = renderGraph.AddRenderPass<CopyStencilBufferPassData>(out var passData))
             {
                 passData.hdCamera = hdCamera;
-                passData.depthStencilBuffer = depthStencilBuffer;
+                passData.depthStencilBuffer = builder.ReadTexture(depthStencilBuffer);
                 passData.stencilBufferCopy = builder.WriteTexture(builder.CreateTexture(new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R8_UNorm, slices = TextureXR.slices, dimension = TextureXR.dimension, enableRandomWrite = true, name = "CameraStencilCopy", useDynamicScale = true }));
                 passData.copyStencil = copyStencil;
                 passData.copyStencilForSSR = copyStencilForSSR;
@@ -112,13 +112,20 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             PushGlobalCameraParams(renderGraph, hdCamera);
         }
 
+        RenderGraphMutableResource CreateDiffuseLightingBuffer(RenderGraph renderGraph, bool msaa)
+        {
+            return renderGraph.CreateTexture(new TextureDesc(Vector2.one)
+                { colorFormat = GraphicsFormat.B10G11R11_UFloatPack32, slices = TextureXR.slices, dimension = TextureXR.dimension, enableRandomWrite = !msaa,
+                    bindTextureMS = msaa, enableMSAA = msaa, clearBuffer = true, clearColor = Color.clear, useDynamicScale = true, name = "CameraSSSDiffuseLighting" });
+        }
+
         class DeferredLightingPassData
         {
             public DeferredLightingParameters   parameters;
             public DeferredLightingResources    resources;
 
             public RenderGraphMutableResource   colorBuffer;
-            public RenderGraphMutableResource   sssDifuseLightingBuffer;
+            public RenderGraphMutableResource   sssDiffuseLightingBuffer;
             public RenderGraphResource          depthBuffer;
             public RenderGraphResource          depthTexture;
 
@@ -128,10 +135,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         struct LightingOutput
         {
             public RenderGraphMutableResource colorBuffer;
-            public RenderGraphMutableResource sssDifuseLightingBuffer;
         }
 
-        LightingOutput RenderDeferredLighting(RenderGraph renderGraph, HDCamera hdCamera, RenderGraphMutableResource colorBuffer, GBufferOutput gbuffer)
+        LightingOutput RenderDeferredLighting(RenderGraph renderGraph, HDCamera hdCamera, RenderGraphMutableResource colorBuffer, RenderGraphMutableResource diffuseLightingBuffer, GBufferOutput gbuffer)
         {
             if (hdCamera.frameSettings.litShaderMode != LitShaderMode.Deferred)
                 return new LightingOutput();
@@ -150,9 +156,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 passData.colorBuffer = builder.WriteTexture(colorBuffer);
                 if (passData.parameters.outputSplitLighting)
                 {
-                    passData.sssDifuseLightingBuffer = builder.WriteTexture(builder.CreateTexture(
-                        new TextureDesc(Vector2.one)
-                        { colorFormat = GraphicsFormat.B10G11R11_UFloatPack32, slices = TextureXR.slices, dimension = TextureXR.dimension, enableRandomWrite = true, clearBuffer = true, clearColor = Color.clear, useDynamicScale = true, name = "CameraSSSDiffuseLighting" }));
+                    passData.sssDiffuseLightingBuffer = builder.WriteTexture(diffuseLightingBuffer);
                 }
                 passData.depthBuffer = builder.ReadTexture(GetDepthStencilBuffer());
                 passData.depthTexture = builder.ReadTexture(GetDepthTexture());
@@ -162,7 +166,6 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
                 var output = new LightingOutput();
                 output.colorBuffer = passData.colorBuffer;
-                output.sssDifuseLightingBuffer = passData.sssDifuseLightingBuffer;
 
                 builder.SetRenderFunc(
                 (DeferredLightingPassData data, RenderGraphContext context) =>
@@ -170,7 +173,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     data.resources.colorBuffers = context.renderGraphPool.GetTempArray<RenderTargetIdentifier>(2);
                     data.resources.colorBuffers[0] = context.resources.GetTexture(data.colorBuffer);
                     if (data.parameters.outputSplitLighting)
-                        data.resources.colorBuffers[1] = context.resources.GetTexture(data.sssDifuseLightingBuffer);
+                        data.resources.colorBuffers[1] = context.resources.GetTexture(data.sssDiffuseLightingBuffer);
                     data.resources.depthStencilBuffer = context.resources.GetTexture(data.depthBuffer);
                     data.resources.depthTexture = context.resources.GetTexture(data.depthTexture);
 

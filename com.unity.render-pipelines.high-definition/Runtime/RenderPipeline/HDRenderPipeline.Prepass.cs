@@ -24,7 +24,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public RenderGraphResource depthValuesMSAA;
         }
 
-        PrepassOutput RenderPrepass(RenderGraph renderGraph, CullingResults cullingResults, HDCamera hdCamera)
+        PrepassOutput RenderPrepass(RenderGraph renderGraph, RenderGraphMutableResource sssBuffer, CullingResults cullingResults, HDCamera hdCamera)
         {
             StartLegacyStereo(renderGraph, hdCamera);
 
@@ -56,7 +56,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 #endif
 */
 
-            result.gbuffer = RenderGBuffer(renderGraph, cullingResults, hdCamera);
+            result.gbuffer = RenderGBuffer(renderGraph, sssBuffer, cullingResults, hdCamera);
 
             // In both forward and deferred, everything opaque should have been rendered at this point so we can safely copy the depth buffer for later processing.
             GenerateDepthPyramid(renderGraph, hdCamera, FullScreenDebugMode.DepthPyramid);
@@ -111,12 +111,12 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 passData.msaaEnabled = msaa;
                 passData.hasDepthOnlyPrepass = depthPrepassParameters.hasDepthOnlyPass;
 
-                passData.depthBuffer = builder.WriteTexture(GetDepthStencilBuffer(msaa));
+                passData.depthBuffer = builder.UseDepthBuffer(GetDepthStencilBuffer(msaa), DepthAccess.ReadWrite);
                 passData.normalBuffer = builder.WriteTexture(GetNormalBuffer(msaa));
                 if (msaa)
                     passData.depthAsColorBuffer = builder.WriteTexture(GetDepthTexture(true));
 
-                if (depthPrepassParameters.hasDepthOnlyPass)
+                if (passData.hasDepthOnlyPrepass)
                 {
                     passData.rendererListDepthOnly = builder.UseRendererList(builder.CreateRendererList(depthPrepassParameters.depthOnlyRendererListDesc));
                 }
@@ -131,7 +131,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 builder.SetRenderFunc(
                 (DepthPrepassData data, RenderGraphContext context) =>
                 {
-                    var mrt = RenderGraphUtils.GetMRTArray(data.msaaEnabled ? 2 : 1);
+                    var mrt = context.renderGraphPool.GetTempArray<RenderTargetIdentifier>(data.msaaEnabled ? 2 : 1);
                     mrt[0] = context.resources.GetTexture(data.normalBuffer);
                     if (data.msaaEnabled)
                         mrt[1] = context.resources.GetTexture(data.depthAsColorBuffer);
@@ -139,7 +139,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                     RenderDepthPrepass(context.renderContext, context.cmd, data.frameSettings,
                                     mrt,
                                     context.resources.GetTexture(data.depthBuffer),
-                                    context.resources.GetRendererList(data.rendererListDepthOnly),
+                                    data.hasDepthOnlyPrepass ? context.resources.GetRendererList(data.rendererListDepthOnly) : RendererList.nullRendererList,
                                     context.resources.GetRendererList(data.rendererListMRT),
                                     data.hasDepthOnlyPrepass
 #if ENABLE_RAYTRACING
@@ -174,7 +174,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 bool msaa = hdCamera.frameSettings.IsEnabled(FrameSettingsField.MSAA);
 
                 passData.frameSettings = hdCamera.frameSettings;
-                passData.depthBuffer = builder.UseDepthBuffer(GetDepthStencilBuffer(msaa));
+                passData.depthBuffer = builder.UseDepthBuffer(GetDepthStencilBuffer(msaa), DepthAccess.ReadWrite);
                 passData.motionVectorsBuffer = builder.UseColorBuffer(GetMotionVectorsBuffer(msaa), 0);
                 passData.normalBuffer = builder.UseColorBuffer(GetNormalBuffer(msaa), 1);
                 if (msaa)
@@ -195,7 +195,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             public FrameSettings                frameSettings;
             public RenderGraphResource          rendererList;
-            public RenderGraphMutableResource[] gbufferRT = new RenderGraphMutableResource[RenderGraphUtils.kMaxMRTCount];
+            public RenderGraphMutableResource[] gbufferRT = new RenderGraphMutableResource[RenderGraph.kMaxMRTCount];
             public RenderGraphMutableResource   depthBuffer;
         }
 
@@ -204,14 +204,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
             public RenderGraphResource[] gbuffer;
         }
 
-        void SetupGBufferTargets(GBufferPassData passData, ref GBufferOutput output, FrameSettings frameSettings, RenderGraphBuilder builder)
+        void SetupGBufferTargets(GBufferPassData passData, RenderGraphMutableResource sssBuffer, ref GBufferOutput output, FrameSettings frameSettings, RenderGraphBuilder builder)
         {
             bool clearGBuffer = NeedClearGBuffer();
             bool lightLayers = frameSettings.IsEnabled(FrameSettingsField.LightLayers);
             bool shadowMasks = frameSettings.IsEnabled(FrameSettingsField.ShadowMask);
 
-            passData.depthBuffer = builder.UseDepthBuffer(GetDepthStencilBuffer());
-            passData.gbufferRT[0] = builder.UseColorBuffer(GetSSSBuffer(false), 0);
+            passData.depthBuffer = builder.UseDepthBuffer(GetDepthStencilBuffer(), DepthAccess.ReadWrite);
+            passData.gbufferRT[0] = builder.UseColorBuffer(sssBuffer, 0);
             passData.gbufferRT[1] = builder.UseColorBuffer(GetNormalBuffer(), 1);
             passData.gbufferRT[2] = builder.UseColorBuffer(builder.CreateTexture(
                 new TextureDesc(Vector2.one) { colorFormat = GraphicsFormat.R8G8B8A8_UNorm, slices = TextureXR.slices, dimension = TextureXR.dimension, useDynamicScale = true, clearBuffer = clearGBuffer, clearColor = Color.clear, name = "GBuffer2" }, HDShaderIDs._GBufferTexture[2]), 2);
@@ -239,7 +239,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 
         // RenderGBuffer do the gbuffer pass. This is only called with deferred. If we use a depth prepass, then the depth prepass will perform the alpha testing for opaque alpha tested and we don't need to do it anymore
         // during Gbuffer pass. This is handled in the shader and the depth test (equal and no depth write) is done here.
-        GBufferOutput RenderGBuffer(RenderGraph renderGraph, CullingResults cull, HDCamera hdCamera)
+        GBufferOutput RenderGBuffer(RenderGraph renderGraph, RenderGraphMutableResource sssBuffer, CullingResults cull, HDCamera hdCamera)
         {
             var output = new GBufferOutput();
 
@@ -251,9 +251,9 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 FrameSettings frameSettings = hdCamera.frameSettings;
 
                 passData.frameSettings = frameSettings;
-                SetupGBufferTargets(passData, ref output, frameSettings, builder);
+                SetupGBufferTargets(passData, sssBuffer, ref output, frameSettings, builder);
                 passData.rendererList = builder.UseRendererList(
-                    builder.CreateRendererList(CreateOpaqueRendererListDesc(cull, hdCamera.camera, HDShaderPassNames.s_GBufferName, m_currentRendererConfigurationBakedLighting)));
+                    builder.CreateRendererList(CreateOpaqueRendererListDesc(cull, hdCamera.camera, HDShaderPassNames.s_GBufferName, m_CurrentRendererConfigurationBakedLighting)));
 
                 builder.SetRenderFunc(
                 (GBufferPassData data, RenderGraphContext context) =>
@@ -290,7 +290,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 passData.depthResolveMaterial = m_DepthResolveMaterial;
                 passData.depthResolvePassIndex = SampleCountToPassIndex(m_MSAASamples);
 
-                passData.depthBuffer = builder.UseDepthBuffer(GetDepthStencilBuffer(false));
+                passData.depthBuffer = builder.UseDepthBuffer(GetDepthStencilBuffer(false), DepthAccess.Write);
                 //passData.velocityBuffer = builder.UseColorBuffer(GetVelocityBufferResource(msaa), 0);
                 passData.depthValuesBuffer = builder.UseColorBuffer(depthValuesBuffer, 0);
                 passData.normalBuffer = builder.UseColorBuffer(GetNormalBuffer(false), 1);
@@ -391,7 +391,7 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
         {
             public Material cameraMotionVectorsMaterial;
             public RenderGraphMutableResource motionVectorsBuffer;
-            public RenderGraphMutableResource depthBuffer;
+            public RenderGraphResource depthTexture;
         }
 
         void RenderCameraMotionVectors(RenderGraph renderGraph, HDCamera hdCamera)
@@ -406,14 +406,14 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
                 hdCamera.camera.depthTextureMode |= DepthTextureMode.MotionVectors | DepthTextureMode.Depth;
 
                 passData.cameraMotionVectorsMaterial = m_CameraMotionVectorsMaterial;
-                passData.depthBuffer = builder.WriteTexture(GetDepthStencilBuffer());
+                passData.depthTexture = builder.ReadTexture(GetDepthTexture());
                 passData.motionVectorsBuffer = builder.WriteTexture(GetMotionVectorsBuffer());
 
                 builder.SetRenderFunc(
                 (CameraMotionVectorsPassData data, RenderGraphContext context) =>
                 {
                     var res = context.resources;
-                    HDUtils.DrawFullScreen(context.cmd, data.cameraMotionVectorsMaterial, res.GetTexture(data.motionVectorsBuffer), res.GetTexture(data.depthBuffer), null, 0);
+                    HDUtils.DrawFullScreen(context.cmd, data.cameraMotionVectorsMaterial, res.GetTexture(data.motionVectorsBuffer));
                 });
             }
 

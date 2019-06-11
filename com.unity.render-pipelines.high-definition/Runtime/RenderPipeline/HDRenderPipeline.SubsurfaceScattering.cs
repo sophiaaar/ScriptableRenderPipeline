@@ -4,6 +4,25 @@ namespace UnityEngine.Experimental.Rendering.HDPipeline
 {
     public partial class HDRenderPipeline
     {
+        // Albedo + SSS Profile and mask / Specular occlusion (when no SSS)
+        // This will be used during GBuffer and/or forward passes.
+        RenderGraphMutableResource CreateSSSBuffer(RenderGraph renderGraph, bool msaa)
+        {
+            return renderGraph.CreateTexture(new TextureDesc(Vector2.one)
+            {
+                colorFormat = GraphicsFormat.R8G8B8A8_SRGB,
+                slices = TextureXR.slices,
+                dimension = TextureXR.dimension,
+                useDynamicScale = true,
+                enableRandomWrite = !msaa,
+                bindTextureMS = msaa,
+                enableMSAA = msaa,
+                clearBuffer = NeedClearGBuffer(),
+                clearColor = Color.clear,
+                name = "SSSBuffer" }
+            );
+        }
+
         class SubsurfaceScaterringPassData
         {
             public SubsurfaceScatteringParameters parameters;

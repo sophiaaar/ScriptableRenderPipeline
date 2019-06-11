@@ -7,6 +7,14 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
 {
     using RTHandle = RTHandleSystem.RTHandle;
 
+    [Flags]
+    public enum DepthAccess
+    {
+        Read = 1 << 0,
+        Write = 1 << 1,
+        ReadWrite = Read | Write,
+    }
+
     public ref struct RenderGraphContext
     {
         public ScriptableRenderContext      renderContext;
@@ -26,6 +34,8 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
 
     public class RenderGraph
     {
+        public static readonly int kMaxMRTCount = 8;
+
         internal abstract class RenderPass
         {
             internal RenderFunc<PassData> GetExecuteDelegate<PassData>()
@@ -45,7 +55,7 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
             internal RenderGraphMutableResource[]     colorBuffers { get { return m_ColorBuffers; } }
             internal int                              colorBufferMaxIndex { get { return m_MaxColorBufferIndex; } }
 
-            protected RenderGraphMutableResource[]    m_ColorBuffers = new RenderGraphMutableResource[RenderGraphUtils.kMaxMRTCount];
+            protected RenderGraphMutableResource[]    m_ColorBuffers = new RenderGraphMutableResource[RenderGraph.kMaxMRTCount];
             protected RenderGraphMutableResource      m_DepthBuffer;
             protected int                             m_MaxColorBufferIndex = -1;
 
@@ -61,7 +71,7 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
                 // Invalidate everything
                 m_MaxColorBufferIndex = -1;
                 m_DepthBuffer = new RenderGraphMutableResource();
-                for (int i = 0; i < RenderGraphUtils.kMaxMRTCount; ++i)
+                for (int i = 0; i < RenderGraph.kMaxMRTCount; ++i)
                 {
                     m_ColorBuffers[i] = new RenderGraphMutableResource();
                 }
@@ -69,16 +79,20 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
 
             internal void SetColorBuffer(in RenderGraphMutableResource resource, int index)
             {
-                Debug.Assert(index < RenderGraphUtils.kMaxMRTCount && index >= 0);
+                Debug.Assert(index < RenderGraph.kMaxMRTCount && index >= 0);
                 m_MaxColorBufferIndex = Math.Max(m_MaxColorBufferIndex, index);
                 m_ColorBuffers[index] = resource;
                 resourceWriteList.Add(resource);
             }
 
-            internal void SetDepthBuffer(in RenderGraphMutableResource resource)
+            internal void SetDepthBuffer(in RenderGraphMutableResource resource, DepthAccess flags)
             {
                 m_DepthBuffer = resource;
-                resourceWriteList.Add(resource);
+                if ((flags | DepthAccess.Read) != 0)
+                    resourceReadList.Add(resource);
+                if ((flags | DepthAccess.Write) != 0)
+                    resourceWriteList.Add(resource);
+
             }
         }
         internal sealed class RenderPass<PassData> : RenderPass
@@ -138,7 +152,7 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
 
         public RenderGraphBuilder AddRenderPass<PassData>(out PassData passData, CustomSampler customSampler = null) where PassData : class, new()
         {
-            return AddRenderPass<PassData>("", out passData, customSampler);
+            return AddRenderPass("", out passData, customSampler);
         }
 
         public RenderGraphBuilder AddRenderPass<PassData>(string passName, out PassData passData, CustomSampler customSampler = null) where PassData : class, new()
@@ -201,6 +215,12 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
                 for (int passIndex = 0; passIndex < m_RenderPasses.Count; ++passIndex)
                 {
                     var pass = m_RenderPasses[passIndex];
+
+                    if (!pass.HasRenderFunc())
+                    {
+                        throw new InvalidOperationException(string.Format("RenderPass {0} was not provided with an execute function.", pass.passName));
+                    }
+
                     using (new ProfilingSample(cmd, pass.passName, pass.customSampler))
                     {
                         PreRenderPassExecute(passIndex, pass, rgContext);
@@ -255,7 +275,7 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
         {
             if (pass.depthBuffer.IsValid() || pass.colorBufferMaxIndex != -1)
             {
-                var mrtArray = RenderGraphUtils.GetMRTArray(pass.colorBufferMaxIndex + 1);
+                var mrtArray = rgContext.renderGraphPool.GetTempArray<RenderTargetIdentifier>(pass.colorBufferMaxIndex + 1);
                 var colorBuffers = pass.colorBuffers;
 
                 if (pass.colorBufferMaxIndex > 0)
@@ -280,7 +300,10 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
                 {
                     if (pass.depthBuffer.IsValid())
                     {
-                        HDPipeline.HDUtils.SetRenderTarget(rgContext.cmd, m_Resources.GetTexture(pass.colorBuffers[0]), m_Resources.GetTexture(pass.depthBuffer));
+                        if (pass.colorBufferMaxIndex > -1)
+                            HDPipeline.HDUtils.SetRenderTarget(rgContext.cmd, m_Resources.GetTexture(pass.colorBuffers[0]), m_Resources.GetTexture(pass.depthBuffer));
+                        else
+                            HDPipeline.HDUtils.SetRenderTarget(rgContext.cmd, m_Resources.GetTexture(pass.depthBuffer));
                     }
                     else
                     {

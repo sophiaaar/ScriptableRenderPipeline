@@ -255,8 +255,8 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
         public RendererList GetRendererList(in RenderGraphResource handle)
         {
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
-            if (handle.type != RenderGraphResourceType.RendererList || !m_RendererListResources[handle.handle].rendererList.isValid)
-                throw new InvalidOperationException("Trying to access a RenderGraphResource that is not a RendererList or is invalid.");
+            if (handle.type != RenderGraphResourceType.RendererList)
+                throw new InvalidOperationException("Trying to access a RenderGraphResource that is not a RendererList.");
 #endif
             return m_RendererListResources[handle.handle].rendererList;
         }
@@ -317,6 +317,9 @@ namespace UnityEngine.Experimental.Rendering.RenderGraphModule
             ref var resource = ref m_TextureResources[res.handle];
             var desc = resource.desc;
             int hashCode = desc.GetHashCode();
+
+            if(resource.rt != null)
+                throw new InvalidOperationException(string.Format("Trying to create an already created texture ({0}). Texture was probably declared for writing more than once.", resource.desc.name));
 
             resource.rt = null;
             if (!TryGetRenderTarget(hashCode, out resource.rt))
