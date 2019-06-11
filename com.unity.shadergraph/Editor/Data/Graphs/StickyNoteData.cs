@@ -4,7 +4,7 @@ using UnityEngine;
 namespace UnityEditor.ShaderGraph
 {
     [Serializable]
-    public class StickyNoteData : ISerializationCallbackReceiver
+    class StickyNoteData : ISerializationCallbackReceiver, IGroupItem
     {
         [NonSerialized]
         Guid m_Guid;
@@ -59,8 +59,12 @@ namespace UnityEditor.ShaderGraph
             set => m_Position = value;
         }
 
+        [SerializeField]
+        string m_GroupGuidSerialized;
+
         [NonSerialized]
         Guid m_GroupGuid;
+
         public Guid groupGuid
         {
             get { return m_GroupGuid; }
@@ -78,6 +82,7 @@ namespace UnityEditor.ShaderGraph
         public void OnBeforeSerialize()
         {
             m_GuidSerialized = guid.ToString();
+            m_GroupGuidSerialized = groupGuid.ToString();
         }
 
         public void OnAfterDeserialize()
@@ -85,6 +90,11 @@ namespace UnityEditor.ShaderGraph
             if (!string.IsNullOrEmpty(m_GuidSerialized))
             {
                 m_Guid = new Guid(m_GuidSerialized);
+            }
+
+            if (!string.IsNullOrEmpty(m_GroupGuidSerialized))
+            {
+                m_GroupGuid = new Guid(m_GroupGuidSerialized);
             }
         }
     }

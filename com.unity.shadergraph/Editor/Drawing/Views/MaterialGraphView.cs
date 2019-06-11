@@ -177,7 +177,7 @@ namespace UnityEditor.ShaderGraph.Drawing
 
             foreach (var shaderNodeView in selection.OfType<IShaderNodeView>())
             {
-                graph.SetNodeGroup(shaderNodeView.node, groupData);
+                graph.SetGroup(shaderNodeView.node, groupData);
             }
         }
 
@@ -188,7 +188,7 @@ namespace UnityEditor.ShaderGraph.Drawing
             string content = "Write something here";
             var stickyNoteData  = new StickyNoteData(title, content, position);
             graph.owner.RegisterCompleteObjectUndo("Create Sticky Note");
-            graph.CreateStickyNote(stickyNoteData);
+            graph.AddStickyNote(stickyNoteData);
         }
 
 

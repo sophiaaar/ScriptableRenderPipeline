@@ -139,11 +139,11 @@ namespace UnityEditor.ShaderGraph
         }
 
         [NonSerialized]
-        List<NodeGroupChange> m_NodeGroupChanges = new List<NodeGroupChange>();
+        List<ParentGroupChange> m_ParentGroupChanges = new List<ParentGroupChange>();
 
-        public IEnumerable<NodeGroupChange> nodeGroupChanges
+        public IEnumerable<ParentGroupChange> parentGroupChanges
         {
-            get { return m_NodeGroupChanges; }
+            get { return m_ParentGroupChanges; }
         }
 
         [NonSerialized]
@@ -152,15 +152,15 @@ namespace UnityEditor.ShaderGraph
         public GroupData mostRecentlyCreatedGroup => m_MostRecentlyCreatedGroup;
 
         [NonSerialized]
-        Dictionary<Guid, List<AbstractMaterialNode>> m_GroupNodes = new Dictionary<Guid, List<AbstractMaterialNode>>();
+        Dictionary<Guid, List<IGroupItem>> m_GroupItems = new Dictionary<Guid, List<IGroupItem>>();
 
-        public IEnumerable<AbstractMaterialNode> GetNodesInGroup(GroupData groupData)
+        public IEnumerable<IGroupItem> GetItemsInGroup(GroupData groupData)
         {
-            if (m_GroupNodes.TryGetValue(groupData.guid, out var nodes))
+            if (m_GroupItems.TryGetValue(groupData.guid, out var nodes))
             {
                 return nodes;
             }
-            return Enumerable.Empty<AbstractMaterialNode>();
+            return Enumerable.Empty<IGroupItem>();
         }
 
         #endregion
@@ -180,28 +180,6 @@ namespace UnityEditor.ShaderGraph
         List<StickyNoteData> m_RemovedNotes = new List<StickyNoteData>();
 
         public IEnumerable<StickyNoteData> removedNotes => m_RemovedNotes;
-
-        [NonSerialized]
-        List<StickyNoteData> m_StickyNoteChanges = new List<StickyNoteData>();
-
-        public IEnumerable<StickyNoteData> stickyNoteChanges
-        {
-            get { return m_StickyNoteChanges; }
-        }
-
-        [NonSerialized]
-        Dictionary<Guid, List<StickyNoteData>> m_GroupStickyNotes = new Dictionary<Guid, List<StickyNoteData>>();
-
-//        public IEnumerable<StickyNoteData> GetStickyNotesInGroup(GroupData groupData)
-//        {
-//            if (m_GroupStickyNotes.TryGetValue(groupData.guid, out var stickyNotes))
-//            {
-//                return stickyNotes;
-//            }
-//            return Enumerable.Empty<StickyNoteData>();
-//        }
-
-
 
         #endregion
 
@@ -315,8 +293,7 @@ namespace UnityEditor.ShaderGraph
 
         public GraphData()
         {
-            m_GroupNodes[Guid.Empty] = new List<AbstractMaterialNode>();
-            m_GroupStickyNotes[Guid.Empty] = new List<StickyNoteData>();
+            m_GroupItems[Guid.Empty] = new List<IGroupItem>();
         }
 
         public void ClearChanges()
@@ -324,7 +301,7 @@ namespace UnityEditor.ShaderGraph
             m_AddedNodes.Clear();
             m_RemovedNodes.Clear();
             m_PastedNodes.Clear();
-            m_NodeGroupChanges.Clear();
+            m_ParentGroupChanges.Clear();
             m_AddedGroups.Clear();
             m_RemovedGroups.Clear();
             m_PastedGroups.Clear();
@@ -335,7 +312,6 @@ namespace UnityEditor.ShaderGraph
             m_MovedProperties.Clear();
             m_AddedStickyNotes.Clear();
             m_RemovedNotes.Clear();
-            m_StickyNoteChanges.Clear();
             m_MostRecentlyCreatedGroup = null;
             didActiveOutputNodeChange = false;
         }
@@ -374,7 +350,7 @@ namespace UnityEditor.ShaderGraph
 
             m_Groups.Add(groupData);
             m_AddedGroups.Add(groupData);
-            m_GroupNodes.Add(groupData.guid, new List<AbstractMaterialNode>());
+            m_GroupItems.Add(groupData.guid, new List<IGroupItem>());
 
             return true;
         }
@@ -392,59 +368,55 @@ namespace UnityEditor.ShaderGraph
             m_Groups.Remove(group);
             m_RemovedGroups.Add(group);
 
-            if (m_GroupNodes.TryGetValue(group.guid, out var nodes))
+            if (m_GroupItems.TryGetValue(group.guid, out var items))
             {
-                foreach (AbstractMaterialNode node in nodes.ToList())
+                foreach (IGroupItem groupItem in items.ToList())
                 {
-                    SetNodeGroup(node, null);
+                    SetGroup(groupItem, null);
                 }
 
-                m_GroupNodes.Remove(group.guid);
+                m_GroupItems.Remove(group.guid);
             }
         }
 
-        void RemoveNoteNoValidate(StickyNoteData note)
+        public void AddStickyNote(StickyNoteData stickyNote)
         {
-            if(!m_StickyNotes.Contains(note))
-                throw new InvalidOperationException("Cannot remove a note that doesn't exist.");
-            m_StickyNotes.Remove(note);
-            m_RemovedNotes.Add(note);
-
-//            if (!m_Groups.Contains(group))
-//                throw new InvalidOperationException("Cannot remove a group that doesn't exist.");
-//            m_Groups.Remove(group);
-//            m_RemovedGroups.Add(group);
-//
-//            if (m_GroupNodes.TryGetValue(group.guid, out var nodes))
-//            {
-//                foreach (AbstractMaterialNode node in nodes.ToList())
-//                {
-//                    SetNodeGroup(node, null);
-//                }
-//
-//                m_GroupNodes.Remove(group.guid);
-//            }
-        }
-
-        public void CreateStickyNote(StickyNoteData stickyNoteData)
-        {
-            // Probably add sticky note no validate!!!!!!!!?????????
-
-            m_StickyNotes.Add(stickyNoteData);
-            m_AddedStickyNotes.Add(stickyNoteData);
-            m_GroupStickyNotes.Add(stickyNoteData.guid, new List<StickyNoteData>());
-        }
-
-        public void ChangeStickyNote(StickyNoteData stickyNoteData)
-        {
-            m_StickyNoteChanges.Add(stickyNoteData);
-        }
-
-        public void SetNodeGroup(AbstractMaterialNode node, GroupData group)
-        {
-            var groupChange = new NodeGroupChange()
+            if (m_StickyNotes.Contains(stickyNote))
             {
-                nodeGuid = node.guid,
+                throw new InvalidOperationException("Sticky note has already been added to the graph.");
+            }
+
+            if (!m_GroupItems.ContainsKey(stickyNote.groupGuid))
+            {
+                throw new InvalidOperationException("Trying to add sticky note with group that doesn't exist.");
+            }
+
+            m_StickyNotes.Add(stickyNote);
+            m_AddedStickyNotes.Add(stickyNote);
+            m_GroupItems[stickyNote.groupGuid].Add(stickyNote);
+        }
+
+        void RemoveNoteNoValidate(StickyNoteData stickyNote)
+        {
+            if (!m_StickyNotes.Contains(stickyNote))
+            {
+                throw new InvalidOperationException("Cannot remove a note that doesn't exist.");
+            }
+
+            m_StickyNotes.Remove(stickyNote);
+            m_RemovedNotes.Add(stickyNote);
+
+            if (m_GroupItems.TryGetValue(stickyNote.groupGuid, out var groupItems))
+            {
+                groupItems.Remove(stickyNote);
+            }
+        }
+
+        public void SetGroup(IGroupItem node, GroupData group)
+        {
+            var groupChange = new ParentGroupChange()
+            {
+                groupItem = node,
                 oldGroupGuid = node.groupGuid,
                 // Checking if the groupdata is null. If it is, then it means node has been removed out of a group.
                 // If the group data is null, then maybe the old group id should be removed
@@ -452,35 +424,16 @@ namespace UnityEditor.ShaderGraph
             };
             node.groupGuid = groupChange.newGroupGuid;
 
-            var oldGroupNodes = m_GroupNodes[groupChange.oldGroupGuid];
+            var oldGroupNodes = m_GroupItems[groupChange.oldGroupGuid];
             oldGroupNodes.Remove(node);
 
-            m_GroupNodes[groupChange.newGroupGuid].Add(node);
-            m_NodeGroupChanges.Add(groupChange);
-        }
-
-        public void SetStickyNoteGroup(StickyNoteData stickyNote, GroupData group)
-        {
-            var groupChange = new NodeGroupChange()
-            {
-                nodeGuid = stickyNote.guid,
-                oldGroupGuid = stickyNote.groupGuid,
-                // Checking if the groupdata is null. If it is, then it means node has been removed out of a group.
-                // If the group data is null, then maybe the old group id should be removed
-                newGroupGuid = group?.guid ?? Guid.Empty
-            };
-            stickyNote.groupGuid = groupChange.newGroupGuid;
-
-            var oldGroupNotes = m_GroupStickyNotes[groupChange.oldGroupGuid];
-            oldGroupNotes.Remove(stickyNote);
-
-            m_GroupStickyNotes[groupChange.newGroupGuid].Add(stickyNote);
-            m_NodeGroupChanges.Add(groupChange);
+            m_GroupItems[groupChange.newGroupGuid].Add(node);
+            m_ParentGroupChanges.Add(groupChange);
         }
 
         void AddNodeNoValidate(AbstractMaterialNode node)
         {
-            if (node.groupGuid != Guid.Empty && !m_GroupNodes.ContainsKey(node.groupGuid))
+            if (node.groupGuid != Guid.Empty && !m_GroupItems.ContainsKey(node.groupGuid))
             {
                 throw new InvalidOperationException("Cannot add a node whose group doesn't exist.");
             }
@@ -500,7 +453,7 @@ namespace UnityEditor.ShaderGraph
             }
             m_NodeDictionary.Add(node.guid, node);
             m_AddedNodes.Add(node);
-            m_GroupNodes[node.groupGuid].Add(node);
+            m_GroupItems[node.groupGuid].Add(node);
         }
 
         public void RemoveNode(AbstractMaterialNode node)
@@ -526,9 +479,9 @@ namespace UnityEditor.ShaderGraph
             messageManager?.RemoveNode(node.tempId);
             m_RemovedNodes.Add(node);
 
-            if (m_GroupNodes.TryGetValue(node.groupGuid, out var nodes))
+            if (m_GroupItems.TryGetValue(node.groupGuid, out var groupItems))
             {
-                nodes.Remove(node);
+                groupItems.Remove(node);
             }
         }
 
@@ -898,7 +851,7 @@ namespace UnityEditor.ShaderGraph
 
                 if (temporaryMarks.Contains(node.tempId.index))
                 {
-                node.ValidateNode();
+                    node.ValidateNode();
                     permanentMarks.Add(node.tempId.index);
                 }
                 else
@@ -937,11 +890,16 @@ namespace UnityEditor.ShaderGraph
                 }
             }
 
-            foreach (var groupChange in m_NodeGroupChanges.ToList())
+            foreach (var groupChange in m_ParentGroupChanges.ToList())
             {
-                if (!ContainsNodeGuid(groupChange.nodeGuid))
+                if (groupChange.groupItem is AbstractMaterialNode node && !ContainsNodeGuid(node.guid))
                 {
-                    m_NodeGroupChanges.Remove(groupChange);
+                    m_ParentGroupChanges.Remove(groupChange);
+                }
+
+                if (groupChange.groupItem is StickyNoteData stickyNote && !m_StickyNotes.Contains(stickyNote))
+                {
+                    m_ParentGroupChanges.Remove(groupChange);
                 }
             }
         }
@@ -1020,13 +978,13 @@ namespace UnityEditor.ShaderGraph
 
             ValidateGraph();
 
-            foreach (var stickyNote in other.stickyNotes)
-            {
-                CreateStickyNote(stickyNote);
-            }
-
             foreach (GroupData groupData in other.groups)
                 AddGroup(groupData);
+
+            foreach (var stickyNote in other.stickyNotes)
+            {
+                AddStickyNote(stickyNote);
+            }
 
             foreach (var node in other.GetNodes<AbstractMaterialNode>())
                 AddNodeNoValidate(node);
@@ -1147,37 +1105,28 @@ namespace UnityEditor.ShaderGraph
             m_Properties = SerializationHelper.Deserialize<AbstractShaderProperty>(m_SerializedProperties, GraphUtil.GetLegacyTypeRemapping());
 
             var nodes = SerializationHelper.Deserialize<AbstractMaterialNode>(m_SerializableNodes, GraphUtil.GetLegacyTypeRemapping());
-            //var notes = SerializationHelper.Deserialize<StickyNoteData>(m_SerializableNodes, GraphUtil.GetLegacyTypeRemapping());
 
             m_Nodes = new List<AbstractMaterialNode>(nodes.Count);
             m_NodeDictionary = new Dictionary<Guid, AbstractMaterialNode>(nodes.Count);
 
             foreach (var group in m_Groups)
             {
-                m_GroupNodes.Add(group.guid, new List<AbstractMaterialNode>());
-                m_GroupStickyNotes.Add(group.guid, new List<StickyNoteData>());
+                m_GroupItems.Add(group.guid, new List<IGroupItem>());
             }
 
-//            foreach (var stickyNote in m_StickyNotes)
-//            {
-//                m_GroupStickyNotes[stickyNote.groupGuid].Add(stickyNote);
-//                //Debug.Log(stickyNote.title);
-//                //m_AddedStickyNotes.Add(stickyNote);
-//            }
-
-            foreach (var node in nodes.OfType<AbstractMaterialNode>())
+            foreach (var node in nodes)
             {
                 node.owner = this;
                 node.UpdateNodeAfterDeserialization();
                 node.tempId = new Identifier(m_Nodes.Count);
                 m_Nodes.Add(node);
                 m_NodeDictionary.Add(node.guid, node);
-                m_GroupNodes[node.groupGuid].Add(node);
+                m_GroupItems[node.groupGuid].Add(node);
             }
 
             foreach (var stickyNote in m_StickyNotes)
             {
-                m_GroupStickyNotes[stickyNote.groupGuid].Add(stickyNote);
+                m_GroupItems[stickyNote.groupGuid].Add(stickyNote);
             }
 
             m_SerializableNodes = null;

@@ -614,25 +614,19 @@ namespace UnityEditor.ShaderGraph.Drawing
             if (change == StickyNodeChangeEvent.Change.title)
             {
                 userData.title = title;
-                m_Graph.ChangeStickyNote(userData);
             }
             else if (change == StickyNodeChangeEvent.Change.contents)
             {
                 userData.content = contents;
-                m_Graph.ChangeStickyNote(userData);
             }
             else if (change == StickyNodeChangeEvent.Change.textSize)
             {
                 userData.textSize = (int)textSize;
-                m_Graph.ChangeStickyNote(userData);
             }
             else if (change == StickyNodeChangeEvent.Change.theme)
             {
                 userData.theme = (int)theme;
-                m_Graph.ChangeStickyNote(userData);
             }
-
-            //m_Graph.ChangeStickyNote(userData);
         }
 
         public System.Action<StickyNodeChangeEvent.Change> OnChange;
